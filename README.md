@@ -1,0 +1,1 @@
+# coldfront-plugin-openstack
