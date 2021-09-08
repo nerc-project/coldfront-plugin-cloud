@@ -24,10 +24,18 @@ RESOURCE_ATTR_USER_DOMAIN = 'OpenStack Domain for Users'
 
 NOVA_VERSION = '2'
 # Mapping of allocation attribute name for Quota, and what Nova expects
+# TODO: Move the magic strings into global variables
 NOVA_KEY_MAPPING = {
     'OpenStack Compute Instance Quota': 'instances',
     'OpenStack Compute vCPU Quota': 'cores',
     'OpenStack Compute RAM Quota': 'ram',
+}
+
+UNIT_TO_QUOTA_MAPPING = {
+    'OpenStack Compute Instance Quota': 1,
+    'OpenStack Compute vCPU Quota': 2,
+    'OpenStack Compute RAM Quota': 4096,
+    'OpenStack Volumes': 1,
 }
 
 
@@ -86,9 +94,14 @@ def get_user_payload_for_resource(username, resource):
 def activate_allocation(allocation_pk):
     def set_nova_quota():
         compute = novaclient.Client(NOVA_VERSION, session=ksa_session)
-        # If the value is of a key is none, novaclient will just ignore it
-        nova_payload = {nova_key: allocation.get_attribute(key)
-                        for (key, nova_key) in NOVA_KEY_MAPPING.items()}
+        # If an attribute with the appropriate name is associated with an
+        # allocation, set that as the quota. Otherwise, multiply
+        # the quantity attribute via the mapping table above.
+        nova_payload = {
+            nova_key: allocation.get_attribute(key)
+            if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]
+            for (key, nova_key) in NOVA_KEY_MAPPING.items()
+        }
         compute.quotas.update(openstack_project.id, **nova_payload)
 
     allocation = Allocation.objects.get(pk=allocation_pk)
