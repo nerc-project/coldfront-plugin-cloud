@@ -58,7 +58,7 @@ def get_session_for_resource(resource):
     return session.Session(auth)
 
 
-def get_user_payload_for_resource(username, resource):
+def get_user_payload_for_resource(resource, username):
     domain_id = resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
     idp_id = resource.get_attribute(attributes.RESOURCE_IDP)
     protocol = resource.get_attribute(attributes.RESOURCE_FEDERATION_PROTOCOL) or 'openid'
@@ -82,9 +82,26 @@ def get_user_payload_for_resource(username, resource):
     }
 
 
+def get_federated_user(resource, unique_id):
+    query_response = get_session_for_resource().get(
+        f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={unique_id}'
+    ).json()
+    if query_response['users']:
+        return query_response['users'][0]
+
+
+def create_federated_user(resource, unique_id):
+    create_response = get_session_for_resource(resource).post(
+        f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users',
+        json=get_user_payload_for_resource(resource, unique_id)
+    )
+    if create_response.ok:
+        return create_response.json()['user']['id']
+
+
 def activate_allocation(allocation_pk):
     def set_nova_quota():
-        compute = novaclient.Client(NOVA_VERSION, session=ksa_session)
+        compute = novaclient.Client(NOVA_VERSION, session=get_session_for_resource(resource))
         # If an attribute with the appropriate name is associated with an
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
@@ -106,8 +123,7 @@ def activate_allocation(allocation_pk):
             # This could lead to negative values which can be interpreted as no quota
             allocation.quantity = 1
 
-        ksa_session = get_session_for_resource(resource)
-        identity = client.Client(session=ksa_session)
+        identity = client.Client(session=get_session_for_resource(resource))
 
         # TODO: There is a possibility that this is a reactivation, rather than a new allocation
         openstack_project_name = get_unique_project_name(allocation.project.title)
@@ -155,25 +171,11 @@ def add_user_to_allocation(allocation_user_pk):
 
         role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
 
-        user_id = None
-        query_response = ksa_session.get(
-            f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={username}'
-        ).json()
-        if query_response['users']:
-            user_id = query_response['users'][0]['id']
-        else:
-            create_response = ksa_session.post(
-                f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users',
-                json=get_user_payload_for_resource(username, resource)
-            )
-            if create_response.ok:
-                user_id = create_response.json()['user']['id']
-
-        if not user_id:
-            raise Exception('User was not created.')
+        if user := get_federated_user(resource, username) is None:
+            user = create_federated_user(resource, username)
 
         role = identity.roles.find(name=role_name)
-        identity.roles.grant(user=user_id, project=project_id, role=role)
+        identity.roles.grant(user=user['id'], project=project_id, role=role)
 
 
 def remove_user_from_allocation(allocation_user_pk):
@@ -182,19 +184,13 @@ def remove_user_from_allocation(allocation_user_pk):
 
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        ksa_session = get_session_for_resource(resource)
-        identity = client.Client(session=ksa_session)
+        identity = client.Client(session=get_session_for_resource(resource))
 
         username = allocation_user.user.username
 
-        query_response = ksa_session.get(
-            f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={username}'
-        ).json()
-        if query_response['users']:
-            user_id = query_response['users'][0]['id']
-
+        if user := get_federated_user(resource, username):
             role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
             role = identity.roles.find(name=role_name)
             project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
-            identity.roles.revoke(user=user_id, project=project_id, role=role)
+            identity.roles.revoke(user=user['id'], project=project_id, role=role)
