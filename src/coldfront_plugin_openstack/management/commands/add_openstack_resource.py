@@ -37,7 +37,7 @@ class Command(BaseCommand):
             is_allocatable=True
         )
 
-        resource_models.ResourceAttribute.objects.get_or_create(
+        ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='OpenStack Auth URL'),
             resource=openstack,
