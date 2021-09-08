@@ -6,6 +6,8 @@ from coldfront.core.resource.models import (Resource,
                                             ResourceAttributeType,
                                             ResourceType)
 
+from coldfront_plugin_openstack import attributes
+
 
 class Command(BaseCommand):
     help = 'Create OpenStack resource'
@@ -39,37 +41,37 @@ class Command(BaseCommand):
 
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Auth URL'),
+                name=attributes.RESOURCE_AUTH_URL),
             resource=openstack,
             value=options['auth-url']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Domain for Projects'),
+                name=attributes.RESOURCE_PROJECT_DOMAIN),
             resource=openstack,
             value=options['projects-domain']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Domain for Users'),
+                name=attributes.RESOURCE_USER_DOMAIN),
             resource=openstack,
             value=options['users-domain']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Identity Provider'),
+                name=attributes.RESOURCE_IDP),
             resource=openstack,
             value=options['idp']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Federation Protocol'),
+                name=attributes.RESOURCE_FEDERATION_PROTOCOL),
             resource=openstack,
             value=options['protocol']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
-                name='OpenStack Role for User in Project'),
+                name=attributes.RESOURCE_ROLE),
             resource=openstack,
             value=options['role']
         )
