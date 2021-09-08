@@ -10,32 +10,23 @@ from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 
-from coldfront_plugin_openstack import utils
+from coldfront_plugin_openstack import (attributes,
+                                        utils)
 
-ALLOCATION_ATTR_PROJECT_ID = 'OpenStack Project ID'
-ALLOCATION_ATTR_PROJECT_NAME = 'OpenStack Project Name'
-
-RESOURCE_ATTR_AUTH_URL = 'OpenStack Auth URL'
-RESOURCE_ATTR_FEDERATION_PROTOCOL = 'OpenStack Federation Protocol'
-RESOURCE_ATTR_IDP = 'OpenStack Identity Provider'
-RESOURCE_ATTR_PROJECT_DOMAIN = 'OpenStack Domain for Projects'
-RESOURCE_ATTR_ROLE = 'OpenStack Role for User in Project'
-RESOURCE_ATTR_USER_DOMAIN = 'OpenStack Domain for Users'
 
 NOVA_VERSION = '2'
-# Mapping of allocation attribute name for Quota, and what Nova expects
-# TODO: Move the magic strings into global variables
+
 NOVA_KEY_MAPPING = {
-    'OpenStack Compute Instance Quota': 'instances',
-    'OpenStack Compute vCPU Quota': 'cores',
-    'OpenStack Compute RAM Quota': 'ram',
+    attributes.QUOTA_INSTANCES: 'instances',
+    attributes.QUOTA_VCPU: 'cores',
+    attributes.QUOTA_RAM: 'ram',
 }
 
 UNIT_TO_QUOTA_MAPPING = {
-    'OpenStack Compute Instance Quota': 1,
-    'OpenStack Compute vCPU Quota': 2,
-    'OpenStack Compute RAM Quota': 4096,
-    'OpenStack Volumes': 1,
+    attributes.QUOTA_INSTANCES: 1,
+    attributes.QUOTA_VCPU: 2,
+    attributes.QUOTA_RAM: 4096,
+    attributes.QUOTA_VOLUMES: 1,
 }
 
 
@@ -48,7 +39,7 @@ def get_unique_project_name(project_name):
 
 
 def get_session_for_resource(resource):
-    auth_url = resource.get_attribute(RESOURCE_ATTR_AUTH_URL)
+    auth_url = resource.get_attribute(attributes.RESOURCE_AUTH_URL)
     # Note: Authentication for a specific OpenStack cloud is stored in env
     # variables of the form OPENSTACK_{RESOURCE_NAME}_APPLICATION_CREDENTIAL_ID
     # and OPENSTACK_{RESOURCE_NAME}_APPLICATION_CREDENTIAL_SECRET
@@ -68,9 +59,9 @@ def get_session_for_resource(resource):
 
 
 def get_user_payload_for_resource(username, resource):
-    domain_id = resource.get_attribute(RESOURCE_ATTR_USER_DOMAIN)
-    idp_id = resource.get_attribute(RESOURCE_ATTR_IDP)
-    protocol = resource.get_attribute(RESOURCE_ATTR_FEDERATION_PROTOCOL) or 'openid'
+    domain_id = resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
+    idp_id = resource.get_attribute(attributes.RESOURCE_IDP)
+    protocol = resource.get_attribute(attributes.RESOURCE_FEDERATION_PROTOCOL) or 'openid'
     return {
         'user': {
             'domain_id': domain_id,
@@ -122,15 +113,15 @@ def activate_allocation(allocation_pk):
         openstack_project_name = get_unique_project_name(allocation.project.title)
         openstack_project = identity.projects.create(
             name=openstack_project_name,
-            domain=resource.get_attribute(RESOURCE_ATTR_PROJECT_DOMAIN),
+            domain=resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
             enabled=True,
         )
 
         utils.add_attribute_to_allocation(allocation,
-                                          ALLOCATION_ATTR_PROJECT_NAME,
+                                          attributes.ALLOCATION_PROJECT_NAME,
                                           openstack_project_name)
         utils.add_attribute_to_allocation(allocation,
-                                          ALLOCATION_ATTR_PROJECT_ID,
+                                          attributes.ALLOCATION_PROJECT_ID,
                                           openstack_project.id)
 
         set_nova_quota()
@@ -144,7 +135,7 @@ def disable_allocation(allocation_pk):
         ksa_session = get_session_for_resource(resource)
         identity = client.Client(session=ksa_session)
 
-        identity.projects.update(allocation.get_attribute(ALLOCATION_ATTR_PROJECT_ID),
+        identity.projects.update(allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
                                  enabled=False)
 
 
@@ -158,21 +149,21 @@ def add_user_to_allocation(allocation_user_pk):
         identity = client.Client(session=ksa_session)
 
         username = allocation_user.user.username
-        project_id = allocation.get_attribute(ALLOCATION_ATTR_PROJECT_ID)
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         if not project_id:
             raise Exception('Project not created yet!')
 
-        role_name = resource.get_attribute(RESOURCE_ATTR_ROLE) or 'member'
+        role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
 
         user_id = None
         query_response = ksa_session.get(
-            f'{resource.get_attribute(RESOURCE_ATTR_AUTH_URL)}/v3/users?unique_id={username}'
+            f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={username}'
         ).json()
         if query_response['users']:
             user_id = query_response['users'][0]['id']
         else:
             create_response = ksa_session.post(
-                f'{resource.get_attribute(RESOURCE_ATTR_AUTH_URL)}/v3/users',
+                f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users',
                 json=get_user_payload_for_resource(username, resource)
             )
             if create_response.ok:
@@ -197,13 +188,13 @@ def remove_user_from_allocation(allocation_user_pk):
         username = allocation_user.user.username
 
         query_response = ksa_session.get(
-            f'{resource.get_attribute(RESOURCE_ATTR_AUTH_URL)}/v3/users?unique_id={username}'
+            f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={username}'
         ).json()
         if query_response['users']:
             user_id = query_response['users'][0]['id']
 
-            role_name = resource.get_attribute(RESOURCE_ATTR_ROLE) or 'member'
+            role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
             role = identity.roles.find(name=role_name)
-            project_id = allocation.get_attribute(ALLOCATION_ATTR_PROJECT_ID)
+            project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
             identity.roles.revoke(user=user_id, project=project_id, role=role)
