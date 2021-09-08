@@ -140,20 +140,23 @@ def activate_allocation(allocation_pk):
 
         identity = client.Client(session=get_session_for_resource(resource))
 
-        # TODO: There is a possibility that this is a reactivation, rather than a new allocation
-        openstack_project_name = get_unique_project_name(allocation.project.title)
-        openstack_project = identity.projects.create(
-            name=openstack_project_name,
-            domain=resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
-            enabled=True,
-        )
+        if existing_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            openstack_project = identity.projects.get(existing_id)
+            openstack_project.update(enabled=True)
+        else:
+            openstack_project_name = get_unique_project_name(allocation.project.title)
+            openstack_project = identity.projects.create(
+                name=openstack_project_name,
+                domain=resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
+                enabled=True,
+            )
 
-        utils.add_attribute_to_allocation(allocation,
-                                          attributes.ALLOCATION_PROJECT_NAME,
-                                          openstack_project_name)
-        utils.add_attribute_to_allocation(allocation,
-                                          attributes.ALLOCATION_PROJECT_ID,
-                                          openstack_project.id)
+            utils.add_attribute_to_allocation(allocation,
+                                              attributes.ALLOCATION_PROJECT_NAME,
+                                              openstack_project_name)
+            utils.add_attribute_to_allocation(allocation,
+                                              attributes.ALLOCATION_PROJECT_ID,
+                                              openstack_project.id)
 
         set_nova_quota()
         set_cinder_quota()
