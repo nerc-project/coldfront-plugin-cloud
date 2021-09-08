@@ -22,11 +22,17 @@ NOVA_KEY_MAPPING = {
     attributes.QUOTA_RAM: 'ram',
 }
 
+CINDER_KEY_MAPPING = {
+    attributes.QUOTA_VOLUMES: 'volumes',
+    attributes.QUOTA_VOLUMES_GB: 'gigabytes',
+}
+
 UNIT_TO_QUOTA_MAPPING = {
     attributes.QUOTA_INSTANCES: 1,
     attributes.QUOTA_VCPU: 2,
     attributes.QUOTA_RAM: 4096,
-    attributes.QUOTA_VOLUMES: 1,
+    attributes.QUOTA_VOLUMES: 2,
+    attributes.QUOTA_VOLUMES_GB: 100,
 }
 
 
@@ -112,6 +118,15 @@ def activate_allocation(allocation_pk):
         }
         compute.quotas.update(openstack_project.id, **nova_payload)
 
+    def set_cinder_quota():
+        storage = cinderclient.Client('3', session=get_session_for_resource())
+        cinder_payload = {
+            cinder_key: allocation.get_attribute(key)
+            if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]
+            for (key,cinder_key) in CINDER_KEY_MAPPING.items()
+        }
+        storage.quotas.update(openstack_project.id, **cinder_payload)
+
     allocation = Allocation.objects.get(pk=allocation_pk)
 
     # TODO(knikolla): It doesn't seem to be possible to select multiple resources
@@ -141,6 +156,7 @@ def activate_allocation(allocation_pk):
                                           openstack_project.id)
 
         set_nova_quota()
+        set_cinder_quota()
 
 
 def disable_allocation(allocation_pk):
