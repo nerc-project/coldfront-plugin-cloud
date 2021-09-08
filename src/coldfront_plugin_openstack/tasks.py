@@ -111,6 +111,10 @@ def activate_allocation(allocation_pk):
     # Does it have to do with linked resources?
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
+        if allocation.quantity < 1:
+            # This could lead to negative values which can be interpreted as no quota
+            allocation.quantity = 1
+
         ksa_session = get_session_for_resource(resource)
         identity = client.Client(session=ksa_session)
 
