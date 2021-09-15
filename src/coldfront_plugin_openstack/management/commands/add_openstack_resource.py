@@ -29,7 +29,7 @@ class Command(BaseCommand):
                             help='Role for user when added to project (default: member)')
 
     def handle(self, *args, **options):
-        openstack = Resource.objects.get_or_create(
+        openstack, _ = Resource.objects.get_or_create(
             resource_type=ResourceType.objects.get(name='OpenStack'),
             parent_resource=None,
             name=options['name'],
@@ -75,13 +75,13 @@ class Command(BaseCommand):
             resource=openstack,
             value=options['role']
         )
-        ResourceAttribute.object.get_or_create(
+        ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='quantity_label'),
             resource=openstack,
             value='Units of computing to allocate to the project. 1 Unit = 1 Instance, 2 vCPU, 4G RAM'
         )
-        ResourceAttribute.object.get_or_create(
+        ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='quantity_default_value'),
             resource=openstack,

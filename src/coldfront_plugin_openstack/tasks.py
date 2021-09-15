@@ -5,6 +5,7 @@ from coldfront.core.allocation.models import (Allocation,
                                               AllocationUser)
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
+from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneclient.v3 import client
 from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
@@ -89,7 +90,7 @@ def get_user_payload_for_resource(resource, username):
 
 
 def get_federated_user(resource, unique_id):
-    query_response = get_session_for_resource().get(
+    query_response = get_session_for_resource(resource).get(
         f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={unique_id}'
     ).json()
     if query_response['users']:
@@ -102,7 +103,7 @@ def create_federated_user(resource, unique_id):
         json=get_user_payload_for_resource(resource, unique_id)
     )
     if create_response.ok:
-        return create_response.json()['user']['id']
+        return create_response.json()['user']
 
 
 def activate_allocation(allocation_pk):
@@ -119,7 +120,7 @@ def activate_allocation(allocation_pk):
         compute.quotas.update(openstack_project.id, **nova_payload)
 
     def set_cinder_quota():
-        storage = cinderclient.Client('3', session=get_session_for_resource())
+        storage = cinderclient.Client('3', session=get_session_for_resource(resource))
         cinder_payload = {
             cinder_key: allocation.get_attribute(key)
             if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]
