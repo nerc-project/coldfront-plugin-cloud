@@ -1,0 +1,16 @@
+[
+    {
+        "local": [
+            {
+                "user": {
+                    "name": "{0}"
+                }
+            }
+        ],
+        "remote": [
+            {
+                "type": "OIDC-preferred_username"
+            }
+        ]
+    }
+]

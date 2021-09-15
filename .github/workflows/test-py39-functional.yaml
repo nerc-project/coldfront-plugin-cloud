@@ -1,0 +1,46 @@
+name: test-py39-functional
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+
+      - name: Install ColdFront and plugin
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Install and start Microstack
+        run: |
+          sudo snap install microstack --beta --devmode
+          sudo microstack init --auto --control
+          microstack.openstack domain create sso
+          microstack.openstack identity provider create sso --domain sso
+          microstack.openstack mapping create sso_mapping --rules ci/mapping.json
+          microstack.openstack federation protocol create openid --identity-provider sso --mapping sso_mapping
+
+      - name: Run functional tests
+        run: |
+          export DJANGO_SETTINGS_MODULE="local_settings"
+          export FUNCTIONAL_TESTS="True"
+          export CREDENTIAL_NAME=$(openssl rand -base64 12)
+          export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET=$(
+              microstack.openstack application credential create "$CREDENTIAL_NAME" -f value -c secret)
+          export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID=$(
+              microstack.openstack application credential show "$CREDENTIAL_NAME" -f value -c id)
+
+          coldfront test coldfront_plugin_openstack.tests.functional
