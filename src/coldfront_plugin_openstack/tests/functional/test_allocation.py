@@ -1,9 +1,5 @@
 import os
 import unittest
-from unittest import mock
-
-from coldfront.core.allocation.models import Allocation
-from coldfront.core.resource.models import Resource
 
 from coldfront_plugin_openstack import attributes
 from coldfront_plugin_openstack import tasks
@@ -28,6 +24,9 @@ class TestAllocation(base.TestBase):
         self.identity = client.Client(session=self.session)
         self.compute = novaclient.Client(tasks.NOVA_VERSION,
                                          session=self.session)
+        self.volume = cinderclient.Client(tasks.CINDER_VERSION,
+                                          session=self.session)
+        self.role_member = self.identity.roles.find(name='member')
 
     def test_new_allocation(self):
         user = self.new_user()
@@ -44,7 +43,38 @@ class TestAllocation(base.TestBase):
         openstack_project = self.identity.projects.get(project_id)
         self.assertTrue(openstack_project.enabled)
 
-        # TODO: Assert correct quota
+        union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
+        expected_quotas = {
+            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x]
+            for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
+        }
+        actual_quotas = self.compute.quotas.get(openstack_project.id).to_dict()
+        actual_quotas |= self.volume.quotas.get(openstack_project.id).to_dict()
+        self.assertEqual(actual_quotas, expected_quotas | actual_quotas)
+
+    def test_new_allocation_with_quantity(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 3)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        self.assertIsNotNone(project_id)
+        self.assertIsNotNone(allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME))
+
+        openstack_project = self.identity.projects.get(project_id)
+        self.assertTrue(openstack_project.enabled)
+
+        union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
+        expected_quotas = {
+            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x] * 3
+            for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
+        }
+        actual_quotas = self.compute.quotas.get(openstack_project.id).to_dict()
+        actual_quotas |= self.volume.quotas.get(openstack_project.id).to_dict()
+        self.assertEqual(actual_quotas, expected_quotas | actual_quotas)
 
     def test_reactivate_allocation(self):
         user = self.new_user()
@@ -64,8 +94,6 @@ class TestAllocation(base.TestBase):
         openstack_project = self.identity.projects.get(project_id)
         self.assertTrue(openstack_project.enabled)
 
-        # TODO: assert quotas match expected quotas
-
     def test_add_user(self):
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -81,5 +109,11 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user.pk)
 
-        # TODO: check user created in openstack
-        # TODO: check user has roles assignmed in openstack
+        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)
