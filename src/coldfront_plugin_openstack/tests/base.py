@@ -1,3 +1,5 @@
+from os import devnull
+import sys
 import uuid
 
 from django.test import TestCase
@@ -24,9 +26,12 @@ from coldfront_plugin_openstack import attributes
 class TestBase(TestCase):
 
     def setUp(self) -> None:
-        call_command('initial_setup')
+        # Otherwise output goes to the terminal for every test that is run
+        backup, sys.stdout = sys.stdout, open(devnull, 'a')
+        call_command('initial_setup', )
         call_command('load_test_data')
         call_command('register_openstack_attributes')
+        sys.stdout = backup
 
     @staticmethod
     def new_user(username=None) -> User:

@@ -12,9 +12,9 @@ $openstack_cmd mapping create sso_mapping --rules ci/mapping.json
 $openstack_cmd federation protocol create openid --identity-provider sso --mapping sso_mapping
 
 sudo apt-get update
-sudo apt-get install -y python3-pip python3-virtualenv
+sudo apt-get install -y python3-pip python3-virtualenv python3.9
 
-virtualenv -p python3 /tmp/coldfront_venv
+virtualenv -p python3.9 /tmp/coldfront_venv
 source /tmp/coldfront_venv/bin/activate
 
 pip3 install -r requirements.txt

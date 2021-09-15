@@ -16,13 +16,13 @@ from coldfront_plugin_openstack import (attributes,
 
 
 NOVA_VERSION = '2'
-
 NOVA_KEY_MAPPING = {
     attributes.QUOTA_INSTANCES: 'instances',
     attributes.QUOTA_VCPU: 'cores',
     attributes.QUOTA_RAM: 'ram',
 }
 
+CINDER_VERSION = '3'
 CINDER_KEY_MAPPING = {
     attributes.QUOTA_VOLUMES: 'volumes',
     attributes.QUOTA_VOLUMES_GB: 'gigabytes',
@@ -120,7 +120,8 @@ def activate_allocation(allocation_pk):
         compute.quotas.update(openstack_project.id, **nova_payload)
 
     def set_cinder_quota():
-        storage = cinderclient.Client('3', session=get_session_for_resource(resource))
+        storage = cinderclient.Client(CINDER_VERSION,
+                                      session=get_session_for_resource(resource))
         cinder_payload = {
             cinder_key: allocation.get_attribute(key)
             if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]

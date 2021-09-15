@@ -15,3 +15,5 @@ export DJANGO_SETTINGS_MODULE="local_settings"
 export FUNCTIONAL_TESTS="True"
 
 coldfront test coldfront_plugin_openstack.tests.functional
+
+microstack.openstack application credential delete $OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID
