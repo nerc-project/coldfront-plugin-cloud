@@ -41,19 +41,19 @@ class Command(BaseCommand):
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='OpenStack Auth URL'),
             resource=openstack,
-            value=options['auth-url']
+            value=options['auth_url']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='OpenStack Domain for Projects'),
             resource=openstack,
-            value=options['projects-domain']
+            value=options['projects_domain']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='OpenStack Domain for Users'),
             resource=openstack,
-            value=options['users-domain']
+            value=options['users_domain']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
