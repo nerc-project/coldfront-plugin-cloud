@@ -62,7 +62,10 @@ def get_session_for_resource(resource):
         application_credential_secret=os.environ.get(
             f'OPENSTACK_{var_name}_APPLICATION_CREDENTIAL_SECRET')
     )
-    return session.Session(auth)
+    return session.Session(
+        auth,
+        verify=os.environ.get('FUNCTIONAL_TESTS', '') != 'True'
+    )
 
 
 def get_user_payload_for_resource(resource, username):
@@ -104,6 +107,23 @@ def create_federated_user(resource, unique_id):
     )
     if create_response.ok:
         return create_response.json()['user']
+
+
+def get_or_create_federated_user(resource, username):
+    if user := get_federated_user(resource, username) is None:
+        user = create_federated_user(resource, username)
+    return user
+
+
+def assign_role_on_user(resource, username, project_id):
+    role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
+
+    ksa_session = get_session_for_resource(resource)
+    identity = client.Client(session=ksa_session)
+    role = identity.roles.find(name=role_name)
+
+    user = get_federated_user(resource, username)
+    identity.roles.grant(user=user['id'], project=project_id, role=role)
 
 
 def activate_allocation(allocation_pk):
@@ -160,6 +180,11 @@ def activate_allocation(allocation_pk):
                                               attributes.ALLOCATION_PROJECT_ID,
                                               openstack_project.id)
 
+        pi_username = allocation.project.pi.username
+        get_or_create_federated_user(resource, pi_username)
+        assign_role_on_user(resource, pi_username,
+                            allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID))
+
         set_nova_quota()
         set_cinder_quota()
 
@@ -182,21 +207,14 @@ def add_user_to_allocation(allocation_user_pk):
 
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        ksa_session = get_session_for_resource(resource)
-        identity = client.Client(session=ksa_session)
 
         username = allocation_user.user.username
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         if not project_id:
             raise Exception('Project not created yet!')
 
-        role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
-
-        if user := get_federated_user(resource, username) is None:
-            user = create_federated_user(resource, username)
-
-        role = identity.roles.find(name=role_name)
-        identity.roles.grant(user=user['id'], project=project_id, role=role)
+    get_or_create_federated_user(resource, username)
+    assign_role_on_user(resource, username, project_id)
 
 
 def remove_user_from_allocation(allocation_user_pk):
