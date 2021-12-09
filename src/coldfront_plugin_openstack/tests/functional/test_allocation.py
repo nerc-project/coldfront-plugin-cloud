@@ -152,3 +152,26 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+    def test_existing_user(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+
+        # Create non-federated username beforehand
+        self.identity.users.create(name=user.username, domain='default')
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        openstack_project = self.identity.projects.get(project_id)
+
+        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)

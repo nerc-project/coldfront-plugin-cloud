@@ -92,9 +92,18 @@ def get_user_payload_for_resource(resource, username):
     }
 
 
-def get_federated_user(resource, unique_id):
+def get_federated_user(resource, username):
+    # Query by unique_id
     query_response = get_session_for_resource(resource).get(
-        f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={unique_id}'
+        f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?unique_id={username}'
+    ).json()
+    if query_response['users']:
+        return query_response['users'][0]
+
+    # Query by name as a fallback (this might return a non-federated user)
+    query_response = get_session_for_resource(resource).get(
+        f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users?'
+        f'name={username}&domain_id={resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)}'
     ).json()
     if query_response['users']:
         return query_response['users'][0]
