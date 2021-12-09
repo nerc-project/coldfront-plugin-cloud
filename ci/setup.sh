@@ -1,5 +1,6 @@
 # Installs and starts Microstack on a Ubuntu system
 # Only run once.
+set -xe
 
 openstack_cmd="microstack.openstack"
 
@@ -17,5 +18,5 @@ sudo apt-get install -y python3-pip python3-virtualenv python3.9
 virtualenv -p python3.9 /tmp/coldfront_venv
 source /tmp/coldfront_venv/bin/activate
 
-pip3 install -r requirements.txt
+pip3 install -r test-requirements.txt
 pip3 install -e .

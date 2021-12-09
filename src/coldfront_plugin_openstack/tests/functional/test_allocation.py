@@ -19,7 +19,7 @@ class TestAllocation(base.TestBase):
     def setUp(self) -> None:
         super().setUp()
         self.resource = self.new_resource(name='Devstack',
-                                          auth_url='http://localhost:5000')
+                                          auth_url='https://localhost:5000')
         self.session = tasks.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
         self.compute = novaclient.Client(tasks.NOVA_VERSION,
@@ -36,6 +36,7 @@ class TestAllocation(base.TestBase):
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
 
+        # Check project
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         self.assertIsNotNone(project_id)
         self.assertIsNotNone(allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME))
@@ -43,6 +44,17 @@ class TestAllocation(base.TestBase):
         openstack_project = self.identity.projects.get(project_id)
         self.assertTrue(openstack_project.enabled)
 
+        # Check user and roles
+        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+        # Check quota
         union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
         expected_quotas = {
             union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x]
@@ -60,6 +72,7 @@ class TestAllocation(base.TestBase):
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
 
+        # Check project
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         self.assertIsNotNone(project_id)
         self.assertIsNotNone(allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME))
@@ -67,6 +80,17 @@ class TestAllocation(base.TestBase):
         openstack_project = self.identity.projects.get(project_id)
         self.assertTrue(openstack_project.enabled)
 
+        # Check user and roles
+        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+        # Check quota
         union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
         expected_quotas = {
             union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x] * 3
@@ -83,6 +107,7 @@ class TestAllocation(base.TestBase):
 
         tasks.activate_allocation(allocation.pk)
 
+        # Check project
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         openstack_project = self.identity.projects.get(project_id)
         openstack_project.update(enabled=False)
@@ -93,6 +118,16 @@ class TestAllocation(base.TestBase):
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         openstack_project = self.identity.projects.get(project_id)
         self.assertTrue(openstack_project.enabled)
+
+        # Check user and roles
+        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)
 
     def test_add_user(self):
         user = self.new_user()
