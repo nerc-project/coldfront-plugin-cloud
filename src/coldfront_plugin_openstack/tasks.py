@@ -119,7 +119,7 @@ def create_federated_user(resource, unique_id):
 
 
 def get_or_create_federated_user(resource, username):
-    if user := get_federated_user(resource, username) is None:
+    if not (user := get_federated_user(resource, username)):
         user = create_federated_user(resource, username)
     return user
 
