@@ -129,12 +129,16 @@ class TestAllocation(base.TestBase):
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
-    def test_add_user(self):
+    def test_add_remove_user(self):
         user = self.new_user()
         project = self.new_project(pi=user)
         project_user = self.new_project_user(user, project)
         allocation = self.new_allocation(project, self.resource, 1)
         allocation_user = self.new_allocation_user(allocation, user)
+
+        user2 = self.new_user()
+        project_user2 = self.new_project_user(user2, project)
+        allocation_user2 = self.new_allocation_user(allocation, user2)
 
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
@@ -142,9 +146,9 @@ class TestAllocation(base.TestBase):
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         openstack_project = self.identity.projects.get(project_id)
 
-        tasks.add_user_to_allocation(allocation_user.pk)
+        tasks.add_user_to_allocation(allocation_user2.pk)
 
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = tasks.get_federated_user(self.resource, user2.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -152,6 +156,51 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+        tasks.remove_user_from_allocation(allocation_user2.pk)
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 0)
+
+    def test_add_remove_user_existing(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        project_user = self.new_project_user(user, project)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocation_user = self.new_allocation_user(allocation, user)
+
+        user2 = self.new_user()
+        project_user2 = self.new_project_user(user2, project)
+        allocation_user2 = self.new_allocation_user(allocation, user2)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        openstack_project = self.identity.projects.get(project_id)
+
+        # Create non-federated username beforehand
+        self.identity.users.create(name=user2.username, domain='default')
+
+        tasks.add_user_to_allocation(allocation_user2.pk)
+
+        openstack_user = tasks.get_federated_user(self.resource, user2.username)
+        openstack_user = self.identity.users.get(openstack_user['id'])
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 1)
+        self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+        tasks.remove_user_from_allocation(allocation_user2.pk)
+
+        roles = self.identity.role_assignments.list(user=openstack_user.id,
+                                                    project=openstack_project.id)
+
+        self.assertEqual(len(roles), 0)
 
     def test_existing_user(self):
         user = self.new_user()
