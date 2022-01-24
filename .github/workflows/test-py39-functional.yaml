@@ -26,7 +26,7 @@ jobs:
 
       - name: Install and start Microstack
         run: |
-          sudo snap install microstack --beta --devmode
+          sudo snap install microstack --edge --devmode
           sudo microstack init --auto --control
           microstack.openstack domain create sso
           microstack.openstack identity provider create sso --domain sso
