@@ -1,3 +1,5 @@
+import os
+
 from django.dispatch import receiver
 from django_q.tasks import async_task
 
@@ -14,7 +16,12 @@ from coldfront.core.allocation.signals import (allocation_activate,
 @receiver(allocation_activate)
 def activate_allocation_receiver(sender, **kwargs):
     allocation_pk = kwargs.get('allocation_pk')
-    async_task(activate_allocation, allocation_pk)
+    # Note(knikolla): Only run this task using Django-Q if a qcluster has
+    # been configured.
+    if os.getenv('REDIS_HOST'):
+        async_task(activate_allocation, allocation_pk)
+    else:
+        activate_allocation(allocation_pk)
 
 
 @receiver(allocation_disable)

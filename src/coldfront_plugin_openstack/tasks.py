@@ -1,5 +1,6 @@
 import os
 import secrets
+import urllib.parse
 
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationUser)
@@ -77,13 +78,14 @@ def get_user_payload_for_resource(resource, username):
             'domain_id': domain_id,
             'enabled': True,
             'name': username,
+            'email': username,
             'federated': [
                 {
                     'idp_id': idp_id,
                     'protocols': [
                         {
                             'protocol_id': protocol,
-                            'unique_id': username
+                            'unique_id': urllib.parse.quote_plus(username)
                         }
                     ]
                 }
