@@ -15,6 +15,9 @@ from novaclient import client as novaclient
 from coldfront_plugin_openstack import (attributes,
                                         utils)
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 NOVA_VERSION = '2'
 NOVA_KEY_MAPPING = {
@@ -120,9 +123,42 @@ def create_federated_user(resource, unique_id):
         return create_response.json()['user']
 
 
+def impersonate_keycloak_user_login(resource, username):
+    try:
+        from coldfront_plugin_openstack import keycloak
+        kc = keycloak.KeycloakClient(os.getenv('KEYCLOAK_URL'),
+                                     os.getenv('KEYCLOAK_USER'),
+                                     os.getenv('KEYCLOAK_PASS'))
+        access_token = kc.impersonate_access_token(
+            username,
+            os.getenv('KEYCLOAK_REALM'),
+            os.getenv('OIDC_RP_CLIENT_ID'),
+            os.getenv('OIDC_RP_CLIENT_SECRET')
+        )
+        openstack_auth = v3.OidcAccessToken(
+            auth_url=f'{resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3',
+            identity_provider=resource.get_attribute(attributes.RESOURCE_IDP),
+            protocol=resource.get_attribute(attributes.RESOURCE_FEDERATION_PROTOCOL) or 'openid',
+            access_token=access_token
+        )
+        openstack_session = session.Session(auth=openstack_auth)
+        openstack_session.get_token()
+        return get_federated_user(resource, username)
+    except ImportError:
+        logger.error('Resource does not support creating federated users and ',
+                     'coldfront-plugin-keycloak is not configured. Unable to ',
+                     'create user.')
+
+
 def get_or_create_federated_user(resource, username):
     if not (user := get_federated_user(resource, username)):
-        user = create_federated_user(resource, username)
+        # The presence of this attribute on the resource signifies a keystone
+        # version without support for creating federated users through the API
+        # https://specs.openstack.org/openstack/keystone-specs/specs/keystone/ussuri/support-federated-attr.html
+        if resource.get_attribute(attributes.RESOURCE_SUPPORTS_FED_ATTR) == 'No':
+            user = impersonate_keycloak_user_login(resource, username)
+        else:
+            user = create_federated_user(resource, username)
     return user
 
 

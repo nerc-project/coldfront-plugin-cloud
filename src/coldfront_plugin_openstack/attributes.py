@@ -5,12 +5,16 @@ RESOURCE_PROJECT_DOMAIN = 'OpenStack Domain for Projects'
 RESOURCE_ROLE = 'OpenStack Role for User in Project'
 RESOURCE_USER_DOMAIN = 'OpenStack Domain for Users'
 
-RESOURCE_ATTRIBUTES = [RESOURCE_AUTH_URL,
-                       RESOURCE_FEDERATION_PROTOCOL,
-                       RESOURCE_IDP,
-                       RESOURCE_PROJECT_DOMAIN,
-                       RESOURCE_ROLE,
-                       RESOURCE_USER_DOMAIN]
+RESOURCE_SUPPORTS_FED_ATTR = 'OpenStack Identity supports federated create'
+
+RESOURCE_ATTRIBUTES_TEXT = [RESOURCE_AUTH_URL,
+                            RESOURCE_FEDERATION_PROTOCOL,
+                            RESOURCE_IDP,
+                            RESOURCE_PROJECT_DOMAIN,
+                            RESOURCE_ROLE,
+                            RESOURCE_USER_DOMAIN]
+RESOURCE_ATTRIBUTES_BOOL = [RESOURCE_SUPPORTS_FED_ATTR]
+
 
 ALLOCATION_PROJECT_ID = 'OpenStack Project ID'
 ALLOCATION_PROJECT_NAME = 'OpenStack Project Name'

@@ -21,6 +21,9 @@ export KEYCLOAK_URL="http://$HOST_IP:8080"
 export KEYCLOAK_USER="admin"
 export KEYCLOAK_PASS="nomoresecret"
 export KEYCLOAK_REALM="master"
+export OIDC_RP_CLIENT_ID="devstack"
+export OIDC_RP_CLIENT_SECRET="nomoresecret"
+export OIDC_REDIRECT_URI="http://$HOST_IP/identity/v3/auth/OS-FEDERATION/identity_providers/sso/protocols/openid/websso"
 
 coldfront test coldfront_plugin_openstack.tests.functional
 

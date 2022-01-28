@@ -40,7 +40,7 @@ class TestBase(TestCase):
         return User.objects.get(username=username)
 
     @staticmethod
-    def new_resource(name=None, auth_url=None) -> Resource:
+    def new_resource(name=None, auth_url=None, supports_fed_attr=None) -> Resource:
         # TODO: User call_command on add_openstack_resource instead of duplicating this
         resource_name = name or uuid.uuid4().hex
 
@@ -103,6 +103,14 @@ class TestBase(TestCase):
             resource=openstack,
             value=1
         )
+
+        if supports_fed_attr:
+            ResourceAttribute.objects.get_or_create(
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name=attributes.RESOURCE_SUPPORTS_FED_ATTR),
+                resource=openstack,
+                value=supports_fed_attr
+            )
 
         return openstack
 

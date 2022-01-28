@@ -26,12 +26,18 @@ class Command(BaseCommand):
             register(allocation_quota_attribute, 'Int')
 
     def register_resource_attributes(self):
-        for resource_attribute_type in attributes.RESOURCE_ATTRIBUTES:
-            resource_models.ResourceAttributeType.objects.get_or_create(
-                name=resource_attribute_type,
-                attribute_type=resource_models.AttributeType.objects.get(
-                    name='Text')
-            )
+        type_list_mapping = {
+            'Text': attributes.RESOURCE_ATTRIBUTES_TEXT,
+            'Yes/No': attributes.RESOURCE_ATTRIBUTES_BOOL
+        }
+
+        for attribute_type, attribute_list in type_list_mapping.items():
+            for resource_attribute in attribute_list:
+                resource_models.ResourceAttributeType.objects.get_or_create(
+                    name=resource_attribute,
+                    attribute_type=resource_models.AttributeType.objects.get(
+                        name=attribute_type)
+                )
 
     def register_resource_type(self):
         resource_models.ResourceType.objects.get_or_create(
