@@ -22,9 +22,9 @@ class TestAllocation(base.TestBase):
                                           auth_url=os.getenv('OS_AUTH_URL'))
         self.session = tasks.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
-        self.compute = novaclient.Client(tasks.NOVA_VERSION,
+        self.compute = novaclient.Client(tasks.QUOTA_KEY_MAPPING['compute']['version'],
                                          session=self.session)
-        self.volume = cinderclient.Client(tasks.CINDER_VERSION,
+        self.volume = cinderclient.Client(tasks.QUOTA_KEY_MAPPING['volume']['version'],
                                           session=self.session)
         self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
@@ -67,9 +67,12 @@ class TestAllocation(base.TestBase):
         self.assertEqual(ports[0]['status'], 'ACTIVE')
 
         # Check quota
-        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
+        union_key_mappings = dict(tasks.QUOTA_KEY_MAPPING['compute']['keys'],
+                                  **tasks.QUOTA_KEY_MAPPING['volume']['keys'])
+        unit_to_quota_union = dict(tasks.UNIT_TO_QUOTA_MAPPING['compute'],
+                                   **tasks.UNIT_TO_QUOTA_MAPPING['volume'])
         expected_quotas = {
-            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x]
+            union_key_mappings[x]: unit_to_quota_union[x]
             for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
         }
         actual_quotas = dict(
@@ -105,9 +108,12 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check quota
-        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
+        union_key_mappings = dict(tasks.QUOTA_KEY_MAPPING['compute']['keys'],
+                                  **tasks.QUOTA_KEY_MAPPING['volume']['keys'])
+        unit_to_quota_union = dict(tasks.UNIT_TO_QUOTA_MAPPING['compute'],
+                                   **tasks.UNIT_TO_QUOTA_MAPPING['volume'])
         expected_quotas = {
-            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x] * 3
+            union_key_mappings[x]: unit_to_quota_union[x]
             for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
         }
         actual_quotas = dict(

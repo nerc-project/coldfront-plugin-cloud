@@ -18,6 +18,28 @@ from coldfront_plugin_openstack import (attributes,
 
 logger = logging.getLogger(__name__)
 
+# Map the attribute name in ColdFront, to the client of the respective
+# service, the version of the API, and the key in the payload.
+QUOTA_KEY_MAPPING = {
+    'compute': {
+        'class': novaclient.Client,
+        'version': 2,
+        'keys': {
+            attributes.QUOTA_INSTANCES: 'instances',
+            attributes.QUOTA_VCPU: 'cores',
+            attributes.QUOTA_RAM: 'ram',
+        },
+    },
+    'volume': {
+        'class': cinderclient.Client,
+        'version': 3,
+        'keys': {
+            attributes.QUOTA_VOLUMES: 'volumes',
+            attributes.QUOTA_VOLUMES_GB: 'gigabytes',
+        }
+    }
+logger = logging.getLogger(__name__)
+
 NOVA_VERSION = '2'
 NOVA_KEY_MAPPING = {
     attributes.QUOTA_INSTANCES: 'instances',
@@ -31,12 +53,18 @@ CINDER_KEY_MAPPING = {
     attributes.QUOTA_VOLUMES_GB: 'gigabytes',
 }
 
+# Map the amount of quota that 1 unit of `quantity` gets you
+# This is multiplied to the quantity of that resource allocation.
 UNIT_TO_QUOTA_MAPPING = {
-    attributes.QUOTA_INSTANCES: 1,
-    attributes.QUOTA_VCPU: 2,
-    attributes.QUOTA_RAM: 4096,
-    attributes.QUOTA_VOLUMES: 2,
-    attributes.QUOTA_VOLUMES_GB: 100,
+    'compute': {
+        attributes.QUOTA_INSTANCES: 1,
+        attributes.QUOTA_VCPU: 2,
+        attributes.QUOTA_RAM: 4096,
+    },
+    'volume': {
+        attributes.QUOTA_VOLUMES: 2,
+        attributes.QUOTA_VOLUMES_GB: 100,
+    },
 }
 
 
@@ -226,27 +254,24 @@ def create_default_network(resource, project_id):
 
 
 def activate_allocation(allocation_pk):
-    def set_nova_quota():
-        compute = novaclient.Client(NOVA_VERSION, session=get_session_for_resource(resource))
+    def set_quota():
         # If an attribute with the appropriate name is associated with an
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
-        nova_payload = {
-            nova_key: allocation.get_attribute(key)
-            if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]
-            for (key, nova_key) in NOVA_KEY_MAPPING.items()
-        }
-        compute.quotas.update(openstack_project.id, **nova_payload)
-
-    def set_cinder_quota():
-        storage = cinderclient.Client(CINDER_VERSION,
-                                      session=get_session_for_resource(resource))
-        cinder_payload = {
-            cinder_key: allocation.get_attribute(key)
-            if allocation.get_attribute(key) else allocation.quantity * UNIT_TO_QUOTA_MAPPING[key]
-            for (key,cinder_key) in CINDER_KEY_MAPPING.items()
-        }
-        storage.quotas.update(openstack_project.id, **cinder_payload)
+        for service_name, service in QUOTA_KEY_MAPPING.items():
+            client = service['class'](service['version'],
+                                       session=get_session_for_resource(resource))
+            payload = dict()
+            for coldfront_attr, openstack_key in service['keys'].items():
+                if value := allocation.get_attribute(coldfront_attr):
+                    pass
+                else:
+                    value = allocation.quantity * UNIT_TO_QUOTA_MAPPING[service_name][coldfront_attr]
+                    utils.add_attribute_to_allocation(allocation,
+                                                      coldfront_attr,
+                                                      value)
+                payload[openstack_key] = value
+                client.quotas.update(openstack_project.id, **payload)
 
     allocation = Allocation.objects.get(pk=allocation_pk)
 
@@ -292,8 +317,7 @@ def activate_allocation(allocation_pk):
         assign_role_on_user(resource, pi_username,
                             allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID))
 
-        set_nova_quota()
-        set_cinder_quota()
+        set_quota()
 
 
 def disable_allocation(allocation_pk):

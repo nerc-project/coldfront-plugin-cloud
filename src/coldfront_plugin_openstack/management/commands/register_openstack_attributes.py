@@ -16,7 +16,8 @@ class Command(BaseCommand):
                 attribute_type=allocation_models.AttributeType.objects.get(
                     name=attribute_type),
                 has_usage=False,
-                is_private=False
+                is_private=False,
+                is_changeable='Quota' in attribute_name
             )
 
         for allocation_attribute in attributes.ALLOCATION_ATTRIBUTES:

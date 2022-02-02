@@ -8,6 +8,10 @@ sudo apt-get update && sudo apt-get upgrade -y
 sudo mkdir -p /opt/stack
 sudo chown "$USER:$USER" /opt/stack
 
+if [[ ! "${CI}" == "true" ]]; then
+    sudo apt-get install docker.io docker-compose -y
+fi
+
 git clone https://github.com/knikolla/devstack-plugin-oidc /opt/stack/devstack-plugin-oidc
 source /opt/stack/devstack-plugin-oidc/tools/config.sh
 
