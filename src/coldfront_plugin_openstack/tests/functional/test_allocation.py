@@ -19,7 +19,7 @@ class TestAllocation(base.TestBase):
     def setUp(self) -> None:
         super().setUp()
         self.resource = self.new_resource(name='Devstack',
-                                          auth_url='https://localhost:5000')
+                                          auth_url=os.getenv('OS_AUTH_URL'))
         self.session = tasks.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
         self.compute = novaclient.Client(tasks.NOVA_VERSION,
@@ -55,14 +55,16 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check quota
-        union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
+        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
         expected_quotas = {
             union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x]
             for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
         }
-        actual_quotas = self.compute.quotas.get(openstack_project.id).to_dict()
-        actual_quotas |= self.volume.quotas.get(openstack_project.id).to_dict()
-        self.assertEqual(actual_quotas, expected_quotas | actual_quotas)
+        actual_quotas = dict(
+            self.compute.quotas.get(openstack_project.id).to_dict(),
+            **self.volume.quotas.get(openstack_project.id).to_dict()
+        )
+        self.assertEqual(actual_quotas, dict(expected_quotas, **actual_quotas))
 
     def test_new_allocation_with_quantity(self):
         user = self.new_user()
@@ -91,14 +93,16 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check quota
-        union_key_mappings = tasks.NOVA_KEY_MAPPING | tasks.CINDER_KEY_MAPPING
+        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
         expected_quotas = {
             union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x] * 3
             for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
         }
-        actual_quotas = self.compute.quotas.get(openstack_project.id).to_dict()
-        actual_quotas |= self.volume.quotas.get(openstack_project.id).to_dict()
-        self.assertEqual(actual_quotas, expected_quotas | actual_quotas)
+        actual_quotas = dict(
+            self.compute.quotas.get(openstack_project.id).to_dict(),
+            **self.volume.quotas.get(openstack_project.id).to_dict()
+        )
+        self.assertEqual(actual_quotas, dict(expected_quotas, **actual_quotas))
 
     def test_reactivate_allocation(self):
         user = self.new_user()
