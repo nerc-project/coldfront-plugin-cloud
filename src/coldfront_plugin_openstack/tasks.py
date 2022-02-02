@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import urllib.parse
@@ -15,6 +16,7 @@ from novaclient import client as novaclient
 from coldfront_plugin_openstack import (attributes,
                                         utils)
 
+logger = logging.getLogger(__name__)
 
 NOVA_VERSION = '2'
 NOVA_KEY_MAPPING = {
@@ -137,6 +139,92 @@ def assign_role_on_user(resource, username, project_id):
     identity.roles.grant(user=user['id'], project=project_id, role=role)
 
 
+def create_default_network(resource, project_id):
+    neutron = neutronclient.Client(session=get_session_for_resource(resource))
+
+    # Get or create default network
+    networks = neutron.list_networks(project_id=project_id,
+                                     name='default_network')
+    if networks := networks['networks']:
+        network = networks[0]
+        logger.info(f'Default network with ID {network["network"]["id"]} '
+                    f'already exists for project {project_id}.')
+    else:
+        default_network_payload = {
+            'network': {
+                'name': 'default_network',
+                'project_id': project_id,
+                'admin_state_up': True,
+                'description': 'Default network created during provisioning.',
+            }
+        }
+        network = neutron.create_network(body=default_network_payload)
+        logger.info(f'Default network with ID {network["network"]["id"]} '
+                    f'created for project {project_id}.')
+
+    # Get or create default subnet
+    subnets = neutron.list_subnets(project_id=project_id,
+                                   name='default_subnet')
+    if subnets := subnets['subnets']:
+        subnet = subnets[0]
+        logger.info(f'Default subnet with ID {subnet["subnet"]["id"]} '
+                    f'already exists for project {project_id}.')
+    else:
+        default_subnet_payload = {
+            'subnet': {
+                'network_id': network['network']['id'],
+                'name': 'default_subnet',
+                'ip_version': 4,
+                'project_id': project_id,
+                'cidr': resource.get_attribute(
+                    attributes.RESOURCE_DEFAULT_NETWORK_CIDR) or '192.168.0.0/24',
+                'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+                'description': 'Default subnet created during provisioning.',
+            }
+        }
+        subnet = neutron.create_subnet(body=default_subnet_payload)
+        logger.info(f'Default subnet with ID {subnet["subnet"]["id"]} '
+                    f'created for project {project_id}.')
+
+    # Get or create default router
+    routers = neutron.list_routers(project_id=project_id,
+                                   name='default_router')
+    if routers := routers['routers']:
+        router = routers[0]
+    else:
+        default_router_payload = {
+            'router': {
+                'name': 'default_router',
+                'external_gateway_info': {
+                    "network_id": resource.get_attribute(
+                        attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK)
+                },
+                'project_id': project_id,
+                'admin_state_up': True,
+                'description': 'Default router created during provisioning.'
+            }
+        }
+        router = neutron.create_router(body=default_router_payload)
+
+    # Get or create port on router
+    router_id = router['router']['id']
+    network_id = network['network']['id']
+    subnet_id = subnet['subnet']['id']
+
+    ports = neutron.list_ports(project_id=project_id,
+                               device_id=router_id,
+                               network_id=network_id)
+    if ports['ports']:
+        logger.info(f'Router {router_id} already connected to network {network_id} for '
+                    f'project {project_id}.')
+    else:
+        default_interface_payload = {'subnet_id': subnet_id}
+        neutron.add_interface_router(router_id,
+                                     body=default_interface_payload)
+        logger.info(f'Router {router_id} connected to subnet {subnet_id} for '
+                    f'project {project_id}.')
+
+
 def activate_allocation(allocation_pk):
     def set_nova_quota():
         compute = novaclient.Client(NOVA_VERSION, session=get_session_for_resource(resource))
@@ -190,6 +278,14 @@ def activate_allocation(allocation_pk):
             utils.add_attribute_to_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_ID,
                                               openstack_project.id)
+
+            if resource.get_attribute(attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK):
+                logger.info(f'Creating default network for project '
+                            f'{openstack_project.id}.')
+                create_default_network(resource, openstack_project.id)
+            else:
+                logger.info(f'No public network configured. Skipping default '
+                            f'network creation for project {openstack_project.id}.')
 
         pi_username = allocation.project.pi.username
         get_or_create_federated_user(resource, pi_username)

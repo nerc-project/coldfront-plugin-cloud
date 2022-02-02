@@ -26,6 +26,7 @@ class TestAllocation(base.TestBase):
                                          session=self.session)
         self.volume = cinderclient.Client(tasks.CINDER_VERSION,
                                           session=self.session)
+        self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
 
     def test_new_allocation(self):
@@ -53,6 +54,17 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role['id'], self.role_member.id)
+
+        # Check default network
+        network = self.networking.list_networks(
+            project_id=project_id, name='default_network')['networks'][0]
+        router = self.networking.list_routers(
+            project_id=project_id, name='default_router')['routers'][0]
+        ports = self.networking.list_ports(project_id=project_id,
+                                           network_id=network['id'],
+                                           device_id=router['id'])['ports']
+        self.assertIsNotNone(ports)
+        self.assertEqual(ports[0]['status'], 'ACTIVE')
 
         # Check quota
         union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)

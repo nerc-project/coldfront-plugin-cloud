@@ -1,8 +1,10 @@
+import os
 from os import devnull
 import sys
 import uuid
 
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationStatusChoice,
@@ -102,6 +104,12 @@ class TestBase(TestCase):
                 name='quantity_default_value'),
             resource=openstack,
             value=1
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK),
+            resource=openstack,
+            value=os.getenv('OPENSTACK_PUBLIC_NETWORK_ID')
         )
 
         return openstack
