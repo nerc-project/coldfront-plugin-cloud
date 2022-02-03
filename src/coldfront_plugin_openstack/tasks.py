@@ -224,8 +224,8 @@ def add_user_to_allocation(allocation_user_pk):
         if not project_id:
             raise Exception('Project not created yet!')
 
-    get_or_create_federated_user(resource, username)
-    assign_role_on_user(resource, username, project_id)
+        get_or_create_federated_user(resource, username)
+        assign_role_on_user(resource, username, project_id)
 
 
 def remove_user_from_allocation(allocation_user_pk):
