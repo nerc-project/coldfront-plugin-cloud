@@ -12,6 +12,8 @@ export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET=$(
 export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID=$(
     openstack application credential show "$credential_name" -f value -c id)
 
+export OPENSTACK_PUBLIC_NETWORK_ID=$(openstack network show public -f value -c id)
+
 source /tmp/coldfront_venv/bin/activate
 
 export DJANGO_SETTINGS_MODULE="local_settings"

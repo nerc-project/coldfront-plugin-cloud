@@ -27,13 +27,20 @@ class Command(BaseCommand):
                             help='Federation protocol (default: openid)')
         parser.add_argument('--role', type=str, default='member',
                             help='Role for user when added to project (default: member)')
+        parser.add_argumet('--public-network', type=str, default='',
+                           help='Public network ID for default networks. '
+                                'If not specified, no default network is '
+                                'created for new projects.')
+        parser.add_argumet('--network-cidr', type=str, default='192.168.0.0/24',
+                           help='CIDR for default networks. '
+                                'Ignored if no --public-network.')
 
     def handle(self, *args, **options):
         openstack, _ = Resource.objects.get_or_create(
             resource_type=ResourceType.objects.get(name='OpenStack'),
             parent_resource=None,
             name=options['name'],
-            description='OpenStack test cloud environment',
+            description='OpenStack cloud environment',
             is_available=True,
             is_public=True,
             is_allocatable=True
@@ -87,3 +94,17 @@ class Command(BaseCommand):
             resource=openstack,
             value=1
         )
+
+        if options['public_network']:
+            ResourceAttribute.objects.get_or_create(
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name=attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK),
+                resource=openstack,
+                value=options['public_network']
+            )
+            ResourceAttribute.objects.get_or_create(
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name=attributes.RESOURCE_DEFAULT_NETWORK_CIDR),
+                resource=openstack,
+                value=options['network_cidr']
+            )
