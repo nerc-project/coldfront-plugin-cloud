@@ -27,13 +27,13 @@ class Command(BaseCommand):
                             help='Federation protocol (default: openid)')
         parser.add_argument('--role', type=str, default='member',
                             help='Role for user when added to project (default: member)')
-        parser.add_argumet('--public-network', type=str, default='',
-                           help='Public network ID for default networks. '
-                                'If not specified, no default network is '
-                                'created for new projects.')
-        parser.add_argumet('--network-cidr', type=str, default='192.168.0.0/24',
-                           help='CIDR for default networks. '
-                                'Ignored if no --public-network.')
+        parser.add_argument('--public-network', type=str, default='',
+                            help='Public network ID for default networks. '
+                                 'If not specified, no default network is '
+                                 'created for new projects.')
+        parser.add_argument('--network-cidr', type=str, default='192.168.0.0/24',
+                            help='CIDR for default networks. '
+                                 'Ignored if no --public-network.')
 
     def handle(self, *args, **options):
         openstack, _ = Resource.objects.get_or_create(
