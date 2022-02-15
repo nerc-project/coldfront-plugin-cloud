@@ -13,8 +13,7 @@ from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 
-from coldfront_plugin_openstack import (attributes,
-                                        utils)
+from coldfront_plugin_openstack import attributes, utils
 
 logger = logging.getLogger(__name__)
 
@@ -37,34 +36,32 @@ QUOTA_KEY_MAPPING = {
             attributes.QUOTA_VOLUMES: 'volumes',
             attributes.QUOTA_VOLUMES_GB: 'gigabytes',
         }
+    },
+    'network': {
+        'class': neutronclient.Client,
+        'version': None,
+        'keys': {
+            attributes.QUOTA_FLOATING_IPS: 'floatingip'
+        }
     }
-logger = logging.getLogger(__name__)
-
-NOVA_VERSION = '2'
-NOVA_KEY_MAPPING = {
-    attributes.QUOTA_INSTANCES: 'instances',
-    attributes.QUOTA_VCPU: 'cores',
-    attributes.QUOTA_RAM: 'ram',
-}
-
-CINDER_VERSION = '3'
-CINDER_KEY_MAPPING = {
-    attributes.QUOTA_VOLUMES: 'volumes',
-    attributes.QUOTA_VOLUMES_GB: 'gigabytes',
 }
 
 # Map the amount of quota that 1 unit of `quantity` gets you
 # This is multiplied to the quantity of that resource allocation.
-UNIT_TO_QUOTA_MAPPING = {
-    'compute': {
-        attributes.QUOTA_INSTANCES: 1,
-        attributes.QUOTA_VCPU: 2,
-        attributes.QUOTA_RAM: 4096,
-    },
-    'volume': {
-        attributes.QUOTA_VOLUMES: 2,
-        attributes.QUOTA_VOLUMES_GB: 100,
-    },
+UNIT_QUOTA_MULTIPLIERS = {
+    attributes.QUOTA_INSTANCES: 1,
+    attributes.QUOTA_VCPU: 2,
+    attributes.QUOTA_RAM: 4096,
+    attributes.QUOTA_VOLUMES: 2,
+    attributes.QUOTA_VOLUMES_GB: 100,
+    attributes.QUOTA_FLOATING_IPS: 0,
+}
+
+# The amount of quota that every projects gets,
+# regardless of units of quantity. This is added
+# on top of the multiplication.
+STATIC_QUOTA = {
+    attributes.QUOTA_FLOATING_IPS: 2,
 }
 
 
@@ -259,19 +256,26 @@ def activate_allocation(allocation_pk):
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
         for service_name, service in QUOTA_KEY_MAPPING.items():
-            client = service['class'](service['version'],
-                                       session=get_session_for_resource(resource))
+            client = service['class'](version=service['version'],
+                                      session=get_session_for_resource(resource))
             payload = dict()
             for coldfront_attr, openstack_key in service['keys'].items():
                 if value := allocation.get_attribute(coldfront_attr):
                     pass
                 else:
-                    value = allocation.quantity * UNIT_TO_QUOTA_MAPPING[service_name][coldfront_attr]
-                    utils.add_attribute_to_allocation(allocation,
+                    value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS.get(coldfront_attr, 0)
+                    value = value + STATIC_QUOTA.get(coldfront_attr, 0)
+                    utils.set_attribute_on_allocation(allocation,
                                                       coldfront_attr,
                                                       value)
                 payload[openstack_key] = value
-                client.quotas.update(openstack_project.id, **payload)
+
+                if service_name == 'network':
+                    # The neutronclient call for quotas is slightly different
+                    # from how the other clients do it.
+                    client.update_quota(openstack_project.id, body={'quota': payload})
+                else:
+                    client.quotas.update(openstack_project.id, **payload)
 
     allocation = Allocation.objects.get(pk=allocation_pk)
 
@@ -297,10 +301,10 @@ def activate_allocation(allocation_pk):
                 enabled=True,
             )
 
-            utils.add_attribute_to_allocation(allocation,
+            utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_NAME,
                                               openstack_project_name)
-            utils.add_attribute_to_allocation(allocation,
+            utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_ID,
                                               openstack_project.id)
 

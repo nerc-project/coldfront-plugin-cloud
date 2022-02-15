@@ -1,4 +1,4 @@
-git+https://github.com/ubccr/coldfront@7dc4391c0cb54ec85ff82a0199ff0461454d5fb0#egg=coldfront
+git+https://github.com/ubccr/coldfront@2e60db247fd9a9b0d1299f1e98f1e4ef5f5c259b#egg=coldfront
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
 python-memcached==1.59
