@@ -1,8 +1,7 @@
 import os
 import unittest
 
-from coldfront_plugin_openstack import attributes
-from coldfront_plugin_openstack import tasks
+from coldfront_plugin_openstack import attributes, tasks, utils
 from coldfront_plugin_openstack.tests import base
 
 from keystoneauth1.identity import v3
@@ -22,9 +21,9 @@ class TestAllocation(base.TestBase):
                                           auth_url=os.getenv('OS_AUTH_URL'))
         self.session = tasks.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
-        self.compute = novaclient.Client(tasks.NOVA_VERSION,
+        self.compute = novaclient.Client(tasks.QUOTA_KEY_MAPPING['compute']['version'],
                                          session=self.session)
-        self.volume = cinderclient.Client(tasks.CINDER_VERSION,
+        self.volume = cinderclient.Client(tasks.QUOTA_KEY_MAPPING['volume']['version'],
                                           session=self.session)
         self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
@@ -66,17 +65,36 @@ class TestAllocation(base.TestBase):
         self.assertIsNotNone(ports)
         self.assertEqual(ports[0]['status'], 'ACTIVE')
 
-        # Check quota
-        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
-        expected_quotas = {
-            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x]
-            for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
+        # Check nova quota
+        expected_nova_quota = {
+            'instances': 1,
+            'cores': 2,
+            'ram': 4096,
         }
-        actual_quotas = dict(
-            self.compute.quotas.get(openstack_project.id).to_dict(),
-            **self.volume.quotas.get(openstack_project.id).to_dict()
-        )
-        self.assertEqual(actual_quotas, dict(expected_quotas, **actual_quotas))
+        actual_nova_quota = self.compute.quotas.get(openstack_project.id)
+        for k, v in expected_nova_quota.items():
+            self.assertEqual(actual_nova_quota.__getattr__(k), v)
+
+        # Check cinder quota
+        expected_cinder_quota = {
+            'volumes': 2,
+            'gigabytes': 100,
+        }
+        actual_cinder_quota = self.volume.quotas.get(openstack_project.id)
+        for k, v in expected_cinder_quota.items():
+            self.assertEqual(actual_cinder_quota.__getattr__(k), v)
+
+        # Check neutron quota
+        expected_neutron_quota = {
+            'floatingip': 2,
+        }
+        actual_neutron_quota = self.networking.show_quota(openstack_project.id)['quota']
+        for k, v in expected_neutron_quota.items():
+            self.assertEqual(actual_neutron_quota.get(k), v)
+
+        # Check correct attributes
+        for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
+            self.assertIsNotNone(allocation.get_attribute(attr))
 
     def test_new_allocation_with_quantity(self):
         user = self.new_user()
@@ -105,16 +123,48 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check quota
-        union_key_mappings = dict(tasks.NOVA_KEY_MAPPING, **tasks.CINDER_KEY_MAPPING)
-        expected_quotas = {
-            union_key_mappings[x]: tasks.UNIT_TO_QUOTA_MAPPING[x] * 3
-            for x in attributes.ALLOCATION_QUOTA_ATTRIBUTES
+        # Check nova quota
+        expected_nova_quota = {
+            'instances': 1 * 3,
+            'cores': 2 * 3,
+            'ram': 4096 * 3,
         }
-        actual_quotas = dict(
-            self.compute.quotas.get(openstack_project.id).to_dict(),
-            **self.volume.quotas.get(openstack_project.id).to_dict()
-        )
-        self.assertEqual(actual_quotas, dict(expected_quotas, **actual_quotas))
+        actual_nova_quota = self.compute.quotas.get(openstack_project.id)
+        for k, v in expected_nova_quota.items():
+            self.assertEqual(actual_nova_quota.__getattr__(k), v)
+
+        # Check cinder quota
+        expected_cinder_quota = {
+            'volumes': 2 * 3,
+            'gigabytes': 100 * 3,
+        }
+        actual_cinder_quota = self.volume.quotas.get(openstack_project.id)
+        for k, v in expected_cinder_quota.items():
+            self.assertEqual(actual_cinder_quota.__getattr__(k), v)
+
+        # Check neutron quota
+        expected_neutron_quota = {
+            'floatingip': 2,
+        }
+        actual_neutron_quota = self.networking.show_quota(openstack_project.id)['quota']
+        for k, v in expected_neutron_quota.items():
+            self.assertEqual(actual_neutron_quota.get(k), v)
+
+        # Change allocation attribute for floating ips and cores
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 2)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 3)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_FLOATING_IPS, 3)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_VCPU, 100)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 3)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 100)
+
+        tasks.activate_allocation(allocation.pk)
+
+        # Recheck neutron quota after attribute change
+        new_neutron_quota = self.networking.show_quota(openstack_project.id)['quota']
+        self.assertEqual(new_neutron_quota['floatingip'], 3)
+        actual_nova_quota = self.compute.quotas.get(openstack_project.id)
+        self.assertEqual(actual_nova_quota.__getattr__('cores'), 100)
 
     def test_reactivate_allocation(self):
         user = self.new_user()

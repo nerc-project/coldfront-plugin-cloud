@@ -10,10 +10,12 @@ from coldfront_plugin_openstack.tasks import (activate_allocation,
 from coldfront.core.allocation.signals import (allocation_activate,
                                                allocation_activate_user,
                                                allocation_disable,
-                                               allocation_remove_user)
+                                               allocation_remove_user,
+                                               allocation_change_approved)
 
 
 @receiver(allocation_activate)
+@receiver(allocation_change_approved)
 def activate_allocation_receiver(sender, **kwargs):
     allocation_pk = kwargs.get('allocation_pk')
     # Note(knikolla): Only run this task using Django-Q if a qcluster has

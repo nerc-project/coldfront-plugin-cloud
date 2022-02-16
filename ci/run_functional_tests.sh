@@ -1,6 +1,7 @@
 # Creates the appropriate credentials and runs tests
 #
 # Tests expect the resource to be name Devstack
+set -xe
 
 source /opt/stack/devstack-plugin-oidc/tools/config.sh
 source /opt/stack/devstack/openrc admin admin
