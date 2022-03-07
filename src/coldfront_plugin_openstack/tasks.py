@@ -10,42 +10,11 @@ from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneclient.v3 import client
-from cinderclient import client as cinderclient
-from neutronclient.v2_0 import client as neutronclient
-from novaclient import client as novaclient
 
 from coldfront_plugin_openstack import attributes, openstack, utils
 
 logger = logging.getLogger(__name__)
 
-# Map the attribute name in ColdFront, to the client of the respective
-# service, the version of the API, and the key in the payload.
-QUOTA_KEY_MAPPING = {
-    'compute': {
-        'class': novaclient.Client,
-        'version': 2,
-        'keys': {
-            attributes.QUOTA_INSTANCES: 'instances',
-            attributes.QUOTA_VCPU: 'cores',
-            attributes.QUOTA_RAM: 'ram',
-        },
-    },
-    'volume': {
-        'class': cinderclient.Client,
-        'version': 3,
-        'keys': {
-            attributes.QUOTA_VOLUMES: 'volumes',
-            attributes.QUOTA_VOLUMES_GB: 'gigabytes',
-        }
-    },
-    'network': {
-        'class': neutronclient.Client,
-        'version': None,
-        'keys': {
-            attributes.QUOTA_FLOATING_IPS: 'floatingip'
-        }
-    }
-}
 
 # Map the amount of quota that 1 unit of `quantity` gets you
 # This is multiplied to the quantity of that resource allocation.
@@ -81,33 +50,19 @@ def get_or_create_federated_user(resource, username):
 
 
 def activate_allocation(allocation_pk):
-    def set_quota():
-        # If an attribute with the appropriate name is associated with an
-        # allocation, set that as the quota. Otherwise, multiply
-        # the quantity attribute via the mapping table above.
-        for service_name, service in QUOTA_KEY_MAPPING.items():
-            client = service['class'](
-                version=service['version'],
-                session=openstack.get_session_for_resource(resource)
-            )
-            payload = dict()
-            for coldfront_attr, openstack_key in service['keys'].items():
-                if value := allocation.get_attribute(coldfront_attr):
-                    pass
-                else:
-                    value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS.get(coldfront_attr, 0)
-                    value = value + STATIC_QUOTA.get(coldfront_attr, 0)
-                    utils.set_attribute_on_allocation(allocation,
-                                                      coldfront_attr,
-                                                      value)
-                payload[openstack_key] = value
+    def set_quota_attributes():
+        if allocation.quantity < 1:
+            # This could lead to negative values which can be interpreted as no quota
+            allocation.quantity = 1
 
-                if service_name == 'network':
-                    # The neutronclient call for quotas is slightly different
-                    # from how the other clients do it.
-                    client.update_quota(openstack_project.id, body={'quota': payload})
-                else:
-                    client.quotas.update(openstack_project.id, **payload)
+        # Calculate the quota for the project, and set the attribute for each element
+        for coldfront_attr in UNIT_QUOTA_MULTIPLIERS.keys():
+            if not allocation.get_attribute(coldfront_attr):
+                value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS.get(coldfront_attr, 0)
+                value = value + STATIC_QUOTA.get(coldfront_attr, 0)
+                utils.set_attribute_on_allocation(allocation,
+                                                  coldfront_attr,
+                                                  value)
 
     allocation = Allocation.objects.get(pk=allocation_pk)
 
@@ -116,10 +71,6 @@ def activate_allocation(allocation_pk):
     # Does it have to do with linked resources?
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        if allocation.quantity < 1:
-            # This could lead to negative values which can be interpreted as no quota
-            allocation.quantity = 1
-
         identity = client.Client(
             session=openstack.get_session_for_resource(resource)
         )
@@ -141,6 +92,7 @@ def activate_allocation(allocation_pk):
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_ID,
                                               openstack_project.id)
+            set_quota_attributes()
 
             if resource.get_attribute(attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK):
                 logger.info(f'Creating default network for project '
@@ -157,7 +109,7 @@ def activate_allocation(allocation_pk):
             allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         )
 
-        set_quota()
+        openstack.set_quota(resource, allocation)
 
 
 def disable_allocation(allocation_pk):

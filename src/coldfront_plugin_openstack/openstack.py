@@ -15,6 +15,36 @@ from coldfront_plugin_openstack import attributes
 logger = logging.getLogger(__name__)
 
 
+# Map the attribute name in ColdFront, to the client of the respective
+# service, the version of the API, and the key in the payload.
+QUOTA_KEY_MAPPING = {
+    'compute': {
+        'class': novaclient.Client,
+        'version': 2,
+        'keys': {
+            attributes.QUOTA_INSTANCES: 'instances',
+            attributes.QUOTA_VCPU: 'cores',
+            attributes.QUOTA_RAM: 'ram',
+        },
+    },
+    'volume': {
+        'class': cinderclient.Client,
+        'version': 3,
+        'keys': {
+            attributes.QUOTA_VOLUMES: 'volumes',
+            attributes.QUOTA_VOLUMES_GB: 'gigabytes',
+        }
+    },
+    'network': {
+        'class': neutronclient.Client,
+        'version': None,
+        'keys': {
+            attributes.QUOTA_FLOATING_IPS: 'floatingip'
+        }
+    }
+}
+
+
 def get_session_for_resource(resource):
     auth_url = resource.get_attribute(attributes.RESOURCE_AUTH_URL)
     # Note: Authentication for a specific OpenStack cloud is stored in env
@@ -36,6 +66,33 @@ def get_session_for_resource(resource):
         auth,
         verify=os.environ.get('FUNCTIONAL_TESTS', '') != 'True'
     )
+
+
+def set_quota(resource, allocation):
+    project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+    # If an attribute with the appropriate name is associated with an
+    # allocation, set that as the quota. Otherwise, multiply
+    # the quantity attribute via the mapping table above.
+    for service_name, service in QUOTA_KEY_MAPPING.items():
+        client = service['class'](
+            version=service['version'],
+            session=get_session_for_resource(resource)
+        )
+
+        # No need to do any calculations here, just go through each service
+        # and set the value in the attribute.
+        payload = dict()
+        for coldfront_attr, openstack_key in service['keys'].items():
+            payload[openstack_key] = allocation.get_attribute(coldfront_attr)
+
+        if service_name == 'network':
+            # The neutronclient call for quotas is slightly different
+            # from how the other clients do it.
+            client.update_quota(project_id, body={'quota': payload})
+        else:
+            client.quotas.update(project_id, **payload)
+
 
 def get_user_payload_for_resource(resource, username):
     domain_id = resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
