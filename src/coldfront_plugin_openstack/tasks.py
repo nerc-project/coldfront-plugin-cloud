@@ -1,6 +1,8 @@
+import datetime
 import logging
 import os
 import secrets
+import time
 import urllib.parse
 
 from coldfront.core.allocation.models import (Allocation,
@@ -342,11 +344,26 @@ def add_user_to_allocation(allocation_user_pk):
 
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-
         username = allocation_user.user.username
-        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-        if not project_id:
-            raise Exception('Project not created yet!')
+
+        # Note(knikolla): This task may be executed at the same time as
+        # activating an allocation, therefore it has to wait for the project
+        # to finish creating. Maximum wait is 2 minutes.
+        time_start = datetime.datetime.utcnow()
+        max_wait_seconds = 120
+
+        while not (
+                project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        ):
+            delta = datetime.datetime.utcnow() - time_start
+            if delta.seconds >= max_wait_seconds:
+                raise Exception(f'Project not yet created after {delta.seconds} seconds.')
+
+            logging.info(
+                f'Project not created yet, waiting. '
+                f'(Elapsed {delta.seconds}/{max_wait_seconds} seconds.)'
+            )
+            time.sleep(2)
 
         get_or_create_federated_user(resource, username)
         assign_role_on_user(resource, username, project_id)

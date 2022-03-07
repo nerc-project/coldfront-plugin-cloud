@@ -14,13 +14,20 @@ from coldfront.core.allocation.signals import (allocation_activate,
                                                allocation_change_approved)
 
 
+def is_async():
+    # Note(knikolla): The presence of the REDIS_HOST env variable signifies
+    # in `coldfront-nerc` the configuration of a Django Q cluster, therefore
+    # execution is to be performed asynchronously for longer running tasks.
+    return os.getenv('REDIS_HOST')
+
+
 @receiver(allocation_activate)
 @receiver(allocation_change_approved)
 def activate_allocation_receiver(sender, **kwargs):
     allocation_pk = kwargs.get('allocation_pk')
     # Note(knikolla): Only run this task using Django-Q if a qcluster has
     # been configured.
-    if os.getenv('REDIS_HOST'):
+    if is_async():
         async_task(activate_allocation, allocation_pk)
     else:
         activate_allocation(allocation_pk)
@@ -35,7 +42,10 @@ def allocation_disable_receiver(sender, **kwargs):
 @receiver(allocation_activate_user)
 def activate_allocation_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get('allocation_user_pk')
-    add_user_to_allocation(allocation_user_pk)
+    if is_async():
+        async_task(add_user_to_allocation, allocation_user_pk)
+    else:
+        add_user_to_allocation(allocation_user_pk)
 
 
 @receiver(allocation_remove_user)
