@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from coldfront_plugin_openstack import attributes, tasks, utils
+from coldfront_plugin_openstack import attributes, openstack, tasks, utils
 from coldfront_plugin_openstack.tests import base
 
 from keystoneauth1.identity import v3
@@ -19,12 +19,16 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_resource(name='Devstack',
                                           auth_url=os.getenv('OS_AUTH_URL'))
-        self.session = tasks.get_session_for_resource(self.resource)
+        self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
-        self.compute = novaclient.Client(tasks.QUOTA_KEY_MAPPING['compute']['version'],
-                                         session=self.session)
-        self.volume = cinderclient.Client(tasks.QUOTA_KEY_MAPPING['volume']['version'],
-                                          session=self.session)
+        self.compute = novaclient.Client(
+            openstack.QUOTA_KEY_MAPPING['compute']['version'],
+            session=self.session
+        )
+        self.volume = cinderclient.Client(
+            openstack.QUOTA_KEY_MAPPING['volume']['version'],
+            session=self.session
+        )
         self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
 
@@ -45,7 +49,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = openstack.get_federated_user(self.resource, user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -113,7 +117,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = openstack.get_federated_user(self.resource, user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -186,7 +190,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = openstack.get_federated_user(self.resource, user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -214,7 +218,7 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user2.pk)
 
-        openstack_user = tasks.get_federated_user(self.resource, user2.username)
+        openstack_user = openstack.get_federated_user(self.resource, user2.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -252,7 +256,7 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user2.pk)
 
-        openstack_user = tasks.get_federated_user(self.resource, user2.username)
+        openstack_user = openstack.get_federated_user(self.resource, user2.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -282,7 +286,7 @@ class TestAllocation(base.TestBase):
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         openstack_project = self.identity.projects.get(project_id)
 
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = openstack.get_federated_user(self.resource, user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
