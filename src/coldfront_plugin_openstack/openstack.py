@@ -68,6 +68,26 @@ def get_session_for_resource(resource):
     )
 
 
+def create_project(resource, project_name) -> str:
+    identity = client.Client(
+        session=get_session_for_resource(resource)
+    )
+    openstack_project = identity.projects.create(
+        name=project_name,
+        domain=resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
+        enabled=True,
+    )
+    return openstack_project.id
+
+
+def reactivate_project(resource, project_id):
+    identity = client.Client(
+        session=get_session_for_resource(resource)
+    )
+    openstack_project = identity.projects.get(project_id)
+    openstack_project.update(enabled=True)
+
+
 def set_quota(resource, allocation):
     project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
@@ -240,3 +260,15 @@ def create_default_network(resource, project_id):
                                      body=default_interface_payload)
         logger.info(f'Router {router_id} connected to subnet {subnet_id} for '
                     f'project {project_id}.')
+
+
+def create_project_defaults(resource, allocation, project_id):
+    if resource.get_attribute(attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK):
+        logger.info(f'Creating default network for project '
+                    f'{project_id}.')
+        create_default_network(
+            resource, allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        )
+    else:
+        logger.info(f'No public network configured. Skipping default '
+                    f'network creation for project {project_id}.')

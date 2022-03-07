@@ -2,13 +2,9 @@ import datetime
 import logging
 import secrets
 import time
-import urllib.parse
 
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationUser)
-from keystoneauth1.identity import v3
-from keystoneauth1 import session
-from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneclient.v3 import client
 
 from coldfront_plugin_openstack import attributes, openstack, utils
@@ -71,43 +67,25 @@ def activate_allocation(allocation_pk):
     # Does it have to do with linked resources?
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        identity = client.Client(
-            session=openstack.get_session_for_resource(resource)
-        )
-
-        if existing_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
-            openstack_project = identity.projects.get(existing_id)
-            openstack_project.update(enabled=True)
+        if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            openstack.reactivate_project(resource, project_id)
         else:
-            openstack_project_name = get_unique_project_name(allocation.project.title)
-            openstack_project = identity.projects.create(
-                name=openstack_project_name,
-                domain=resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
-                enabled=True,
-            )
+            project_name = get_unique_project_name(allocation.project.title)
+            project_id = openstack.create_project(resource, project_name)
 
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_NAME,
-                                              openstack_project_name)
+                                              project_name)
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_ID,
-                                              openstack_project.id)
+                                              project_id)
             set_quota_attributes()
 
-            if resource.get_attribute(attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK):
-                logger.info(f'Creating default network for project '
-                            f'{openstack_project.id}.')
-                openstack.create_default_network(resource, openstack_project.id)
-            else:
-                logger.info(f'No public network configured. Skipping default '
-                            f'network creation for project {openstack_project.id}.')
+            openstack.create_project_defaults(resource, allocation, project_id)
 
         pi_username = allocation.project.pi.username
         get_or_create_federated_user(resource, pi_username)
-        openstack.assign_role_on_user(
-            resource, pi_username,
-            allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-        )
+        openstack.assign_role_on_user(resource, pi_username, project_id)
 
         openstack.set_quota(resource, allocation)
 
