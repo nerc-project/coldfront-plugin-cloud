@@ -95,11 +95,10 @@ def disable_allocation(allocation_pk):
 
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        ksa_session = openstack.get_session_for_resource(resource)
-        identity = client.Client(session=ksa_session)
-
-        identity.projects.update(allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
-                                 enabled=False)
+        if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            openstack.disable_project(project_id)
+        else:
+            logger.warning('No project has been created. Nothing to disable.')
 
 
 def add_user_to_allocation(allocation_user_pk):

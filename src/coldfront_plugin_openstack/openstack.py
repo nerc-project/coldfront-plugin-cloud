@@ -88,6 +88,14 @@ def reactivate_project(resource, project_id):
     openstack_project.update(enabled=True)
 
 
+def disable_project(resource, project_id):
+    ksa_session = get_session_for_resource(resource)
+    identity = client.Client(session=ksa_session)
+
+    identity.projects.update(project_id,
+                             enabled=False)
+
+
 def set_quota(resource, allocation):
     project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
