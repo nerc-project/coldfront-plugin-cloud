@@ -38,12 +38,6 @@ def get_unique_project_name(project_name):
     return f'{project_name}-f{secrets.token_hex(3)}'
 
 
-def get_or_create_federated_user(resource, username):
-    if not (user := openstack.get_federated_user(resource, username)):
-        user = openstack.create_federated_user(resource, username)
-    return user
-
-
 def activate_allocation(allocation_pk):
     def set_quota_attributes():
         if allocation.quantity < 1:
@@ -66,11 +60,14 @@ def activate_allocation(allocation_pk):
     # Does it have to do with linked resources?
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
+        allocator = openstack.OpenStackResourceAllocator(resource,
+                                                         allocation)
+
         if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
-            openstack.reactivate_project(resource, project_id)
+            allocator.reactivate_project(project_id)
         else:
             project_name = get_unique_project_name(allocation.project.title)
-            project_id = openstack.create_project(resource, project_name)
+            project_id = allocator.create_project(project_name)
 
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_NAME,
@@ -80,13 +77,13 @@ def activate_allocation(allocation_pk):
                                               project_id)
             set_quota_attributes()
 
-            openstack.create_project_defaults(resource, allocation, project_id)
+            allocator.create_project_defaults(project_id)
 
         pi_username = allocation.project.pi.username
-        get_or_create_federated_user(resource, pi_username)
-        openstack.assign_role_on_user(resource, pi_username, project_id)
+        allocator.get_or_create_federated_user(pi_username)
+        allocator.assign_role_on_user(pi_username, project_id)
 
-        openstack.set_quota(resource, allocation)
+        allocator.set_quota(project_id)
 
 
 def disable_allocation(allocation_pk):
@@ -95,7 +92,9 @@ def disable_allocation(allocation_pk):
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
         if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
-            openstack.disable_project(project_id)
+            allocator = openstack.OpenStackResourceAllocator(resource,
+                                                             allocation)
+            allocator.disable_project(project_id)
         else:
             logger.warning('No project has been created. Nothing to disable.')
 
@@ -127,8 +126,10 @@ def add_user_to_allocation(allocation_user_pk):
             )
             time.sleep(2)
 
-        get_or_create_federated_user(resource, username)
-        openstack.assign_role_on_user(resource, username, project_id)
+        allocator = openstack.OpenStackResourceAllocator(resource,
+                                                         allocation)
+        allocator.get_or_create_federated_user(username)
+        allocator.assign_role_on_user(username, project_id)
 
 
 def remove_user_from_allocation(allocation_user_pk):
@@ -138,7 +139,9 @@ def remove_user_from_allocation(allocation_user_pk):
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
         if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            allocator = openstack.OpenStackResourceAllocator(resource,
+                                                             allocation)
             username = allocation_user.user.username
-            openstack.remove_role_from_user(resource, username, project_id)
+            allocator.remove_role_from_user(username, project_id)
         else:
             logger.warning('No project has been created. Nothing to disable.')
