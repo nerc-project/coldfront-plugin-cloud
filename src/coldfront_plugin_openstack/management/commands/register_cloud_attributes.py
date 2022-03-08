@@ -7,7 +7,7 @@ from coldfront_plugin_openstack import attributes
 
 
 class Command(BaseCommand):
-    help = 'Add default OpenStack allocation related choices'
+    help = 'Add attributes for OpenStack and OpenShift resources/allocations'
 
     def register_allocation_attributes(self):
         def register(attribute_name, attribute_type):
@@ -36,7 +36,11 @@ class Command(BaseCommand):
 
     def register_resource_type(self):
         resource_models.ResourceType.objects.get_or_create(
-            name='OpenStack', description='OpenStack Cloud')
+            name='OpenStack', description='OpenStack Cloud'
+        )
+        resource_models.ResourceType.objects.get_or_create(
+            name='OpenShift', description='OpenShift Cloud'
+        )
 
     def handle(self, *args, **options):
         self.register_resource_type()

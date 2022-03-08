@@ -45,4 +45,4 @@ jobs:
           export OPENSTACK_PUBLIC_NETWORK_ID=$(microstack.openstack network show external -f value -c id)
           export OS_AUTH_URL="https://localhost:5000"
 
-          coldfront test coldfront_plugin_openstack.tests.functional
+          coldfront test coldfront_plugin_openstack.tests.functional.openstack
