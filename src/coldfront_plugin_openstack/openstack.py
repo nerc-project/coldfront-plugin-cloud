@@ -71,6 +71,8 @@ def get_session_for_resource(resource):
 
 class OpenStackResourceAllocator(base.ResourceAllocator):
 
+    resource_type = 'openstack'
+
     @functools.cached_property
     def identity(self) -> ks_client.Client:
         return ks_client.Client(

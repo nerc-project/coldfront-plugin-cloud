@@ -6,6 +6,8 @@ from coldfront.core.resource import models as resource_models
 
 class ResourceAllocator(abc.ABC):
 
+    resource_type = ''
+
     def __init__(self,
                  resource: resource_models.Resource,
                  allocation: allocation_models.Allocation):
