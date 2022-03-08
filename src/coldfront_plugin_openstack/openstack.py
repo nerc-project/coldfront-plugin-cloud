@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import urllib.parse
@@ -5,7 +6,7 @@ import urllib.parse
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneauth1 import exceptions as ksa_exceptions
-from keystoneclient.v3 import client
+from keystoneclient.v3 import client as ks_client
 from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
@@ -68,11 +69,16 @@ def get_session_for_resource(resource):
     )
 
 
-class OpenStackResourceAllocator(base.ResourceAllocator):    
+class OpenStackResourceAllocator(base.ResourceAllocator):
+
+    @functools.cached_property
+    def identity(self) -> ks_client.Client:
+        return ks_client.Client(
+            session=get_session_for_resource(self.resource)
+        )
 
     def create_project(self, project_name) -> str:
-        identity = client.Client(session=get_session_for_resource(self.resource))
-        openstack_project = identity.projects.create(
+        openstack_project = self.identity.projects.create(
             name=project_name,
             domain=self.resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
             enabled=True,
@@ -80,16 +86,11 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         return openstack_project.id
 
     def reactivate_project(self, project_id):
-        identity = client.Client(session=get_session_for_resource(self.resource))
-        openstack_project = identity.projects.get(project_id)
+        openstack_project = self.identity.projects.get(project_id)
         openstack_project.update(enabled=True)
 
     def disable_project(self, project_id):
-        ksa_session = get_session_for_resource(self.resource)
-        identity = client.Client(session=ksa_session)
-
-        identity.projects.update(project_id,
-                                 enabled=False)
+        self.identity.projects.update(project_id, enabled=False)
 
     def set_quota(self, project_id):
         # If an attribute with the appropriate name is associated with an
@@ -165,21 +166,19 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
     def assign_role_on_user(self, username, project_id):
         role_name = self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
 
-        ksa_session = get_session_for_resource(self.resource)
-        identity = client.Client(session=ksa_session)
-        role = identity.roles.find(name=role_name)
+        role = self.identity.roles.find(name=role_name)
 
         user = self.get_federated_user(username)
-        identity.roles.grant(user=user['id'], project=project_id, role=role)
+        self.identity.roles.grant(user=user['id'],
+                                  project=project_id,
+                                  role=role)
 
     def remove_role_from_user(self, username, project_id):
-        identity = client.Client(session=get_session_for_resource(self.resource))
-
         role_name = self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
-        role = identity.roles.find(name=role_name)
+        role = self.identity.roles.find(name=role_name)
 
         if user := self.get_federated_user(username):
-            identity.roles.revoke(user=user['id'], project=project_id, role=role)
+            self.identity.roles.revoke(user=user['id'], project=project_id, role=role)
 
     def create_default_network(self, project_id):
         neutron = neutronclient.Client(session=get_session_for_resource(self.resource))
