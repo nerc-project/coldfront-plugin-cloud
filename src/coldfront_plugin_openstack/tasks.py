@@ -5,7 +5,6 @@ import time
 
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationUser)
-from keystoneclient.v3 import client
 
 from coldfront_plugin_openstack import attributes, openstack, utils
 
@@ -138,15 +137,8 @@ def remove_user_from_allocation(allocation_user_pk):
 
     resource = allocation.resources.first()
     if is_openstack_resource(resource):
-        identity = client.Client(
-            session=openstack.get_session_for_resource(resource)
-        )
-
-        username = allocation_user.user.username
-
-        if user := openstack.get_federated_user(resource, username):
-            role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
-            role = identity.roles.find(name=role_name)
-            project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-
-            identity.roles.revoke(user=user['id'], project=project_id, role=role)
+        if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            username = allocation_user.user.username
+            openstack.remove_role_from_user(resource, username, project_id)
+        else:
+            logger.warning('No project has been created. Nothing to disable.')

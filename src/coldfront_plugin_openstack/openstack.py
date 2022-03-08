@@ -184,6 +184,19 @@ def assign_role_on_user(resource, username, project_id):
     identity.roles.grant(user=user['id'], project=project_id, role=role)
 
 
+def remove_role_from_user(resource, username, project_id):
+    identity = client.Client(
+        session=get_session_for_resource(resource)
+    )
+
+    role_name = resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
+    role = identity.roles.find(name=role_name)
+    project_id = project_id
+
+    if user := get_federated_user(resource, username):
+        identity.roles.revoke(user=user['id'], project=project_id, role=role)
+
+
 def create_default_network(resource, project_id):
     neutron = neutronclient.Client(session=get_session_for_resource(resource))
 
