@@ -28,6 +28,13 @@ QUOTA_KEY_MAPPING = {
             attributes.QUOTA_RAM: 'ram',
         },
     },
+    'network': {
+        'class': neutronclient.Client,
+        'version': None,
+        'keys': {
+            attributes.QUOTA_FLOATING_IPS: 'floatingip'
+        }
+    },
     'volume': {
         'class': cinderclient.Client,
         'version': 3,
@@ -36,13 +43,6 @@ QUOTA_KEY_MAPPING = {
             attributes.QUOTA_VOLUMES_GB: 'gigabytes',
         }
     },
-    'network': {
-        'class': neutronclient.Client,
-        'version': None,
-        'keys': {
-            attributes.QUOTA_FLOATING_IPS: 'floatingip'
-        }
-    }
 }
 
 
