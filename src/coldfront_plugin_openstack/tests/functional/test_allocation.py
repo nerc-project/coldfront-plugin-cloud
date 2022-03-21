@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from coldfront_plugin_openstack import attributes, tasks, utils
+from coldfront_plugin_openstack import attributes, openstack, tasks, utils
 from coldfront_plugin_openstack.tests import base
 
 from keystoneauth1.identity import v3
@@ -19,12 +19,16 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_resource(name='Devstack',
                                           auth_url=os.getenv('OS_AUTH_URL'))
-        self.session = tasks.get_session_for_resource(self.resource)
+        self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
-        self.compute = novaclient.Client(tasks.QUOTA_KEY_MAPPING['compute']['version'],
-                                         session=self.session)
-        self.volume = cinderclient.Client(tasks.QUOTA_KEY_MAPPING['volume']['version'],
-                                          session=self.session)
+        self.compute = novaclient.Client(
+            openstack.QUOTA_KEY_MAPPING['compute']['version'],
+            session=self.session
+        )
+        self.volume = cinderclient.Client(
+            openstack.QUOTA_KEY_MAPPING['volume']['version'],
+            session=self.session
+        )
         self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
 
@@ -32,6 +36,8 @@ class TestAllocation(base.TestBase):
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
@@ -45,7 +51,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = allocator.get_federated_user(user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -100,6 +106,8 @@ class TestAllocation(base.TestBase):
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 3)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
@@ -113,7 +121,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = allocator.get_federated_user(user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -170,6 +178,8 @@ class TestAllocation(base.TestBase):
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         tasks.activate_allocation(allocation.pk)
 
@@ -186,7 +196,7 @@ class TestAllocation(base.TestBase):
         self.assertTrue(openstack_project.enabled)
 
         # Check user and roles
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = allocator.get_federated_user(user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -201,6 +211,8 @@ class TestAllocation(base.TestBase):
         project_user = self.new_project_user(user, project)
         allocation = self.new_allocation(project, self.resource, 1)
         allocation_user = self.new_allocation_user(allocation, user)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         user2 = self.new_user()
         project_user2 = self.new_project_user(user2, project)
@@ -214,7 +226,7 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user2.pk)
 
-        openstack_user = tasks.get_federated_user(self.resource, user2.username)
+        openstack_user = allocator.get_federated_user(user2.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -236,6 +248,8 @@ class TestAllocation(base.TestBase):
         project_user = self.new_project_user(user, project)
         allocation = self.new_allocation(project, self.resource, 1)
         allocation_user = self.new_allocation_user(allocation, user)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         user2 = self.new_user()
         project_user2 = self.new_project_user(user2, project)
@@ -252,7 +266,7 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user2.pk)
 
-        openstack_user = tasks.get_federated_user(self.resource, user2.username)
+        openstack_user = allocator.get_federated_user(user2.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
@@ -272,6 +286,8 @@ class TestAllocation(base.TestBase):
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openstack.OpenStackResourceAllocator(self.resource,
+                                                         allocation)
 
         # Create non-federated username beforehand
         self.identity.users.create(name=user.username, domain='default')
@@ -282,7 +298,7 @@ class TestAllocation(base.TestBase):
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         openstack_project = self.identity.projects.get(project_id)
 
-        openstack_user = tasks.get_federated_user(self.resource, user.username)
+        openstack_user = allocator.get_federated_user(user.username)
         openstack_user = self.identity.users.get(openstack_user['id'])
 
         roles = self.identity.role_assignments.list(user=openstack_user.id,
