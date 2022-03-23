@@ -31,10 +31,13 @@ QUOTA_VOLUMES_GB = 'OpenStack Volume GB Quota'
 
 QUOTA_FLOATING_IPS = 'OpenStack Floating IP Quota'
 
+QUOTA_OBJECT_GB = 'OpenStack Swift Quota in Gigabytes'
+
 ALLOCATION_QUOTA_ATTRIBUTES = [QUOTA_INSTANCES,
                                QUOTA_RAM,
                                QUOTA_VCPU,
                                QUOTA_VOLUMES,
                                QUOTA_VOLUMES_GB,
-                               QUOTA_FLOATING_IPS,]
+                               QUOTA_FLOATING_IPS,
+                               QUOTA_OBJECT_GB]
 

@@ -21,6 +21,7 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_VOLUMES: 2,
         attributes.QUOTA_VOLUMES_GB: 100,
         attributes.QUOTA_FLOATING_IPS: 0,
+        attributes.QUOTA_OBJECT_GB: 1,
     }
 }
 
