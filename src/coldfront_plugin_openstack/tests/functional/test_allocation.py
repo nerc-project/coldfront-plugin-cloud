@@ -21,14 +21,8 @@ class TestAllocation(base.TestBase):
                                           auth_url=os.getenv('OS_AUTH_URL'))
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
-        self.compute = novaclient.Client(
-            openstack.QUOTA_KEY_MAPPING['compute']['version'],
-            session=self.session
-        )
-        self.volume = cinderclient.Client(
-            openstack.QUOTA_KEY_MAPPING['volume']['version'],
-            session=self.session
-        )
+        self.compute = novaclient.Client(session=self.session, version=2)
+        self.volume = cinderclient.Client(session=self.session, version=3)
         self.networking = neutronclient.Client(session=self.session)
         self.role_member = self.identity.roles.find(name='member')
 

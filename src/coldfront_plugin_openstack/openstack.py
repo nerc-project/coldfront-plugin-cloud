@@ -3,6 +3,7 @@ import logging
 import os
 import urllib.parse
 
+import swiftclient
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneauth1 import exceptions as ksa_exceptions
@@ -20,29 +21,28 @@ logger = logging.getLogger(__name__)
 # service, the version of the API, and the key in the payload.
 QUOTA_KEY_MAPPING = {
     'compute': {
-        'class': novaclient.Client,
-        'version': 2,
         'keys': {
             attributes.QUOTA_INSTANCES: 'instances',
             attributes.QUOTA_VCPU: 'cores',
             attributes.QUOTA_RAM: 'ram',
         },
     },
+    'network': {
+        'keys': {
+            attributes.QUOTA_FLOATING_IPS: 'floatingip',
+        }
+    },
+    'object': {
+        'keys': {
+            attributes.QUOTA_OBJECT_GB: 'X-Account-Meta-Quota-Bytes',
+        }
+    },
     'volume': {
-        'class': cinderclient.Client,
-        'version': 3,
         'keys': {
             attributes.QUOTA_VOLUMES: 'volumes',
             attributes.QUOTA_VOLUMES_GB: 'gigabytes',
         }
     },
-    'network': {
-        'class': neutronclient.Client,
-        'version': None,
-        'keys': {
-            attributes.QUOTA_FLOATING_IPS: 'floatingip'
-        }
-    }
 }
 
 
@@ -95,27 +95,48 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         self.identity.projects.update(project_id, enabled=False)
 
     def set_quota(self, project_id):
+        session = get_session_for_resource(self.resource)
         # If an attribute with the appropriate name is associated with an
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
         for service_name, service in QUOTA_KEY_MAPPING.items():
-            client = service['class'](
-                version=service['version'],
-                session=get_session_for_resource(self.resource)
-            )
-
             # No need to do any calculations here, just go through each service
             # and set the value in the attribute.
             payload = dict()
             for coldfront_attr, openstack_key in service['keys'].items():
-                payload[openstack_key] = self.allocation.get_attribute(coldfront_attr)
+                if value := self.allocation.get_attribute(coldfront_attr):
+                    payload[openstack_key] = value
 
             if service_name == 'network':
-                # The neutronclient call for quotas is slightly different
-                # from how the other clients do it.
+                client = neutronclient.Client(session=session)
                 client.update_quota(project_id, body={'quota': payload})
-            else:
+            elif service_name == 'volume':
+                client = cinderclient.Client(session=session, version=3)
                 client.quotas.update(project_id, **payload)
+            elif service_name == 'compute':
+                client = novaclient.Client(session=session, version=2)
+                client.quotas.update(project_id, **payload)
+            elif service_name == 'object':
+                try:
+                    # If you want to perform operation on a project different
+                    # from the one you authenticated as, you must specify the
+                    # endpoint manually. Endpoint url is in the form:
+                    # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
+                    swift_service = self.identity.services.find(name='swift')
+                    url = self.identity.endpoints.list(service=swift_service,
+                                                       interface='public')[0].url
+                    url = url.replace('$(project_id)s', project_id)
+
+                    client = swiftclient.Connection(session=session,
+                                                    preauthurl=url)
+                    # Note(knikolla): For consistency with other OpenStack quotas
+                    # we're storing this as GB on the attribute and then
+                    # converting to bytes for Swift.
+                    # 1 GB = 1 000 000 000 B = 10^9 B
+                    payload['X-Account-Meta-Quota-Bytes'] *= 1000000000
+                    client.post_account(headers=payload)
+                except ksa_exceptions.NotFound:
+                    logger.debug('No swift available, skipping its quota.')
 
     def get_user_payload_for_resource(self, username):
         domain_id = self.resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
