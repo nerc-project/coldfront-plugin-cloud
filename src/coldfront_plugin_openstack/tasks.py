@@ -22,6 +22,7 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_VOLUMES_GB: 100,
         attributes.QUOTA_FLOATING_IPS: 0,
         attributes.QUOTA_OBJECT_GB: 1,
+        attributes.QUOTA_GPU: 0,
     }
 }
 
@@ -31,6 +32,7 @@ UNIT_QUOTA_MULTIPLIERS = {
 STATIC_QUOTA = {
     'openstack': {
         attributes.QUOTA_FLOATING_IPS: 2,
+        attributes.QUOTA_GPU: 0,
     }
 }
 
