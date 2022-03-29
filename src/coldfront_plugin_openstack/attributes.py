@@ -33,7 +33,7 @@ QUOTA_FLOATING_IPS = 'OpenStack Floating IP Quota'
 
 QUOTA_OBJECT_GB = 'OpenStack Swift Quota in Gigabytes'
 
-QUOTA_GPU = 'Quota for GPUs'
+QUOTA_GPU = 'OpenStack GPU Quota'
 
 ALLOCATION_QUOTA_ATTRIBUTES = [QUOTA_INSTANCES,
                                QUOTA_RAM,
