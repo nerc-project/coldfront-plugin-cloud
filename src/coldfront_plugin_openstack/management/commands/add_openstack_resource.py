@@ -86,7 +86,7 @@ class Command(BaseCommand):
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name='quantity_label'),
             resource=openstack,
-            value='Units of computing to allocate to the project. 1 Unit = 1 Instance, 2 vCPU, 4G RAM, 2 Volumes, and 100 GB Volume Storage'
+            value='Units of computing to allocate to the project. 1 Unit = 1 Instance, 2 vCPU, 0 GPU, 4G RAM, 2 Volumes, 100 GB Volume Storage, and 1 GB Object Storage'
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
