@@ -6,7 +6,9 @@ set -xe
 export OPENSHIFT_MICROSHIFT_USERNAME="admin"
 export OPENSHIFT_MICROSHIFT_PASSWORD="pass"
 
-source /tmp/coldfront_venv/bin/activate
+if [[ ! "${CI}" == "true" ]]; then
+    source /tmp/coldfront_venv/bin/activate
+fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
 export FUNCTIONAL_TESTS="True"

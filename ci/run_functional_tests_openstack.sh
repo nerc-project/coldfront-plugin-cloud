@@ -15,7 +15,9 @@ export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID=$(
 
 export OPENSTACK_PUBLIC_NETWORK_ID=$(openstack network show public -f value -c id)
 
-source /tmp/coldfront_venv/bin/activate
+if [[ ! "${CI}" == "true" ]]; then
+    source /tmp/coldfront_venv/bin/activate
+fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
 export FUNCTIONAL_TESTS="True"
