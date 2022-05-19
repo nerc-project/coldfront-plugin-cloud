@@ -36,6 +36,4 @@ sudo docker push "localhost:5000/cci-moc/openshift-acct-mgt:latest"
 oc apply -k k8s/overlays/crc
 oc wait -n onboarding --for=condition=available --timeout=800s deployment/onboarding
 
-cd ~/coldfront-plugin-openstack
-
 sleep 60

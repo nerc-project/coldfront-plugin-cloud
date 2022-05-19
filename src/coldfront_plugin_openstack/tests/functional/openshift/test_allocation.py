@@ -43,6 +43,13 @@ class TestAllocation(base.TestBase):
         with self.assertRaises(openshift.NotFound):
             allocator._get_role(user.username, project_id)
 
+        allocator.disable_project(project_id)
+
+        # Deleting a project is not instantaneous on OpenShift
+        time.sleep(10)
+        with self.assertRaises(openshift.NotFound):
+            allocator._get_project(project_id)
+
     def test_add_remove_user(self):
         user = self.new_user()
         project = self.new_project(pi=user)
