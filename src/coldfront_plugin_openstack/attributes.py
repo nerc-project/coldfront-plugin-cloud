@@ -1,4 +1,4 @@
-RESOURCE_AUTH_URL = 'OpenStack Auth URL'
+RESOURCE_AUTH_URL = 'OpenStack Auth URL'  # TODO: remove OpenStack prefix
 RESOURCE_FEDERATION_PROTOCOL = 'OpenStack Federation Protocol'
 RESOURCE_IDP = 'OpenStack Identity Provider'
 RESOURCE_PROJECT_DOMAIN = 'OpenStack Domain for Projects'
@@ -16,6 +16,7 @@ RESOURCE_ATTRIBUTES = [RESOURCE_AUTH_URL,
                        RESOURCE_DEFAULT_PUBLIC_NETWORK,
                        RESOURCE_DEFAULT_NETWORK_CIDR]
 
+# TODO: Migration to rename the OpenStack specific prefix out of these attrs
 ALLOCATION_PROJECT_ID = 'OpenStack Project ID'
 ALLOCATION_PROJECT_NAME = 'OpenStack Project Name'
 

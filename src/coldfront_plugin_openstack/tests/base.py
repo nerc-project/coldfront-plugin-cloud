@@ -32,7 +32,7 @@ class TestBase(TestCase):
         backup, sys.stdout = sys.stdout, open(devnull, 'a')
         call_command('initial_setup', )
         call_command('load_test_data')
-        call_command('register_openstack_attributes')
+        call_command('register_cloud_attributes')
         sys.stdout = backup
 
     @staticmethod
@@ -56,6 +56,17 @@ class TestBase(TestCase):
              role='member',
              public_network=os.getenv('OPENSTACK_PUBLIC_NETWORK_ID'),
              network_cidr='192.168.0.0/24',
+        )
+        return Resource.objects.get(name=resource_name)
+
+    @staticmethod
+    def new_openshift_resource(name=None, auth_url=None) -> Resource:
+        resource_name = name or uuid.uuid4().hex
+
+        call_command(
+            'add_openshift_resource',
+            name=resource_name,
+            auth_url=auth_url or 'https://onboarding-onboarding.cluster.local',
         )
         return Resource.objects.get(name=resource_name)
 

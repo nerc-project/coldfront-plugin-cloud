@@ -12,7 +12,7 @@ from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 
-from coldfront_plugin_openstack import attributes, base
+from coldfront_plugin_openstack import attributes, base, utils
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def get_session_for_resource(resource):
     # uppercase.
     # This allows for the possibility of managing multiple OpenStack clouds
     # via multiple resources.
-    var_name = resource.name.replace(' ', '_').replace('-', '_').upper()
+    var_name = utils.env_safe_name(resource.name)
     auth = v3.ApplicationCredential(
         auth_url=auth_url,
         application_credential_id=os.environ.get(
@@ -187,9 +187,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             return create_response.json()['user']
 
     def assign_role_on_user(self, username, project_id):
-        role_name = self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
-
-        role = self.identity.roles.find(name=role_name)
+        role = self.identity.roles.find(name=self.member_role_name)
 
         user = self.get_federated_user(username)
         self.identity.roles.grant(user=user['id'],
@@ -197,8 +195,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                                   role=role)
 
     def remove_role_from_user(self, username, project_id):
-        role_name = self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
-        role = self.identity.roles.find(name=role_name)
+        role = self.identity.roles.find(name=self.member_role_name)
 
         if user := self.get_federated_user(username):
             self.identity.roles.revoke(user=user['id'], project=project_id, role=role)

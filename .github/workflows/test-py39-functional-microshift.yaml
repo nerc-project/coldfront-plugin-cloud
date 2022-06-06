@@ -1,4 +1,4 @@
-name: test-py38-functional-devstack
+name: test-py39-functional-microshift
 
 on:
   push:
@@ -13,9 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install Devstack and Keycloak
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+
+      - name: Install Microshift
         run: |
-          ./ci/devstack.sh
+          ./ci/microshift.sh
 
       - name: Install ColdFront and plugin
         run: |
@@ -23,4 +28,4 @@ jobs:
 
       - name: Run functional tests
         run: |
-          ./ci/run_functional_tests_openstack.sh
+          ./ci/run_functional_tests_openshift.sh

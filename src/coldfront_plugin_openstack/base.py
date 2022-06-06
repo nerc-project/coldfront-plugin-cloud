@@ -1,7 +1,10 @@
 import abc
+import functools
 
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
+
+from coldfront_plugin_openstack import attributes
 
 
 class ResourceAllocator(abc.ABC):
@@ -18,6 +21,14 @@ class ResourceAllocator(abc.ABC):
         if not (user := self.get_federated_user(username)):
             user = self.create_federated_user(username)
         return user
+
+    @functools.cached_property
+    def auth_url(self):
+        return self.resource.get_attribute(attributes.RESOURCE_AUTH_URL).rstrip("/")
+
+    @functools.cached_property
+    def member_role_name(self):
+        return self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
 
     @abc.abstractmethod
     def create_project(self, project_name) -> str:
