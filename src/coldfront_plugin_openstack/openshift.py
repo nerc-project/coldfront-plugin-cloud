@@ -31,8 +31,12 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         session = requests.session()
         if username and password:
             session.auth = HTTPBasicAuth(username, password)
-        if os.environ.get('FUNCTIONAL_TESTS', '') == 'True':
+
+        functional_tests = os.environ.get('FUNCTIONAL_TESTS', '').lower()
+        verify = os.getenv(f'OPENSHIFT_{var_name}_VERIFY', '').lower()
+        if functional_tests == 'true' or verify == 'false':
             session.verify = False
+
         return session
 
     @staticmethod
