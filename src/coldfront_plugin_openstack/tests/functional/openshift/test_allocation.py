@@ -81,3 +81,73 @@ class TestAllocation(base.TestBase):
         allocator._get_role(user.username, project_id)
         with self.assertRaises(openshift.NotFound):
             allocator._get_role(user2.username, project_id)
+
+    def test_new_allocation_quota(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource,
+                                                         allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 2)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 2048)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
+
+        quota = allocator._get_quota(project_id)['Quota']
+        quota = {k: v for k, v in quota.items() if v is not None}
+        # The return value will update to the most relevant unit, so
+        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        self.assertEqual(quota, {
+            ":limits.cpu": "4",
+            ":limits.memory": "4Gi",
+            ":limits.ephemeral-storage": "10Gi",
+        })
+
+    def test_reactivate_allocation(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource,
+                                                         allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 4)
+
+        quota = allocator._get_quota(project_id)['Quota']
+
+        # https://github.com/CCI-MOC/openshift-acct-mgt
+        quota = {k: v for k, v in quota.items() if v is not None}
+        # The return value will update to the most relevant unit, so
+        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        self.assertEqual(quota, {
+            ":limits.cpu": "4",
+            ":limits.memory": "4Gi",
+            ":limits.ephemeral-storage": "10Gi",
+        })
+
+        # Simulate an attribute change request and subsequent approval which
+        # triggers a reactivation
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_CPU, 3)
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        quota = allocator._get_quota(project_id)['Quota']
+        quota = {k: v for k, v in quota.items() if v is not None}
+        # The return value will update to the most relevant unit, so
+        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        self.assertEqual(quota, {
+            ":limits.cpu": "3",
+            ":limits.memory": "4Gi",
+            ":limits.ephemeral-storage": "10Gi",
+        })
+
+        allocator._get_role(user.username, project_id)

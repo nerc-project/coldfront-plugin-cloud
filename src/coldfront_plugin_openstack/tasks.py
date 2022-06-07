@@ -28,7 +28,11 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_OBJECT_GB: 1,
         attributes.QUOTA_GPU: 0,
     },
-    'openshift': dict()
+    'openshift': {
+        attributes.QUOTA_LIMITS_CPU: 2,
+        attributes.QUOTA_LIMITS_MEMORY: 2048,
+        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
+    }
 }
 
 # The amount of quota that every projects gets,

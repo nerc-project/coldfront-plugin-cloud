@@ -3,7 +3,7 @@
 #
 set -xe
 
-export ACCT_MGT_VERSION="e955158dc9fbd2a7aa68a8818fb7018315141d2b"
+export ACCT_MGT_VERSION="9469dcf8264eed50314963e8347e4a8adbd8984b"
 
 sudo apt-get update && sudo apt-get upgrade -y
 
@@ -19,6 +19,9 @@ sudo docker run -d --rm --name microshift --privileged \
     quay.io/microshift/microshift-aio:latest
 
 sudo docker run -d --name registry --network host registry:2
+
+# https://github.com/nerc-project/coldfront-plugin-openstack/issues/50
+sleep 30
 
 curl -O "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz"
 sudo tar -xf openshift-client-linux.tar.gz -C /usr/local/bin oc kubectl

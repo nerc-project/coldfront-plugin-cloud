@@ -23,6 +23,8 @@ ALLOCATION_PROJECT_NAME = 'OpenStack Project Name'
 ALLOCATION_ATTRIBUTES = [ALLOCATION_PROJECT_ID,
                          ALLOCATION_PROJECT_NAME]
 
+###########################################################
+# OpenStack Quota Attributes
 QUOTA_INSTANCES = 'OpenStack Compute Instance Quota'
 QUOTA_RAM = 'OpenStack Compute RAM Quota'
 QUOTA_VCPU = 'OpenStack Compute vCPU Quota'
@@ -36,6 +38,12 @@ QUOTA_OBJECT_GB = 'OpenStack Swift Quota in Gigabytes'
 
 QUOTA_GPU = 'OpenStack GPU Quota'
 
+###########################################################
+# OpenShift Quota Attributes
+QUOTA_LIMITS_CPU = 'OpenShift Limit on CPU Quota'
+QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota'
+QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = 'OpenShift Limit on Ephemeral Storage Quota (GB)'
+
 ALLOCATION_QUOTA_ATTRIBUTES = [QUOTA_INSTANCES,
                                QUOTA_RAM,
                                QUOTA_VCPU,
@@ -43,5 +51,7 @@ ALLOCATION_QUOTA_ATTRIBUTES = [QUOTA_INSTANCES,
                                QUOTA_VOLUMES_GB,
                                QUOTA_FLOATING_IPS,
                                QUOTA_OBJECT_GB,
-                               QUOTA_GPU]
-
+                               QUOTA_GPU,
+                               QUOTA_LIMITS_CPU,
+                               QUOTA_LIMITS_MEMORY,
+                               QUOTA_LIMITS_EPHEMERAL_STORAGE_GB]
