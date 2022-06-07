@@ -94,7 +94,8 @@ class TestAllocation(base.TestBase):
 
         # Check correct attributes
         for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-            self.assertIsNotNone(allocation.get_attribute(attr))
+            if 'OpenStack' in attr:
+                self.assertIsNotNone(allocation.get_attribute(attr))
 
     def test_new_allocation_with_quantity(self):
         user = self.new_user()
