@@ -122,10 +122,12 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                     # from the one you authenticated as, you must specify the
                     # endpoint manually. Endpoint url is in the form:
                     # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
+                    # or tenant_id instead of project_id.
                     swift_service = self.identity.services.find(name='swift')
                     url = self.identity.endpoints.list(service=swift_service,
                                                        interface='public')[0].url
                     url = url.replace('$(project_id)s', project_id)
+                    url = url.replace('$(tenant_id)s', project_id)
 
                     client = swiftclient.Connection(session=session,
                                                     preauthurl=url)
