@@ -98,7 +98,7 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 2048)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
 
-        quota = allocator._get_quota(project_id)['Quota']
+        quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
         # 4000m cores becomes 4 and 4096Mi becomes 4Gi
@@ -122,7 +122,7 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 4)
 
-        quota = allocator._get_quota(project_id)['Quota']
+        quota = allocator.get_quota(project_id)['Quota']
 
         # https://github.com/CCI-MOC/openshift-acct-mgt
         quota = {k: v for k, v in quota.items() if v is not None}
@@ -140,7 +140,7 @@ class TestAllocation(base.TestBase):
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
 
-        quota = allocator._get_quota(project_id)['Quota']
+        quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
         # 4000m cores becomes 4 and 4096Mi becomes 4Gi

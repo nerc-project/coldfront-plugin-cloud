@@ -81,6 +81,11 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         r = self.session.put(url, data=json.dumps({'Quota': payload}))
         self.check_response(r)
 
+    def get_quota(self, project_id):
+        url = f"{self.auth_url}/projects/{project_id}/quota"
+        r = self.session.get(url)
+        return self.check_response(r)
+
     def create_project_defaults(self, project_id):
         pass
 
@@ -153,9 +158,4 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _delete_user(self, username):
         url = f"{self.auth_url}/users/{username}"
         r = self.session.delete(url)
-        return self.check_response(r)
-
-    def _get_quota(self, project_id):
-        url = f"{self.auth_url}/projects/{project_id}/quota"
-        r = self.session.get(url)
         return self.check_response(r)

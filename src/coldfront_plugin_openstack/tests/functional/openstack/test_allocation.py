@@ -92,6 +92,18 @@ class TestAllocation(base.TestBase):
         for k, v in expected_neutron_quota.items():
             self.assertEqual(actual_neutron_quota.get(k), v)
 
+        # Validate get_quota
+        expected_quota = {
+            'instances': 1,
+            'cores': 2,
+            'ram': 4096,
+            'volumes': 2,
+            'gigabytes': 100,
+            'floatingip': 2,
+            'x-account-meta-quota-bytes': 1000000000,
+        }
+        self.assertEqual(expected_quota, allocator.get_quota(openstack_project.id))
+
         # Check correct attributes
         for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
             if 'OpenStack' in attr:

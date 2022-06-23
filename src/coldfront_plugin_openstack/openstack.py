@@ -34,7 +34,7 @@ QUOTA_KEY_MAPPING = {
     },
     'object': {
         'keys': {
-            attributes.QUOTA_OBJECT_GB: 'X-Account-Meta-Quota-Bytes',
+            attributes.QUOTA_OBJECT_GB: 'x-account-meta-quota-bytes',
         }
     },
     'volume': {
@@ -74,10 +74,38 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
     resource_type = 'openstack'
 
     @functools.cached_property
+    def session(self) -> session.Session:
+        return get_session_for_resource(self.resource)
+
+    @functools.cached_property
     def identity(self) -> ks_client.Client:
-        return ks_client.Client(
-            session=get_session_for_resource(self.resource)
-        )
+        return ks_client.Client(session=self.session)
+
+    @functools.cached_property
+    def compute(self) -> novaclient.Client:
+        return novaclient.Client(session=self.session, version=2)
+
+    @functools.cached_property
+    def volume(self):
+        return cinderclient.Client(session=self.session, version=3)
+
+    @functools.cached_property
+    def network(self):
+        return neutronclient.Client(session=self.session)
+
+    @functools.lru_cache()
+    def object(self, project_id) -> swiftclient.Connection:
+        # If you want to perform operation on a project different
+        # from the one you authenticated as, you must specify the
+        # endpoint manually. Endpoint url is in the form:
+        # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
+        swift_service = self.identity.services.find(name='swift')
+        url = self.identity.endpoints.list(service=swift_service,
+                                           interface='public')[0].url
+        url = url.replace('$(project_id)s', project_id)
+        url = url.replace('$(tenant_id)s', project_id)
+
+        return swiftclient.Connection(session=self.session, preauthurl=url)
 
     def create_project(self, project_name) -> str:
         openstack_project = self.identity.projects.create(
@@ -95,7 +123,6 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         self.identity.projects.update(project_id, enabled=False)
 
     def set_quota(self, project_id):
-        session = get_session_for_resource(self.resource)
         # If an attribute with the appropriate name is associated with an
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
@@ -108,37 +135,49 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                     payload[openstack_key] = value
 
             if service_name == 'network':
-                client = neutronclient.Client(session=session)
-                client.update_quota(project_id, body={'quota': payload})
+                self.network.update_quota(project_id, body={'quota': payload})
             elif service_name == 'volume':
-                client = cinderclient.Client(session=session, version=3)
-                client.quotas.update(project_id, **payload)
+                self.volume.quotas.update(project_id, **payload)
             elif service_name == 'compute':
-                client = novaclient.Client(session=session, version=2)
-                client.quotas.update(project_id, **payload)
+                self.compute.quotas.update(project_id, **payload)
             elif service_name == 'object':
                 try:
-                    # If you want to perform operation on a project different
-                    # from the one you authenticated as, you must specify the
-                    # endpoint manually. Endpoint url is in the form:
-                    # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
-                    # or tenant_id instead of project_id.
-                    swift_service = self.identity.services.find(name='swift')
-                    url = self.identity.endpoints.list(service=swift_service,
-                                                       interface='public')[0].url
-                    url = url.replace('$(project_id)s', project_id)
-                    url = url.replace('$(tenant_id)s', project_id)
-
-                    client = swiftclient.Connection(session=session,
-                                                    preauthurl=url)
-                    # Note(knikolla): For consistency with other OpenStack quotas
-                    # we're storing this as GB on the attribute and then
+                    # Note(knikolla): For consistency with other OpenStack
+                    # quotas we're storing this as GB on the attribute and
                     # converting to bytes for Swift.
                     # 1 GB = 1 000 000 000 B = 10^9 B
-                    payload['X-Account-Meta-Quota-Bytes'] *= 1000000000
-                    client.post_account(headers=payload)
+                    payload[QUOTA_KEY_MAPPING['object']['keys'][
+                        attributes.QUOTA_OBJECT_GB]
+                    ] *= 1000000000
+                    self.object(project_id).post_account(headers=payload)
                 except ksa_exceptions.NotFound:
                     logger.debug('No swift available, skipping its quota.')
+
+    def get_quota(self, project_id):
+        quotas = dict()
+
+        compute_quota = self.compute.quotas.get(project_id)
+        for k in QUOTA_KEY_MAPPING['compute']['keys'].values():
+            quotas[k] = compute_quota.__getattr__(k)
+
+        volume_quota = self.volume.quotas.get(project_id)
+        for k in QUOTA_KEY_MAPPING['volume']['keys'].values():
+            quotas[k] = volume_quota.__getattr__(k)
+
+        network_quota = self.network.show_quota(project_id)['quota']
+        for k in QUOTA_KEY_MAPPING['network']['keys'].values():
+            quotas[k] = network_quota.get(k)
+
+        try:
+            swift = self.object(project_id).head_account()
+            key = QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+            quotas[key] = int(swift.get(key))
+        except ksa_exceptions.NotFound:
+            logger.debug('No swift available, skipping its quota.')
+        except ValueError:
+            logger.info('No swift quota set.')
+
+        return quotas
 
     def get_user_payload_for_resource(self, username):
         domain_id = self.resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
