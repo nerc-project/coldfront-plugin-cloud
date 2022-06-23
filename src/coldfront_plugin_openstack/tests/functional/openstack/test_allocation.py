@@ -4,8 +4,7 @@ import unittest
 from coldfront_plugin_openstack import attributes, openstack, tasks, utils
 from coldfront_plugin_openstack.tests import base
 
-from keystoneauth1.identity import v3
-from keystoneauth1 import session
+from django.core.management import call_command
 from keystoneclient.v3 import client
 from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
@@ -100,7 +99,7 @@ class TestAllocation(base.TestBase):
             'volumes': 2,
             'gigabytes': 100,
             'floatingip': 2,
-            'x-account-meta-quota-bytes': 1000000000,
+            'x-account-meta-quota-bytes': 1,
         }
         self.assertEqual(expected_quota, allocator.get_quota(openstack_project.id))
 
@@ -180,6 +179,20 @@ class TestAllocation(base.TestBase):
         self.assertEqual(new_neutron_quota['floatingip'], 3)
         actual_nova_quota = self.compute.quotas.get(openstack_project.id)
         self.assertEqual(actual_nova_quota.__getattr__('cores'), 100)
+
+        # Change allocation attributes for floating ips and cores again
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_FLOATING_IPS, 6)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_VCPU, 200)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 6)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 200)
+
+        call_command('validate_allocations', apply=True)
+
+        # Recheck neutron quota after attribute change
+        new_neutron_quota = self.networking.show_quota(openstack_project.id)['quota']
+        self.assertEqual(new_neutron_quota['floatingip'], 6)
+        actual_nova_quota = self.compute.quotas.get(openstack_project.id)
+        self.assertEqual(actual_nova_quota.__getattr__('cores'), 200)
 
     def test_reactivate_allocation(self):
         user = self.new_user()

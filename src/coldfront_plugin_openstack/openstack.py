@@ -16,6 +16,8 @@ from coldfront_plugin_openstack import attributes, base, utils
 
 logger = logging.getLogger(__name__)
 
+# 1 GB = 1 000 000 000 B = 10^9 B
+GB_IN_BYTES = 1000000000
 
 # Map the attribute name in ColdFront, to the client of the respective
 # service, the version of the API, and the key in the payload.
@@ -44,6 +46,9 @@ QUOTA_KEY_MAPPING = {
         }
     },
 }
+QUOTA_KEY_MAPPING_ALL_KEYS = dict()
+for service in QUOTA_KEY_MAPPING.keys():
+    QUOTA_KEY_MAPPING_ALL_KEYS.update(QUOTA_KEY_MAPPING[service]['keys'])
 
 
 def get_session_for_resource(resource):
@@ -145,10 +150,9 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                     # Note(knikolla): For consistency with other OpenStack
                     # quotas we're storing this as GB on the attribute and
                     # converting to bytes for Swift.
-                    # 1 GB = 1 000 000 000 B = 10^9 B
                     payload[QUOTA_KEY_MAPPING['object']['keys'][
                         attributes.QUOTA_OBJECT_GB]
-                    ] *= 1000000000
+                    ] *= GB_IN_BYTES
                     self.object(project_id).post_account(headers=payload)
                 except ksa_exceptions.NotFound:
                     logger.debug('No swift available, skipping its quota.')
@@ -171,7 +175,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         try:
             swift = self.object(project_id).head_account()
             key = QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
-            quotas[key] = int(swift.get(key))
+            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except ksa_exceptions.NotFound:
             logger.debug('No swift available, skipping its quota.')
         except ValueError:
