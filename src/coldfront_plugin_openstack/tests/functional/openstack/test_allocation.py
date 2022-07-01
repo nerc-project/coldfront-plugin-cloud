@@ -101,7 +101,10 @@ class TestAllocation(base.TestBase):
             'floatingip': 2,
             'x-account-meta-quota-bytes': 1,
         }
-        self.assertEqual(expected_quota, allocator.get_quota(openstack_project.id))
+        resulting_quota = allocator.get_quota(openstack_project.id)
+        if 'x-account-meta-quota-bytes' not in resulting_quota.keys():
+            expected_quota.pop('x-account-meta-quota-bytes')
+        self.assertEqual(expected_quota, resulting_quota)
 
         # Check correct attributes
         for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
