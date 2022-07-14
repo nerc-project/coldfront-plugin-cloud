@@ -34,7 +34,7 @@ class Command(BaseCommand):
             name=options["resource"],
         )
 
-        session = openstack.get_session_for_resource()
+        session = openstack.get_session_for_resource(resource)
         client = novaclient.Client(session=session, version=2)
 
         flavor_names = []
@@ -53,7 +53,7 @@ class Command(BaseCommand):
         # Search the flavors, and construct a list of (flavor_obj, amount used by 1 instance)
         flavors = []
         for nova_flavor in client.flavors.list():
-            for name, index in enumerate(flavor_names):
+            for index, name in enumerate(flavor_names):
                 if nova_flavor.name == name:
                     flavors.append((nova_flavor, flavor_values[index]))
         if len(flavors) != len(flavor_names):
@@ -63,7 +63,7 @@ class Command(BaseCommand):
         # Find all active OpenStack projects and create a
         # dictionary with the project id
         allocations = Allocation.objects.filter(
-            resources__in=resource,
+            resources__in=[resource],
             status=AllocationStatusChoice.objects.get(name="Active"),
         )
         project_id_to_allocation = {
@@ -100,7 +100,7 @@ class Command(BaseCommand):
             allowed = allocation.get_attribute(attributes.QUOTA_GPU)
             if active_gpu_count > allowed:
                 msg = (
-                    f'{allocation.pk} of project "{allocation.project.title}"'
-                    f" is using {active_gpu_count} GPU instances. (Allowed {allowed}."
+                    f'Allocation ID {allocation.pk} of project "{allocation.project.title}"'
+                    f" is using {active_gpu_count} GPU instances. (Allowed {allowed})."
                 )
                 logger.warning(msg)
