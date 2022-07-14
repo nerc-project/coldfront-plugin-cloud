@@ -93,7 +93,7 @@ class TestBase(TestCase):
             justification='a justification for testing data',
             quantity=quantity,
             status=AllocationStatusChoice.objects.get(
-                name='New')
+                name='Active')
         )
         allocation.resources.add(resource)
         return allocation

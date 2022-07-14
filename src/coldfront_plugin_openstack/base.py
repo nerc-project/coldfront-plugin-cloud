@@ -51,6 +51,10 @@ class ResourceAllocator(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_quota(self, project_id):
+        pass
+
+    @abc.abstractmethod
     def create_federated_user(self, unique_id):
         pass
 
