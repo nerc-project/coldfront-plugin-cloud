@@ -45,10 +45,11 @@ class Command(BaseCommand):
                 flavor_names.append(flavor_arg[0])
                 flavor_values.append(int(flavor_arg[1]))
             else:
-                logger.critical(
-                    f'Invalid value {flavor_arg}. Must be "<name>=<value>."'
+                flavor_names.append(flavor_arg[0])
+                flavor_values.append(1)
+                logger.debug(
+                    f'No GPU count specified for {flavor_arg[0]} - assuming 1'
                 )
-                sys.exit(1)
 
         # Search the flavors, and construct a list of (flavor_obj, amount used by 1 instance)
         flavors = []
