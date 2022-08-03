@@ -6,7 +6,7 @@ from coldfront.core.resource.models import (Resource,
                                             ResourceAttributeType,
                                             ResourceType)
 
-from coldfront_plugin_openstack import attributes
+from coldfront_plugin_cloud import attributes
 
 
 class Command(BaseCommand):

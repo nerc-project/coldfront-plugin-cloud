@@ -6,4 +6,4 @@ fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
 
-coldfront test coldfront_plugin_openstack.tests.unit
+coldfront test coldfront_plugin_cloud.tests.unit

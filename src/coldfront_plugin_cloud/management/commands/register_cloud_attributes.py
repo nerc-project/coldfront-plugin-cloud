@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
 
-from coldfront_plugin_openstack import attributes
+from coldfront_plugin_cloud import attributes
 
 logger = logging.getLogger(__name__)
 

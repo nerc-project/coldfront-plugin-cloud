@@ -2,8 +2,8 @@ import os
 import time
 import unittest
 
-from coldfront_plugin_openstack import attributes, openshift, tasks, utils
-from coldfront_plugin_openstack.tests import base
+from coldfront_plugin_cloud import attributes, openshift, tasks, utils
+from coldfront_plugin_cloud.tests import base
 
 
 @unittest.skipUnless(os.getenv('FUNCTIONAL_TESTS'), 'Functional tests not enabled.')

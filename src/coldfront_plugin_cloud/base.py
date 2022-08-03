@@ -4,7 +4,7 @@ import functools
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
 
-from coldfront_plugin_openstack import attributes
+from coldfront_plugin_cloud import attributes
 
 
 class ResourceAllocator(abc.ABC):

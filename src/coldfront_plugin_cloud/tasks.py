@@ -6,11 +6,11 @@ import time
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationUser)
 
-from coldfront_plugin_openstack import (attributes,
-                                        base,
-                                        openstack,
-                                        openshift,
-                                        utils)
+from coldfront_plugin_cloud import (attributes,
+                                    base,
+                                    openstack,
+                                    openshift,
+                                    utils)
 
 logger = logging.getLogger(__name__)
 

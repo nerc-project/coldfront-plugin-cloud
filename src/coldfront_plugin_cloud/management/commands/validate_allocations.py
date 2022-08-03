@@ -1,7 +1,7 @@
 import logging
 
-from coldfront_plugin_openstack import attributes
-from coldfront_plugin_openstack import openstack
+from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud import openstack
 
 from django.core.management.base import BaseCommand
 from coldfront.core.resource.models import (Resource,

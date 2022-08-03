@@ -20,7 +20,7 @@ sudo docker run -d --rm --name microshift --privileged \
 
 sudo docker run -d --name registry --network host registry:2
 
-# https://github.com/nerc-project/coldfront-plugin-openstack/issues/50
+# https://github.com/nerc-project/coldfront-plugin-cloud/issues/50
 sleep 30
 
 curl -O "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz"

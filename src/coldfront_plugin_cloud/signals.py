@@ -3,10 +3,10 @@ import os
 from django.dispatch import receiver
 from django_q.tasks import async_task
 
-from coldfront_plugin_openstack.tasks import (activate_allocation,
-                                              add_user_to_allocation,
-                                              disable_allocation,
-                                              remove_user_from_allocation)
+from coldfront_plugin_cloud.tasks import (activate_allocation,
+                                          add_user_to_allocation,
+                                          disable_allocation,
+                                          remove_user_from_allocation)
 from coldfront.core.allocation.signals import (allocation_activate,
                                                allocation_activate_user,
                                                allocation_disable,

@@ -12,7 +12,7 @@ from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 
-from coldfront_plugin_openstack import attributes, base, utils
+from coldfront_plugin_cloud import attributes, base, utils
 
 logger = logging.getLogger(__name__)
 

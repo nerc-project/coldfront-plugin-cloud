@@ -2,7 +2,7 @@ from unittest import mock
 from os import devnull
 import sys
 
-from coldfront_plugin_openstack.tests import base
+from coldfront_plugin_cloud.tests import base
 from coldfront.core.resource import models as resource_models
 from coldfront.core.allocation import models as allocation_models
 
@@ -19,7 +19,7 @@ class TestAttributeMigration(base.TestBase):
         sys.stdout = backup
 
     @mock.patch(
-        'coldfront_plugin_openstack.management.commands.register_cloud_attributes.RESOURCE_ATTRIBUTE_MIGRATIONS',
+        'coldfront_plugin_cloud.management.commands.register_cloud_attributes.RESOURCE_ATTRIBUTE_MIGRATIONS',
         [
             ('Before Migration', 'After First Migration'),
             ('After First Migration', 'After Migration'),
@@ -27,7 +27,7 @@ class TestAttributeMigration(base.TestBase):
         ]
     )
     @mock.patch(
-        'coldfront_plugin_openstack.management.commands.register_cloud_attributes.ALLOCATION_ATTRIBUTE_MIGRATIONS',
+        'coldfront_plugin_cloud.management.commands.register_cloud_attributes.ALLOCATION_ATTRIBUTE_MIGRATIONS',
         [
             ('Before Migration', {
                 'name': 'After First Migration'

@@ -1,8 +1,8 @@
 import logging
 import sys
 
-from coldfront_plugin_openstack import attributes
-from coldfront_plugin_openstack import openstack
+from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud import openstack
 
 from novaclient import client as novaclient
 from django.core.management.base import BaseCommand
