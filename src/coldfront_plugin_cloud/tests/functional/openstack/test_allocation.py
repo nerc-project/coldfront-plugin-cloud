@@ -1,8 +1,8 @@
 import os
 import unittest
 
-from coldfront_plugin_openstack import attributes, openstack, tasks, utils
-from coldfront_plugin_openstack.tests import base
+from coldfront_plugin_cloud import attributes, openstack, tasks, utils
+from coldfront_plugin_cloud.tests import base
 
 from django.core.management import call_command
 from keystoneclient.v3 import client

@@ -8,7 +8,7 @@ import time
 import uuid
 from simplejson.errors import JSONDecodeError
 
-from coldfront_plugin_openstack import attributes, base, utils
+from coldfront_plugin_cloud import attributes, base, utils
 
 QUOTA_KEY_MAPPING = {
     attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},

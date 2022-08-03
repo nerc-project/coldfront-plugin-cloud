@@ -22,7 +22,7 @@ from coldfront.core.resource.models import (Resource,
                                             ResourceAttributeType)
 from django.core.management import call_command
 
-from coldfront_plugin_openstack import attributes
+from coldfront_plugin_cloud import attributes
 
 
 class TestBase(TestCase):
