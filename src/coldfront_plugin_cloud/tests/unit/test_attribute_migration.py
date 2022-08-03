@@ -2,7 +2,9 @@ from unittest import mock
 from os import devnull
 import sys
 
+from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud.tests import base
+from coldfront_plugin_cloud.management.commands import register_cloud_attributes
 from coldfront.core.resource import models as resource_models
 from coldfront.core.allocation import models as allocation_models
 
@@ -114,3 +116,29 @@ class TestAttributeMigration(base.TestBase):
             allocation_models.AllocationAttributeType.objects.get(
                 name='No Migration'
             )
+
+    def test_rename_identity_url(self):
+        with mock.patch(
+                'coldfront_plugin_cloud.management.commands.register_cloud_attributes.RESOURCE_ATTRIBUTE_MIGRATIONS',
+                []
+        ):
+            with mock.patch('coldfront_plugin_cloud.attributes.RESOURCE_AUTH_URL', 'OpenStack Auth URL'):
+                # The below is necessary because strings are passed into the list by value
+                attributes.RESOURCE_ATTRIBUTES[0] = attributes.RESOURCE_AUTH_URL
+
+                call_command('register_cloud_attributes')
+                resource = self.new_resource('Example', 'https://example.com')
+
+                self.assertEqual(
+                    resource.get_attribute('OpenStack Auth URL'),
+                    'https://example.com'
+                )
+
+        attributes.RESOURCE_ATTRIBUTES[0] = attributes.RESOURCE_AUTH_URL
+        call_command('register_cloud_attributes')
+
+        self.assertEqual(attributes.RESOURCE_AUTH_URL, 'Identity Endpoint URL')
+        self.assertEqual(
+            resource.get_attribute('Identity Endpoint URL'),
+            'https://example.com'
+        )
