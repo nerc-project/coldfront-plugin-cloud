@@ -8,6 +8,7 @@ from coldfront.core.resource.models import (Resource,
                                             ResourceType)
 from coldfront.core.allocation.models import (Allocation,
                                               AllocationStatusChoice)
+from keystoneauth1.exceptions import http
 
 
 logger = logging.getLogger(__name__)
@@ -41,9 +42,20 @@ class Command(BaseCommand):
                 allocation.resources.first(),
                 allocation
             )
-            quota = allocator.get_quota(
-                allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-            )
+
+            project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+            if not project_id:
+                logger.error(f'{allocation_str} is active but has no Project ID set.')
+                continue
+
+            try:
+                allocator.identity.projects.get(project_id)
+            except http.NotFound:
+                logger.error(f'{allocation_str} has Project ID {project_id}. But'
+                             f' no project found in OpenStack.')
+                continue
+
+            quota = allocator.get_quota(project_id)
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr:
                     expected_value = allocation.get_attribute(attr)
