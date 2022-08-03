@@ -11,6 +11,8 @@ class ResourceAllocator(abc.ABC):
 
     resource_type = ''
 
+    project_name_max_length = None
+
     def __init__(self,
                  resource: resource_models.Resource,
                  allocation: allocation_models.Allocation):
