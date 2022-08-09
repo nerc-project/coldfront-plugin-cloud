@@ -78,6 +78,8 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
 
     resource_type = 'openstack'
 
+    project_name_max_length = 64
+
     @functools.cached_property
     def session(self) -> session.Session:
         return get_session_for_resource(self.resource)
