@@ -61,8 +61,8 @@ def find_allocator(allocation) -> base.ResourceAllocator:
 
 
 def get_unique_project_name(project_name, max_length=None):
-    # The random hex at the end of the project name is 6 chars
-    max_without_suffix = max_length - 6 if max_length else None
+    # The random hex at the end of the project name is 6 chars, 1 hyphen
+    max_without_suffix = max_length - 7 if max_length else None
     return f'{project_name[:max_without_suffix]}-f{secrets.token_hex(3)}'
 
 
