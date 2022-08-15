@@ -2,6 +2,7 @@ import logging
 
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import openstack
+from coldfront_plugin_cloud import utils
 
 from django.core.management.base import BaseCommand
 from coldfront.core.resource.models import (Resource,
@@ -58,22 +59,29 @@ class Command(BaseCommand):
             quota = allocator.get_quota(project_id)
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr:
+                    key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
+                    if not key:
+                        # Note(knikolla): Some attributes are only maintained
+                        # for bookkeeping purposes and do not have a
+                        # corresponding quota set on the service.
+                        continue
+
                     expected_value = allocation.get_attribute(attr)
-                    if expected_value is None:
-                        msg = f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                    current_value = quota.get(key, None)
+                    if expected_value is None and current_value:
+                        msg = (f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                               f' Current quota is {current_value}.')
+                        if options['apply']:
+                            utils.set_attribute_on_allocation(
+                                allocation, attr, current_value
+                            )
+                            msg = f'{msg} Attribute set to match current quota.'
                         logger.warning(msg)
-                    else:
-                        key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
-                        if not key:
-                            # Note(knikolla): Some attributes are only maintained
-                            # for bookkeeping purposes and do not have a
-                            # corresponding quota set on the service.
-                            continue
-                        elif not (value := quota.get(key, None)) == expected_value:
-                            failed_validation = True
-                            msg = (f'Value for quota for {attr} = {value} does not match expected'
-                                   f' value of {expected_value} on allocation {allocation_str}')
-                            logger.warning(msg)
+                    elif not current_value == expected_value:
+                        failed_validation = True
+                        msg = (f'Value for quota for {attr} = {current_value} does not match expected'
+                               f' value of {expected_value} on allocation {allocation_str}')
+                        logger.warning(msg)
 
             if failed_validation and options['apply']:
                 allocator.set_quota(
