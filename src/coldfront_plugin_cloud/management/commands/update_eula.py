@@ -21,19 +21,23 @@ class Command(BaseCommand):
         parser.add_argument(
             "--resource_name", type=str, required=True, help="Name of Resource"
         )
-        parser.add_argument(
-            "--resource_type", type=str, required=True, help="Type of Resource"
-        )
 
     def handle(self, *args, **options):
 
-        resource_obj = Resource.objects.get(
-            resource_type=ResourceType.objects.get(name=options["resource_type"]),
-            name=options["resource_name"],
-        )
+        try:
+            resource_obj = Resource.objects.get(name=options["resource_name"])
+        except Resource.DoesNotExist:
+            raise CommandError("Resource does not exist")
 
         eula_url = resource_obj.get_attribute(attributes.RESOURCE_EULA_URL)
+
+        if eula_url is None:
+            raise CommandError("Attribute EULA_URL is not set")
+
         response = requests.get(eula_url)
+
+        if not response:
+            raise CommandError("Failed to get the EULA from the provided URL")
 
         try:
             resource_attribute_obj = ResourceAttribute.objects.get(
@@ -48,5 +52,3 @@ class Command(BaseCommand):
                 resource=resource_obj,
                 value=response.text,
             )
-
-        print(resource_obj.get_attribute(EULA))
