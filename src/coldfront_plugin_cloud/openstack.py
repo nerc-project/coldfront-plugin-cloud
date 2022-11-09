@@ -74,6 +74,23 @@ def get_session_for_resource(resource):
     )
 
 
+def swiftclient_change_project(swift_client, project_id):
+    # If you want to perform operation on a project different
+    # from the one you authenticated as, you must specify the
+    # endpoint manually. Endpoint url is in the form:
+    # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
+    swift_endpoint = swift_client.session.get_endpoint(
+        service_type='object-store',
+        interface='public',
+    )
+    swift_client.url = swift_endpoint.replace(
+        swift_client.session.get_project_id(),
+        project_id,
+    )
+    swift_client.close()
+    return swift_client
+
+
 class OpenStackResourceAllocator(base.ResourceAllocator):
 
     resource_type = 'openstack'
@@ -101,18 +118,11 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         return neutronclient.Client(session=self.session)
 
     @functools.lru_cache()
-    def object(self, project_id) -> swiftclient.Connection:
-        # If you want to perform operation on a project different
-        # from the one you authenticated as, you must specify the
-        # endpoint manually. Endpoint url is in the form:
-        # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
-        swift_service = self.identity.services.find(name='swift')
-        url = self.identity.endpoints.list(service=swift_service,
-                                           interface='public')[0].url
-        url = url.replace('$(project_id)s', project_id)
-        url = url.replace('$(tenant_id)s', project_id)
-
-        return swiftclient.Connection(session=self.session, preauthurl=url)
+    def object(self, project_id=None) -> swiftclient.Connection:
+        swift_client = swiftclient.Connection(session=self.session)
+        if project_id:
+            swiftclient_change_project(swift_client, project_id)
+        return swift_client
 
     def create_project(self, project_name) -> str:
         openstack_project = self.identity.projects.create(
@@ -156,7 +166,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                         attributes.QUOTA_OBJECT_GB]
                     ] *= GB_IN_BYTES
                     self.object(project_id).post_account(headers=payload)
-                except ksa_exceptions.NotFound:
+                except ksa_exceptions.catalog.EndpointNotFound:
                     logger.debug('No swift available, skipping its quota.')
 
     def get_quota(self, project_id):
@@ -178,9 +188,9 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             swift = self.object(project_id).head_account()
             key = QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
             quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
-        except ksa_exceptions.NotFound:
+        except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug('No swift available, skipping its quota.')
-        except ValueError:
+        except (ValueError, TypeError):
             logger.info('No swift quota set.')
 
         return quotas
