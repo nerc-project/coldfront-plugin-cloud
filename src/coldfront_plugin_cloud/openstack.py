@@ -190,7 +190,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug('No swift available, skipping its quota.')
-        except ValueError:
+        except (ValueError, TypeError):
             logger.info('No swift quota set.')
 
         return quotas
