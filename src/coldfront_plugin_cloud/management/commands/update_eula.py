@@ -11,7 +11,7 @@ from coldfront.core.resource.models import (
 
 from coldfront_plugin_cloud import attributes
 
-EULA = "eula"
+TARGET_ATTRIBUTE = "eula"
 
 
 class Command(BaseCommand):
@@ -41,14 +41,18 @@ class Command(BaseCommand):
 
         try:
             resource_attribute_obj = ResourceAttribute.objects.get(
-                resource_attribute_type=ResourceAttributeType.objects.get(name=EULA),
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name=TARGET_ATTRIBUTE
+                ),
                 resource=resource_obj,
             )
             resource_attribute_obj.value = response.text
             resource_attribute_obj.save()
         except ResourceAttribute.DoesNotExist:
             ResourceAttribute.objects.create(
-                resource_attribute_type=ResourceAttributeType.objects.get(name=EULA),
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name=TARGET_ATTRIBUTE
+                ),
                 resource=resource_obj,
                 value=response.text,
             )
