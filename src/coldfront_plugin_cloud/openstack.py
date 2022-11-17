@@ -74,23 +74,6 @@ def get_session_for_resource(resource):
     )
 
 
-def swiftclient_change_project(swift_client, project_id):
-    # If you want to perform operation on a project different
-    # from the one you authenticated as, you must specify the
-    # endpoint manually. Endpoint url is in the form:
-    # "http://172.16.109.217:8085/v1/AUTH_$(project_id)s"
-    swift_endpoint = swift_client.session.get_endpoint(
-        service_type='object-store',
-        interface='public',
-    )
-    swift_client.url = swift_endpoint.replace(
-        swift_client.session.get_project_id(),
-        project_id,
-    )
-    swift_client.close()
-    return swift_client
-
-
 class OpenStackResourceAllocator(base.ResourceAllocator):
 
     resource_type = 'openstack'
@@ -119,10 +102,21 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
 
     @functools.lru_cache()
     def object(self, project_id=None) -> swiftclient.Connection:
-        swift_client = swiftclient.Connection(session=self.session)
+        preauth_url = None
         if project_id:
-            swiftclient_change_project(swift_client, project_id)
-        return swift_client
+            swift_endpoint = self.session.get_endpoint(
+                service_type='object-store',
+                interface='public',
+            )
+            preauth_url = swift_endpoint.replace(
+                self.session.get_project_id(),
+                project_id,
+            )
+        logger.debug(f'creating swift client: preauthurl={preauth_url}')
+        return swiftclient.Connection(
+            session=self.session,
+            preauthurl=preauth_url,
+        )
 
     def create_project(self, project_name) -> str:
         openstack_project = self.identity.projects.create(
