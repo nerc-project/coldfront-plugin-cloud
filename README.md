@@ -1,12 +1,17 @@
-# OpenStack Plugin for ColdFront
+# Cloud Plugin for ColdFront
 
-The OpenStack plugin allows resource allocations to be requested and
-provisioned in OpenStack cloud environment from ColdFront.
+The cloud plugin allows resource allocations to be requested and
+provisioned in OpenStack and OpenShift cloud environments from ColdFront.
+
+Note: OpenShift support requires deploying the [openshift-acct-mgt][]
+API service.
+
+[openshift-acct-mgt]: https://github.com/cci-moc/openshift-acct-mgt
 
 ## Terminology
-Caution as OpenStack and ColdFront use the same term to mean different things!
-Those terms will be prefixed by coldfront or openstack to specify which usage
-they refer to.
+Caution as OpenStack, OpenShift and ColdFront use the same term to mean different
+things!
+Those terms will be prefixed by the system they apply to.
 
 ### ColdFront
 * resource - describes a computational environment for which access can be
@@ -32,23 +37,31 @@ they refer to.
 * domain - container for groups and users. Allows some organizational
   and administrative separation.
 
+### OpenShift
+* project - OpenShift terminology for a namespace. In this document they
+  will be referred to as **openshift projects**.
+
 ## Configuration
 The plugin registers a helper command to register the appropriate resource
-types and resource attribute types as described below. The OpenStack plugin
-is called automatically for coldfront resources of type `OpenStack`.
+types and resource attribute types as described below. The cloud plugin
+is called automatically for coldfront resources of type `OpenStack` and
+`OpenShift`.
 
 ```bash
-$ coldfront register_openstack_attributes
+$ coldfront register_cloud_attributes
 ```
 
-Multiple coldfront resources of type `OpenStack` can be created.
-Authentication for each is loaded as pairs of environment variables in the form
+Multiple coldfront resources of type `OpenStack` or `OpenShift` can be created.
+
+### Configuring for OpenStack
+
+Authentication for OpenStack is loaded as pairs of environment variables in the form
 `OPENSTACK_{resource_name}_APPLICATION_CREDENTIAL_ID` and
 `OPENSTACK_{resource_name}_APPLICATION_CREDENTIAL_SECRET` where `{resource_name}`
 is the name of the coldfront resource as all uppercase (with spaces and `-`
 replaced by `_`).
 
-Each coldfront resource must have the following attributes set:
+Each OpenStack resource must have the following attributes set in coldfront:
  * `OpenStack Auth URL` - the URL of the Keystone endpoint (omitting version
    and ending slash)
  * `OpenStack Domain for Projects` - The domain id that new projects will be
@@ -71,6 +84,28 @@ usage: coldfront add_openstack_resource [-h] --name NAME --auth-url AUTH_URL [--
 coldfront add_openstack_resource: error: the following arguments are required: --name, --auth-url, --idp
 ```
 
+### Configuring for OpenShift
+
+Note: OpenShift support requires deploying the [openshift-acct-mgt][]
+API service.
+
+[openshift-acct-mgt]: https://github.com/cci-moc/openshift-acct-mgt
+
+Authentication for OpenShift is loaded as pairs of environment variables
+`OPENSHIFT_{resource_name}_USERNAME` and `OPENSHIFT_{resource_name}_PASSWORD`
+where `{resource_name}` is the name of the coldfront resource as all uppercase
+(with spaces and `-` replaced by `_`).
+
+Each OpenStack resource must have the following attributes set in coldfront:
+ * `OpenStack Auth URL` - the URL of the `openshift-acct-mgt` endpoint.
+
+Registration of OpenShift coldfront resources can be performed via the UI management
+dashboard or through the helper command:
+
+```bash
+$ coldfront add_openshift_resource
+```
+
 ### Quotas
 
 The amount of quota to start out a resource allocation after approval, can be
@@ -78,14 +113,20 @@ specified using an integer field in the resource allocation request form.
 
 ColdFront has a current limitation on being able to display only one integer
 field, therefore the concept of a **unit of computing** is introduced to tie
-multiple openstack resource quotas to a single multiplier.
+multiple resource quotas to a single multiplier.
 
-| Resource Name  | Quota Amount x Unit |
-| -------------- | ------------- |
-| Instances  | 1  |
-| vCPUs  | 2  |
-| RAM | 4096 |
-| Volumes | 1 |
+| OpenStack Resource Name | Quota Amount x Unit |
+|-------------------------|---------------------|
+| Instances               | 1                   |
+| vCPUs                   | 2                   |
+| RAM                     | 4096                |
+| Volumes                 | 1                   |
+
+| OpenShift Resource Name               | Quota Amount x Unit |
+|---------------------------------------|---------------------|
+| Limit on CPU                          | 2                   |
+| Limit on RAM (GB)                     | 2                   |
+| Limit on Ephemeral Storage Quota (GB) | 5                   |
 
 After the resource allocation has been approved, these resulting quota will be
 stored individually per resource as resource allocation attributes under the
@@ -96,6 +137,9 @@ following resource allocation attribute types.
 * OpenStack Compute vCPU Quota
 * OpenStack Volumes Quota
 
-Currently, the plugin only supports setting the initial quota of a project.
-However, these attributes are editable by an admin and in a future improvement
-changes can be picked up by the plugin and re-synced with OpenStack. 
+* OpenShift Limit on CPU Quota
+* OpenShift Limit on RAM Quota
+* OpenShift Limit on Ephemeral Storage Quota (GB)
+
+By submitting a Resource Allocation Change Request and editing those attributes
+a PI can request a change in their quota.
