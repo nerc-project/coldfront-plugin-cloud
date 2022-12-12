@@ -1,6 +1,6 @@
 import requests
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from coldfront.core.resource.models import (
     Resource,
