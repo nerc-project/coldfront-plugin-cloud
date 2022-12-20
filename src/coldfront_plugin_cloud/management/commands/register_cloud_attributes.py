@@ -16,10 +16,18 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
         'is_private': False,
         'is_changeable': False,
     }),
+    ('OpenStack Project ID', {
+        'name': 'Allocated Project ID'
+    }),
+    ('OpenStack Project Name', {
+        'name': 'Allocated Project Name'
+    }),
 ]
 
 RESOURCE_ATTRIBUTE_MIGRATIONS = [
     ('Example old attribute name', 'Example new attribute name'),
+    ('OpenStack Auth URL', 'Identity Endpoint URL'),
+    ('OpenStack Role for User in Project', 'Role for User in Project'),
 ]
 
 
