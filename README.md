@@ -130,7 +130,7 @@ multiple resource quotas to a single multiplier.
 | OpenShift Resource Name               | Quota Amount x Unit |
 |---------------------------------------|---------------------|
 | Limit on CPU                          | 2                   |
-| Limit on RAM (GB)                     | 2                   |
+| Limit on RAM (MB)                     | 2                   |
 | Limit on Ephemeral Storage Quota (GB) | 5                   |
 
 After the resource allocation has been approved, these resulting quota will be
