@@ -106,6 +106,9 @@ dashboard or through the helper command:
 
 ```bash
 $ coldfront add_openshift_resource
+usage: coldfront add_openshift_resource [-h] --name NAME --auth-url AUTH_URL [--role ROLE] [--version] [-v {0,1,2,3}] [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback]
+                                        [--no-color] [--force-color] [--skip-checks]
+coldfront add_openshift_resource: error: the following arguments are required: --name, --auth-url
 ```
 
 ### Quotas
