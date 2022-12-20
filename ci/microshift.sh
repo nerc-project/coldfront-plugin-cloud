@@ -3,7 +3,7 @@
 #
 set -xe
 
-export ACCT_MGT_VERSION="9469dcf8264eed50314963e8347e4a8adbd8984b"
+export ACCT_MGT_VERSION="acd4f462104de6cb8af46baecff2ed968612742d"
 
 sudo apt-get update && sudo apt-get upgrade -y
 
