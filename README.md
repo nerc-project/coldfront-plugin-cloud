@@ -96,8 +96,10 @@ Authentication for OpenShift is loaded as pairs of environment variables
 where `{resource_name}` is the name of the coldfront resource as all uppercase
 (with spaces and `-` replaced by `_`).
 
-Each OpenStack resource must have the following attributes set in coldfront:
+Each OpenShift resource must have the following attributes set in coldfront:
  * `OpenStack Auth URL` - the URL of the `openshift-acct-mgt` endpoint.
+ * `OpenStack Role for User in Project` - the name of the `ClusterRole` to assign to users
+   on the namespace.
 
 Registration of OpenShift coldfront resources can be performed via the UI management
 dashboard or through the helper command:
