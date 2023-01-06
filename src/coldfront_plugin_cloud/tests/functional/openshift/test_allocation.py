@@ -5,6 +5,7 @@ import unittest
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
 from coldfront_plugin_cloud.tests import base
 
+from django.core.management import call_command
 
 @unittest.skipUnless(os.getenv('FUNCTIONAL_TESTS'), 'Functional tests not enabled.')
 class TestAllocation(base.TestBase):
@@ -106,6 +107,27 @@ class TestAllocation(base.TestBase):
             ":limits.cpu": "4",
             ":limits.memory": "4Gi",
             ":limits.ephemeral-storage": "10Gi",
+        })
+
+        # change a bunch of attributes
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_CPU, 6)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_MEMORY, 8192)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 50)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 6)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 8192)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 50)
+
+        # This call should update the openshift quota to match the current attributes
+        call_command('validate_allocations', apply=True)
+
+        quota = allocator.get_quota(project_id)['Quota']
+        quota = {k: v for k, v in quota.items() if v is not None}
+
+        self.assertEqual(quota, {
+            ":limits.cpu": "6",
+            ":limits.memory": "8Gi",
+            ":limits.ephemeral-storage": "50Gi",
         })
 
     def test_reactivate_allocation(self):
