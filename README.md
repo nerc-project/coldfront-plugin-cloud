@@ -145,6 +145,8 @@ following resource allocation attribute types.
 * OpenShift Limit on CPU Quota
 * OpenShift Limit on RAM Quota
 * OpenShift Limit on Ephemeral Storage Quota (GB)
+* OpenShift Request on Storage Quota (GB)
+* OpenShift Persistent Volume Quota
 
 By submitting a Resource Allocation Change Request and editing those attributes
 a PI can request a change in their quota.

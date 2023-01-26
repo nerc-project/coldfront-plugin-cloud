@@ -32,6 +32,8 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_LIMITS_CPU: 2,
         attributes.QUOTA_LIMITS_MEMORY: 2048,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
+        attributes.QUOTA_REQUESTS_STORAGE: 10,
+        attributes.QUOTA_PVC: 2
     }
 }
 
