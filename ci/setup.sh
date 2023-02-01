@@ -6,5 +6,6 @@ if [[ ! "${CI}" == "true" ]]; then
     source /tmp/coldfront_venv/bin/activate
 fi
 
+python -m pip install --upgrade pip
 pip3 install -r test-requirements.txt
 pip3 install -e .
