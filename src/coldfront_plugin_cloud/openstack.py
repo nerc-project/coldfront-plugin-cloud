@@ -236,12 +236,14 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             return query_response['users'][0]
 
     def create_federated_user(self, unique_id):
-        create_response = get_session_for_resource(self.resource).post(
-            f'{self.resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users',
-            json=self.get_user_payload_for_resource(unique_id)
-        )
-        if create_response.ok:
+        try:
+            create_response = get_session_for_resource(self.resource).post(
+                f'{self.resource.get_attribute(attributes.RESOURCE_AUTH_URL)}/v3/users',
+                json=self.get_user_payload_for_resource(unique_id)
+            )
             return create_response.json()['user']
+        except ksa_exceptions.Conflict:
+            return self.get_federated_user(unique_id)
 
     def assign_role_on_user(self, username, project_id):
         role = self.identity.roles.find(name=self.member_role_name)
