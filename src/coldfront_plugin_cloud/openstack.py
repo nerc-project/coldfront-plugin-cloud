@@ -4,6 +4,7 @@ import os
 import urllib.parse
 
 import swiftclient
+from swiftclient import exceptions as swift_exceptions
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneauth1 import exceptions as ksa_exceptions
@@ -162,6 +163,11 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                     self.object(project_id).post_account(headers=payload)
                 except ksa_exceptions.catalog.EndpointNotFound:
                     logger.debug('No swift available, skipping its quota.')
+                except swift_exceptions.ClientException as e:
+                    # This may be RGW. In that case we still haven't solved
+                    # how to apply quotas, and we want to warn, but not fail
+                    # so that other quotas have a chance to apply.
+                    logger.warning(f'Unable to apply Swift quotas. {e.msg}')
 
     def get_quota(self, project_id):
         quotas = dict()
