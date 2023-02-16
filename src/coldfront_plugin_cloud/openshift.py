@@ -5,7 +5,6 @@ import os
 import requests
 from requests.auth import HTTPBasicAuth
 import time
-import uuid
 from simplejson.errors import JSONDecodeError
 
 from coldfront_plugin_cloud import attributes, base, utils
@@ -33,6 +32,8 @@ class Conflict(ApiException):
 class OpenShiftResourceAllocator(base.ResourceAllocator):
 
     resource_type = 'openshift'
+
+    project_name_max_length = 63
 
     @functools.cached_property
     def session(self):
@@ -68,10 +69,14 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         else:
             raise ApiException(f"{response.status_code}: {response.text}")
 
-    def create_project(self, project_name):
-        project_id = uuid.uuid4().hex
+    def create_project(self, suggested_project_name):
+        sanitized_project_name = utils.get_sanitized_project_name(suggested_project_name)
+        project_id = utils.get_unique_project_name(
+            sanitized_project_name,
+            max_length=self.project_name_max_length)
+        project_name = project_id
         self._create_project(project_name, project_id)
-        return project_id
+        return self.Project(project_name, project_id)
 
     def set_quota(self, project_id):
         url = f"{self.auth_url}/projects/{project_id}/quota"

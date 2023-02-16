@@ -1,5 +1,6 @@
 import abc
 import functools
+from typing import NamedTuple
 
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
@@ -12,6 +13,10 @@ class ResourceAllocator(abc.ABC):
     resource_type = ''
 
     project_name_max_length = None
+
+    class Project(NamedTuple):
+        name: str
+        id: str
 
     def __init__(self,
                  resource: resource_models.Resource,
@@ -33,7 +38,7 @@ class ResourceAllocator(abc.ABC):
         return self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
 
     @abc.abstractmethod
-    def create_project(self, project_name) -> str:
+    def create_project(self, suggested_project_name) -> Project:
         pass
 
     @abc.abstractmethod
