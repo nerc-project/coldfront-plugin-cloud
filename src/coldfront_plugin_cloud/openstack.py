@@ -119,13 +119,17 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             preauthurl=preauth_url,
         )
 
-    def create_project(self, project_name) -> str:
+    def create_project(self, suggested_project_name) -> base.ResourceAllocator.Project:
+        project_name = utils.get_unique_project_name(
+            suggested_project_name,
+            max_length=self.project_name_max_length)
+
         openstack_project = self.identity.projects.create(
             name=project_name,
             domain=self.resource.get_attribute(attributes.RESOURCE_PROJECT_DOMAIN),
             enabled=True,
         )
-        return openstack_project.id
+        return self.Project(project_name, openstack_project.id)
 
     def reactivate_project(self, project_id):
         openstack_project = self.identity.projects.get(project_id)

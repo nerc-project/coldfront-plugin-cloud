@@ -60,12 +60,6 @@ def find_allocator(allocation) -> base.ResourceAllocator:
         return allocator_class(resource, allocation)
 
 
-def get_unique_project_name(project_name, max_length=None):
-    # The random hex at the end of the project name is 6 chars, 1 hyphen
-    max_without_suffix = max_length - 7 if max_length else None
-    return f'{project_name[:max_without_suffix]}-f{secrets.token_hex(3)}'
-
-
 def activate_allocation(allocation_pk):
     def set_quota_attributes():
         if allocation.quantity < 1:
@@ -88,11 +82,10 @@ def activate_allocation(allocation_pk):
         if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
             allocator.reactivate_project(project_id)
         else:
-            project_name = get_unique_project_name(
-                allocation.project.title,
-                max_length=allocator.project_name_max_length
-            )
-            project_id = allocator.create_project(project_name)
+            project = allocator.create_project(allocation.project.title)
+
+            project_id = project.id
+            project_name = project.name
 
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_NAME,
