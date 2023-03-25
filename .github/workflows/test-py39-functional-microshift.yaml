@@ -21,6 +21,14 @@ jobs:
         with:
           python-version: 3.9
 
+      - name: Upgrade and install packages
+        run: |
+          bash ./ci/setup-ubuntu.sh
+
+      - name: Install oc/kubectl clients
+        run: |
+          bash ./ci/setup-oc-client.sh
+
       - name: Install Microshift
         run: |
           ./ci/microshift.sh

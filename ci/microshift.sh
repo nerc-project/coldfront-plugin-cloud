@@ -5,12 +5,6 @@ set -xe
 
 export ACCT_MGT_VERSION="acd4f462104de6cb8af46baecff2ed968612742d"
 
-sudo apt-get update && sudo apt-get upgrade -y
-
-if [[ ! "${CI}" == "true" ]]; then
-    sudo apt-get install docker.io docker-compose python3-virtualenv -y
-fi
-
 echo '127.0.0.1  onboarding-onboarding.cluster.local' | sudo tee -a /etc/hosts
 
 sudo docker run -d --rm --name microshift --privileged \
@@ -22,9 +16,6 @@ sudo docker run -d --name registry --network host registry:2
 
 # https://github.com/nerc-project/coldfront-plugin-cloud/issues/50
 sleep 30
-
-curl -O "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz"
-sudo tar -xf openshift-client-linux.tar.gz -C /usr/local/bin oc kubectl
 
 mkdir ~/.kube
 sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig ~/.kube/config
