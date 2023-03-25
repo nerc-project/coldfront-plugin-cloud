@@ -16,14 +16,17 @@ sudo docker run -d --rm --name microshift --privileged \
 
 sudo docker run -d --name registry --network host registry:2
 
-# https://github.com/nerc-project/coldfront-plugin-cloud/issues/50
-sleep 30
-
 KUBECONFIG_FULL_PATH="$(readlink -f "$KUBECONFIG")"
 mkdir -p "${KUBECONFIG_FULL_PATH%/*}"
-sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig "$KUBECONFIG"
 
-while ! oc get all -h; do
+for try in {0..10}; do
+	echo "copying kubeconfig {$try}"
+	sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig \
+		"${KUBECONFIG}" && break
+	sleep 2
+done
+
+while ! oc get route -A; do
     echo "Waiting on Microshift"
     sleep 5
 done
