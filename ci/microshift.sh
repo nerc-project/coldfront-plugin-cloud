@@ -3,9 +3,9 @@
 #
 set -xe
 
+: "${ACCT_MGT_VERSION:="master"}"
+: "${ACCT_MGT_REPOSITORY:="https://github.com/cci-moc/openshift-acct-mgt.git"}"
 : "${KUBECONFIG:=$HOME/.kube/config}"
-
-export ACCT_MGT_VERSION="acd4f462104de6cb8af46baecff2ed968612742d"
 
 echo '127.0.0.1  onboarding-onboarding.cluster.local' | sudo tee -a /etc/hosts
 
@@ -29,7 +29,7 @@ while ! oc get all -h; do
 done
 
 # Install OpenShift Account Management
-git clone https://github.com/cci-moc/openshift-acct-mgt.git ~/openshift-acct-mgt
+git clone "${ACCT_MGT_REPOSITORY}" ~/openshift-acct-mgt
 cd ~/openshift-acct-mgt
 git checkout "$ACCT_MGT_VERSION"
 sudo docker build . -t "localhost:5000/cci-moc/openshift-acct-mgt:latest"
