@@ -8,6 +8,7 @@ on:
 
 env:
   PYTHONWARNINGS: ignore
+  KUBECONFIG: ${{ github.workspace }}/kubeconfig
 
 jobs:
   build:

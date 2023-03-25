@@ -3,6 +3,8 @@
 #
 set -xe
 
+: "${KUBECONFIG:=$HOME/.kube/config}"
+
 export ACCT_MGT_VERSION="acd4f462104de6cb8af46baecff2ed968612742d"
 
 echo '127.0.0.1  onboarding-onboarding.cluster.local' | sudo tee -a /etc/hosts
@@ -17,8 +19,9 @@ sudo docker run -d --name registry --network host registry:2
 # https://github.com/nerc-project/coldfront-plugin-cloud/issues/50
 sleep 30
 
-mkdir ~/.kube
-sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig ~/.kube/config
+KUBECONFIG_FULL_PATH="$(readlink -f "$KUBECONFIG")"
+mkdir -p "${KUBECONFIG_FULL_PATH%/*}"
+sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig "$KUBECONFIG"
 
 while ! oc get all -h; do
     echo "Waiting on Microshift"
