@@ -11,17 +11,24 @@ test_dir="$PWD/testdata"
 rm -rf "$test_dir"
 mkdir -p "$test_dir"
 
-echo '127.0.0.1  onboarding-onboarding.cluster.local' | sudo tee -a /etc/hosts
+sudo docker rm -f microshift registry
+
+registry_port=$(( RANDOM % 1000 + 10000 ))
 
 echo "::group::Start microshift container"
 sudo docker run -d --rm --name microshift --privileged \
-    --network host \
+    --hostname microshift \
     -v microshift-data:/var/lib \
+    -p "${registry_port}:5000" \
     quay.io/microshift/microshift-aio:latest
 echo "::endgroup::"
 
+microshift_addr=$(sudo docker inspect microshift -f '{{ .NetworkSettings.IPAddress }}')
+sudo sed -i '/onboarding-onboarding.cluster.local/d' /etc/hosts
+echo "$microshift_addr  onboarding-onboarding.cluster.local" | sudo tee -a /etc/hosts
+
 echo "::group::Start registry container"
-sudo docker run -d --name registry --network host registry:2
+sudo docker run -d --name registry --network container:microshift registry:2
 echo "::endgroup::"
 
 KUBECONFIG_FULL_PATH="$(readlink -f "$KUBECONFIG")"
@@ -35,6 +42,8 @@ for try in {0..10}; do
 	sleep 2
 done
 
+sed -i "s/127.0.0.1/${microshift_addr}/g" "$KUBECONFIG"
+
 while ! oc get route -A; do
     echo "Waiting for Microshift"
     sleep 5
@@ -47,8 +56,8 @@ git -C "$test_dir/openshift-acct-mgt" config advice.detachedHead false
 git -C "$test_dir/openshift-acct-mgt" checkout "$ACCT_MGT_VERSION"
 
 echo "::group::Build openshift-acct-mgt image"
-sudo docker build "$test_dir/openshift-acct-mgt" -t "localhost:5000/cci-moc/openshift-acct-mgt:latest"
-sudo docker push "localhost:5000/cci-moc/openshift-acct-mgt:latest"
+sudo docker build "$test_dir/openshift-acct-mgt" -t "127.0.0.1:${registry_port}/cci-moc/openshift-acct-mgt:latest"
+sudo docker push "127.0.0.1:${registry_port}/cci-moc/openshift-acct-mgt:latest"
 echo "::endgroup::"
 
 echo "::group::Deploy openshift-acct-mgt"
