@@ -1,4 +1,5 @@
-coldfront >= 1.0.4
+git+https://github.com/knikolla/coldfront@coldfront_plugin_cloud_urls#egg=coldfront
+djangorestframework
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
 python-memcached==1.59

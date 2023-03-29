@@ -16,7 +16,7 @@ class TestAttributeMigration(base.TestBase):
     def setUp(self) -> None:
         # Run initial setup but do not register the attributes
         backup, sys.stdout = sys.stdout, open(devnull, 'a')
-        call_command('initial_setup', )
+        call_command('initial_setup', '-f')
         call_command('load_test_data')
         sys.stdout = backup
 
