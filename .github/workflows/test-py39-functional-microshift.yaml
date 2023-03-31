@@ -6,17 +6,30 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  PYTHONWARNINGS: ignore
+  KUBECONFIG: ${{ github.workspace }}/kubeconfig
+  ACCT_MGT_VERSION: "acd4f462104de6cb8af46baecff2ed968612742d"
+
 jobs:
   build:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Python 3.9
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.9"
+
+      - name: Upgrade and install packages
+        run: |
+          bash ./ci/setup-ubuntu.sh
+
+      - name: Install oc/kubectl clients
+        run: |
+          bash ./ci/setup-oc-client.sh
 
       - name: Install Microshift
         run: |

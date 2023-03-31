@@ -3,45 +3,66 @@
 #
 set -xe
 
-export ACCT_MGT_VERSION="acd4f462104de6cb8af46baecff2ed968612742d"
+: "${ACCT_MGT_VERSION:="master"}"
+: "${ACCT_MGT_REPOSITORY:="https://github.com/cci-moc/openshift-acct-mgt.git"}"
+: "${KUBECONFIG:=$HOME/.kube/config}"
 
-sudo apt-get update && sudo apt-get upgrade -y
+test_dir="$PWD/testdata"
+rm -rf "$test_dir"
+mkdir -p "$test_dir"
 
-if [[ ! "${CI}" == "true" ]]; then
-    sudo apt-get install docker.io docker-compose python3-virtualenv -y
-fi
+sudo docker rm -f microshift registry
 
-echo '127.0.0.1  onboarding-onboarding.cluster.local' | sudo tee -a /etc/hosts
+registry_port=$(( RANDOM % 1000 + 10000 ))
 
+echo "::group::Start microshift container"
 sudo docker run -d --rm --name microshift --privileged \
-    --network host \
+    --hostname microshift \
     -v microshift-data:/var/lib \
+    -p "${registry_port}:5000" \
     quay.io/microshift/microshift-aio:latest
+echo "::endgroup::"
 
-sudo docker run -d --name registry --network host registry:2
+microshift_addr=$(sudo docker inspect microshift -f '{{ .NetworkSettings.IPAddress }}')
+sudo sed -i '/onboarding-onboarding.cluster.local/d' /etc/hosts
+echo "$microshift_addr  onboarding-onboarding.cluster.local" | sudo tee -a /etc/hosts
 
-# https://github.com/nerc-project/coldfront-plugin-cloud/issues/50
-sleep 30
+echo "::group::Start registry container"
+sudo docker run -d --name registry --network container:microshift registry:2
+echo "::endgroup::"
 
-curl -O "https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz"
-sudo tar -xf openshift-client-linux.tar.gz -C /usr/local/bin oc kubectl
+KUBECONFIG_FULL_PATH="$(readlink -f "$KUBECONFIG")"
+mkdir -p "${KUBECONFIG_FULL_PATH%/*}"
 
-mkdir ~/.kube
-sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig ~/.kube/config
-
-while ! oc get all -h; do
-    echo "Waiting on Microshift"
-    sleep 5
+echo "::group::Wait for Microshift"
+for try in {0..10}; do
+	echo "copying kubeconfig {$try}"
+	sudo docker cp microshift:/var/lib/microshift/resources/kubeadmin/kubeconfig \
+		"${KUBECONFIG}" && break
+	sleep 2
 done
 
-# Install OpenShift Account Management
-git clone https://github.com/cci-moc/openshift-acct-mgt.git ~/openshift-acct-mgt
-cd ~/openshift-acct-mgt
-git checkout "$ACCT_MGT_VERSION"
-sudo docker build . -t "localhost:5000/cci-moc/openshift-acct-mgt:latest"
-sudo docker push "localhost:5000/cci-moc/openshift-acct-mgt:latest"
+sed -i "s/127.0.0.1/${microshift_addr}/g" "$KUBECONFIG"
 
-oc apply -k k8s/overlays/crc
+while ! oc get route -A; do
+    echo "Waiting for Microshift"
+    sleep 5
+done
+echo "::endgroup::"
+
+# Install OpenShift Account Management
+git clone "${ACCT_MGT_REPOSITORY}" "$test_dir/openshift-acct-mgt"
+git -C "$test_dir/openshift-acct-mgt" config advice.detachedHead false
+git -C "$test_dir/openshift-acct-mgt" checkout "$ACCT_MGT_VERSION"
+
+echo "::group::Build openshift-acct-mgt image"
+sudo docker build "$test_dir/openshift-acct-mgt" -t "127.0.0.1:${registry_port}/cci-moc/openshift-acct-mgt:latest"
+sudo docker push "127.0.0.1:${registry_port}/cci-moc/openshift-acct-mgt:latest"
+echo "::endgroup::"
+
+echo "::group::Deploy openshift-acct-mgt"
+oc apply -k "$test_dir/openshift-acct-mgt/k8s/overlays/crc"
 oc wait -n onboarding --for=condition=available --timeout=800s deployment/onboarding
+echo "::endgroup::"
 
 sleep 60
