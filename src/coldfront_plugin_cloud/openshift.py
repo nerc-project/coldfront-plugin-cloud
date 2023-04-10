@@ -13,6 +13,8 @@ QUOTA_KEY_MAPPING = {
     attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},
     attributes.QUOTA_LIMITS_MEMORY: lambda x: {":limits.memory": f"{x}Mi"},
     attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {":limits.ephemeral-storage": f"{x}Gi"},
+    attributes.QUOTA_REQUESTS_STORAGE: lambda x: {":requests.storage": f"{x}Gi"},
+    attributes.QUOTA_PVC: lambda x: {":persistentvolumeclaims": f"{x}"},
 }
 
 

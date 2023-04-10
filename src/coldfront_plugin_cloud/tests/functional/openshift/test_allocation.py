@@ -98,6 +98,8 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 2)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 2048)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 10)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
 
         quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
@@ -107,16 +109,22 @@ class TestAllocation(base.TestBase):
             ":limits.cpu": "4",
             ":limits.memory": "4Gi",
             ":limits.ephemeral-storage": "10Gi",
+            ":requests.storage": "20Gi",
+            ":persistentvolumeclaims": "4",
         })
 
         # change a bunch of attributes
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_CPU, 6)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_MEMORY, 8192)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 50)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_REQUESTS_STORAGE, 100)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_PVC, 10)
 
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 6)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 8192)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 50)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 100)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 10)
 
         # This call should update the openshift quota to match the current attributes
         call_command('validate_allocations', apply=True)
@@ -128,6 +136,8 @@ class TestAllocation(base.TestBase):
             ":limits.cpu": "6",
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "50Gi",
+            ":requests.storage": "100Gi",
+            ":persistentvolumeclaims": "10",
         })
 
     def test_reactivate_allocation(self):
@@ -154,6 +164,8 @@ class TestAllocation(base.TestBase):
             ":limits.cpu": "4",
             ":limits.memory": "4Gi",
             ":limits.ephemeral-storage": "10Gi",
+            ":requests.storage": "20Gi",
+            ":persistentvolumeclaims": "4",
         })
 
         # Simulate an attribute change request and subsequent approval which
@@ -170,6 +182,8 @@ class TestAllocation(base.TestBase):
             ":limits.cpu": "3",
             ":limits.memory": "4Gi",
             ":limits.ephemeral-storage": "10Gi",
+            ":requests.storage": "20Gi",
+            ":persistentvolumeclaims": "4",
         })
 
         allocator._get_role(user.username, project_id)
