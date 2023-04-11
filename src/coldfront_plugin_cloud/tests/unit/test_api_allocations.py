@@ -1,10 +1,10 @@
 import json
 import uuid
 
+from rest_framework.test import APIClient
+
 from coldfront_plugin_cloud import attributes, utils
 from coldfront_plugin_cloud.tests import base
-
-from rest_framework.test import APIClient
 
 
 class TestApiAllocations(base.TestBase):
@@ -16,6 +16,7 @@ class TestApiAllocations(base.TestBase):
 
     def test_api(self):
         client = APIClient()
+        client.force_authenticate(user=self.admin_user)
 
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -36,7 +37,7 @@ class TestApiAllocations(base.TestBase):
         self.assertEqual(http_response.status_code, 200)
         self.assertGreaterEqual(len(json.loads(http_response.content)), 1)
 
-        http_response = self.client.get(f'/cloud-api/allocations/{allocation.pk}/')
+        http_response = client.get(f'/cloud-api/allocations/{allocation.pk}/')
         self.assertEqual(http_response.status_code, 200)
         r = json.loads(http_response.content)
 
@@ -65,3 +66,22 @@ class TestApiAllocations(base.TestBase):
             }
         )
         self.assertEqual(len(r['attributes'].keys()), 2)
+
+    def test_api_unauthenticated(self):
+        client = APIClient()
+        http_response = client.get('/cloud-api/allocations/')
+        self.assertEqual(http_response.status_code, 403)
+
+        http_response = client.get(f'/cloud-api/allocations/1/')
+        self.assertEqual(http_response.status_code, 403)
+
+    def test_api_require_admin(self):
+        client = APIClient()
+        user = self.new_user("test_user")
+        client.force_authenticate(user=user)
+
+        http_response = client.get('/cloud-api/allocations/')
+        self.assertEqual(http_response.status_code, 403)
+
+        http_response = client.get(f'/cloud-api/allocations/1/')
+        self.assertEqual(http_response.status_code, 403)

@@ -35,6 +35,8 @@ class TestBase(TestCase):
         call_command('register_cloud_attributes')
         sys.stdout = backup
 
+        self.admin_user = User.objects.get(username='admin')
+
     @staticmethod
     def new_user(username=None) -> User:
         username = username or f'{uuid.uuid4().hex}@example.com'
