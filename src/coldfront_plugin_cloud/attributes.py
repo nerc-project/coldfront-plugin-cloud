@@ -45,7 +45,7 @@ QUOTA_GPU = 'OpenStack GPU Quota'
 ###########################################################
 # OpenShift Quota Attributes
 QUOTA_LIMITS_CPU = 'OpenShift Limit on CPU Quota'
-QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota'
+QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota (MB)'
 QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = 'OpenShift Limit on Ephemeral Storage Quota (GB)'
 
 ALLOCATION_QUOTA_ATTRIBUTES = [QUOTA_INSTANCES,
