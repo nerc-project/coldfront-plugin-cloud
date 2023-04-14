@@ -22,6 +22,9 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ('OpenStack Project Name', {
         'name': 'Allocated Project Name'
     }),
+    ('OpenShift Limit on RAM Quota', {
+        'name': 'OpenShift Limit on RAM Quota (MB)'
+    }),
 ]
 
 RESOURCE_ATTRIBUTE_MIGRATIONS = [
