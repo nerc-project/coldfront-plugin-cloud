@@ -5,12 +5,14 @@ from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import openstack
 from coldfront_plugin_cloud import openshift
 from coldfront_plugin_cloud import utils
+from coldfront_plugin_cloud import tasks
 
 from django.core.management.base import BaseCommand, CommandError
 from coldfront.core.resource.models import (Resource,
                                             ResourceType)
 from coldfront.core.allocation.models import (Allocation,
-                                              AllocationStatusChoice)
+                                              AllocationStatusChoice,
+                                              AllocationUser)
 from keystoneauth1.exceptions import http
 
 
@@ -23,6 +25,31 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--apply', action='store_true',
                             help='Apply expected state if validation fails.')
+
+    @staticmethod
+    def sync_users(project_id, allocation, allocator, apply):
+        coldfront_users = AllocationUser.objects.filter(allocation=allocation, status__name='Active')
+        allocation_users = allocator.get_users(project_id)
+        failed_validation = False
+
+        # Create users that exist in coldfront but not in the resource
+        for coldfront_user in coldfront_users:
+            if coldfront_user.user.username not in allocation_users:
+                failed_validation = True
+                logger.warn(f"{coldfront_user.user.username} is not part of {project_id}")
+                if apply:
+                    tasks.add_user_to_allocation(coldfront_user.pk)
+
+        # remove users that are in the resource but not in coldfront
+        users = [coldfront_user.user.username for coldfront_user in coldfront_users]
+        for allocation_user in allocation_users:
+            if allocation_user not in users:
+                failed_validation = True
+                logger.warn(f"{allocation_user} exists in the resource {project_id} but not in coldfront")
+                if apply:
+                    allocator.remove_role_from_user(allocation_user, project_id)
+
+        return failed_validation
 
     def handle(self, *args, **options):
 
@@ -61,6 +88,9 @@ class Command(BaseCommand):
                 continue
 
             quota = allocator.get_quota(project_id)
+
+            failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
+
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr:
                     key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
@@ -129,6 +159,8 @@ class Command(BaseCommand):
                 continue
 
             quota = allocator.get_quota(project_id)["Quota"]
+
+            failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if "OpenShift" in attr:

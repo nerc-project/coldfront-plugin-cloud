@@ -1,5 +1,6 @@
 import os
 import unittest
+import uuid
 
 from coldfront_plugin_cloud import attributes, openstack, tasks, utils
 from coldfront_plugin_cloud.tests import base
@@ -264,6 +265,22 @@ class TestAllocation(base.TestBase):
                                                     project=openstack_project.id)
 
         self.assertEqual(len(roles), 0)
+
+        # use the validate_allocations command to add a new user
+        user3 = self.new_user()
+        allocation_user3 = self.new_allocation_user(allocation, user3)
+        assert user3.username not in allocator.get_users(project_id)
+        call_command('validate_allocations', apply=True)
+        assert user3.username in allocator.get_users(project_id)
+
+        # directly add a user to openstack which should then be
+        # deleted when validate_allocations is called
+        non_coldfront_user = str(uuid.uuid4()).replace('-', '')
+        allocator.get_or_create_federated_user(non_coldfront_user)
+        allocator.assign_role_on_user(non_coldfront_user, project_id)
+        assert non_coldfront_user in allocator.get_users(project_id)
+        call_command('validate_allocations', apply=True)
+        assert non_coldfront_user not in allocator.get_users(project_id)
 
     def test_add_remove_user_existing(self):
         user = self.new_user()
