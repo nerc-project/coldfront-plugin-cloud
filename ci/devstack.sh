@@ -21,8 +21,8 @@ cd /opt/stack/devstack-plugin-oidc/tools && sudo docker-compose up -d
 
 # Install and start Devstack
 git clone https://github.com/openstack/devstack.git /opt/stack/devstack
-git checkout "stable/2023.1"
 cd /opt/stack/devstack
+git checkout "stable/2023.1"
 
 cp samples/local.conf .
 
