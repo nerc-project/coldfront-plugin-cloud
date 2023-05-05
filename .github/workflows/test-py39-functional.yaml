@@ -24,14 +24,13 @@ jobs:
           pip install -r test-requirements.txt
           pip install -e .
 
+      - name: Install and start Ceph RadosGW
+        run: |
+          sudo ./ci/radosgw.sh
+
       - name: Install and start Microstack
         run: |
-          sudo snap install microstack --edge --devmode
-          sudo microstack init --auto --control
-          microstack.openstack domain create sso
-          microstack.openstack identity provider create sso --domain sso
-          microstack.openstack mapping create sso_mapping --rules ci/mapping.json
-          microstack.openstack federation protocol create openid --identity-provider sso --mapping sso_mapping
+          ./ci/microstack.sh
 
       - name: Run functional tests
         run: |

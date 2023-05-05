@@ -1,3 +1,4 @@
+import hashlib
 import functools
 import logging
 import os
@@ -47,10 +48,27 @@ QUOTA_KEY_MAPPING = {
         }
     },
 }
+
+COLDFRONT_RGW_SWIFT_INIT_USER = 'coldfront-swift-init'
+
 QUOTA_KEY_MAPPING_ALL_KEYS = dict()
 for service in QUOTA_KEY_MAPPING.keys():
     QUOTA_KEY_MAPPING_ALL_KEYS.update(QUOTA_KEY_MAPPING[service]['keys'])
 
+def get_session_for_resource_via_password(resource, username, password, project_id):
+    auth_url = resource.get_attribute(attributes.RESOURCE_AUTH_URL)
+    user_domain = resource.get_attribute(attributes.RESOURCE_USER_DOMAIN)
+    auth = v3.Password(auth_url=auth_url,
+        username=username,
+        password=password,
+        project_id=project_id,
+        user_domain_name=user_domain,
+    )
+    sesh = session.Session(
+        auth,
+        verify=os.environ.get('FUNCTIONAL_TESTS', '') != 'True'
+    )
+    return sesh
 
 def get_session_for_resource(resource):
     auth_url = resource.get_attribute(attributes.RESOURCE_AUTH_URL)
@@ -102,20 +120,21 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         return neutronclient.Client(session=self.session)
 
     @functools.lru_cache()
-    def object(self, project_id=None) -> swiftclient.Connection:
+    def object(self, project_id=None, session=None) -> swiftclient.Connection:
         preauth_url = None
+        session = session or self.session
         if project_id:
-            swift_endpoint = self.session.get_endpoint(
+            swift_endpoint = session.get_endpoint(
                 service_type='object-store',
                 interface='public',
             )
             preauth_url = swift_endpoint.replace(
-                self.session.get_project_id(),
+                session.get_project_id(),
                 project_id,
             )
         logger.debug(f'creating swift client: preauthurl={preauth_url}')
         return swiftclient.Connection(
-            session=self.session,
+            session=session,
             preauthurl=preauth_url,
         )
 
@@ -157,21 +176,56 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             elif service_name == 'compute':
                 self.compute.quotas.update(project_id, **payload)
             elif service_name == 'object':
-                try:
-                    # Note(knikolla): For consistency with other OpenStack
-                    # quotas we're storing this as GB on the attribute and
-                    # converting to bytes for Swift.
-                    payload[QUOTA_KEY_MAPPING['object']['keys'][
-                        attributes.QUOTA_OBJECT_GB]
-                    ] *= GB_IN_BYTES
-                    self.object(project_id).post_account(headers=payload)
-                except ksa_exceptions.catalog.EndpointNotFound:
-                    logger.debug('No swift available, skipping its quota.')
-                except swift_exceptions.ClientException as e:
-                    # This may be RGW. In that case we still haven't solved
-                    # how to apply quotas, and we want to warn, but not fail
-                    # so that other quotas have a chance to apply.
-                    logger.warning(f'Unable to apply Swift quotas. {e.msg}')
+                self._set_object_quota(project_id, payload)
+
+    def _set_object_quota(self, project_id, payload):
+        try:
+            # Note(knikolla): For consistency with other OpenStack
+            # quotas we're storing this as GB on the attribute and
+            # converting to bytes for Swift.
+            payload[QUOTA_KEY_MAPPING['object']['keys'][
+                attributes.QUOTA_OBJECT_GB]
+            ] *= GB_IN_BYTES
+            self.object(project_id).post_account(headers=payload)
+        except ksa_exceptions.catalog.EndpointNotFound:
+            logger.debug('No swift available, skipping its quota.')
+        except swiftclient.exceptions.ClientException as e:
+            if e.http_status == 403:
+                self._init_rgw_for_project(project_id)
+                self.object(project_id).post_account(headers=payload)
+            else:
+                raise
+
+    def _init_rgw_for_project(self, project_id):
+        var_name = utils.env_safe_name(self.resource.name)
+        phash = hashlib.sha512(
+            os.environ.get(
+                f'OPENSTACK_{var_name}_APPLICATION_CREDENTIAL_SECRET'
+            ).encode('utf-8')
+        )
+
+        password = phash.hexdigest()[0:int(phash.block_size/2)]
+
+        try:
+            user = self.identity.users.create(
+                name=COLDFRONT_RGW_SWIFT_INIT_USER,
+                password=password,
+            )
+        except ksa_exceptions.http.Conflict:
+            logger.debug(f'rgw swift init user already exists: {COLDFRONT_RGW_SWIFT_INIT_USER}')
+
+        self.assign_role_on_user(COLDFRONT_RGW_SWIFT_INIT_USER, project_id)
+
+        usesh = get_session_for_resource_via_password(
+            resource=self.resource,
+            username=COLDFRONT_RGW_SWIFT_INIT_USER,
+            password=password,
+            project_id=project_id,
+        )
+        sw = self.object(session=usesh, project_id=project_id)
+        stat = sw.head_account()
+        logger.debug(f'rgw swift stat for {project_id}:\n{stat}')
+        self.remove_role_from_user(COLDFRONT_RGW_SWIFT_INIT_USER, project_id)
 
     def get_quota(self, project_id):
         quotas = dict()
@@ -188,12 +242,19 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         for k in QUOTA_KEY_MAPPING['network']['keys'].values():
             quotas[k] = network_quota.get(k)
 
+        key = QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
         try:
             swift = self.object(project_id).head_account()
-            key = QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
             quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug('No swift available, skipping its quota.')
+        except swiftclient.exceptions.ClientException as e:
+            if e.http_status == 403:
+                self._init_rgw_for_project(project_id)
+                swift = self.object(project_id).head_account()
+                quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
+            else:
+                raise
         except (ValueError, TypeError):
             logger.info('No swift quota set.')
 
