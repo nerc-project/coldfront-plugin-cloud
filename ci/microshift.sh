@@ -12,6 +12,7 @@ rm -rf "$test_dir"
 mkdir -p "$test_dir"
 
 sudo docker rm -f microshift registry
+sudo docker volume rm -f microshift-data
 
 registry_port=$(( RANDOM % 1000 + 10000 ))
 
