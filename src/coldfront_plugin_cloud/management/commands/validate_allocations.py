@@ -41,7 +41,7 @@ class Command(BaseCommand):
                     tasks.add_user_to_allocation(coldfront_user.pk)
 
         # remove users that are in the resource but not in coldfront
-        users = [coldfront_user.user.username for coldfront_user in coldfront_users]
+        users = set([coldfront_user.user.username for coldfront_user in coldfront_users])
         for allocation_user in allocation_users:
             if allocation_user not in users:
                 failed_validation = True

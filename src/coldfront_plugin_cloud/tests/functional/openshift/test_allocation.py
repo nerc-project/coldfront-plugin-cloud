@@ -97,7 +97,7 @@ class TestAllocation(base.TestBase):
 
         # directly add a user to openshift which should then be
         # deleted when validate_allocations is called
-        non_coldfront_user = str(uuid.uuid4()).replace('-', '')
+        non_coldfront_user = uuid.uuid4().hex
         allocator.get_or_create_federated_user(non_coldfront_user)
         allocator.assign_role_on_user(non_coldfront_user, project_id)
         assert non_coldfront_user in allocator.get_users(project_id)

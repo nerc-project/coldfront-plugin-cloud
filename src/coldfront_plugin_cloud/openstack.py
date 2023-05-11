@@ -424,7 +424,8 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         """ Return users with a role in a project"""
         role_name = self.resource.get_attribute(attributes.RESOURCE_ROLE)
         role = self.identity.roles.find(name=role_name)
-        role_assignments = self.identity.role_assignments.list(role=role.id, project=project_id)
-        user_ids = (role_assignment.user for role_assignment in role_assignments)
-        user_names = [self.identity.users.get(user_id['id']).name for user_id in user_ids]
+        role_assignments = self.identity.role_assignments.list(role=role.id,
+                                                               project=project_id,
+                                                               include_names=True)
+        user_names = (role_assignment.user["name"] for role_assignment in role_assignments)
         return user_names
