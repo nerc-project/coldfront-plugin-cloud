@@ -1,10 +1,12 @@
 #!/bin/bash
-set -x
+
+set -ex
 
 OSD_BIN_DIR=/tmp
 
 
 function install_pkgs() {
+  apt-get update
   apt-get install -y cephadm lvm2 ipcalc jq iproute2
 }
 
