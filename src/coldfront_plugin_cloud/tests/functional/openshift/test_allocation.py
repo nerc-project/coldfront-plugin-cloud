@@ -1,6 +1,7 @@
 import os
 import time
 import unittest
+import uuid
 
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
 from coldfront_plugin_cloud.tests import base
@@ -77,11 +78,31 @@ class TestAllocation(base.TestBase):
         allocator._get_role(user.username, project_id)
         allocator._get_role(user2.username, project_id)
 
+        assert set([user.username, user2.username]) == allocator.get_users(project_id)
+
         tasks.remove_user_from_allocation(allocation_user2.pk)
 
         allocator._get_role(user.username, project_id)
         with self.assertRaises(openshift.NotFound):
             allocator._get_role(user2.username, project_id)
+
+        assert set([user.username]) == allocator.get_users(project_id)
+
+        # use the validate_allocations command to add a new user
+        user3 = self.new_user()
+        allocation_user3 = self.new_allocation_user(allocation, user3)
+        assert user3.username not in allocator.get_users(project_id)
+        call_command('validate_allocations', apply=True)
+        assert user3.username in allocator.get_users(project_id)
+
+        # directly add a user to openshift which should then be
+        # deleted when validate_allocations is called
+        non_coldfront_user = uuid.uuid4().hex
+        allocator.get_or_create_federated_user(non_coldfront_user)
+        allocator.assign_role_on_user(non_coldfront_user, project_id)
+        assert non_coldfront_user in allocator.get_users(project_id)
+        call_command('validate_allocations', apply=True)
+        assert non_coldfront_user not in allocator.get_users(project_id)
 
     def test_new_allocation_quota(self):
         user = self.new_user()

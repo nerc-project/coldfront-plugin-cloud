@@ -172,3 +172,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         url = f"{self.auth_url}/users/{username}"
         r = self.session.delete(url)
         return self.check_response(r)
+
+    def get_users(self, project_id):
+        url = f"{self.auth_url}/projects/{project_id}/users"
+        r = self.session.get(url)
+        return set(self.check_response(r))
