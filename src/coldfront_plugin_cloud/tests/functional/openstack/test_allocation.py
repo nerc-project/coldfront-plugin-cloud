@@ -258,7 +258,7 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role['id'], self.role_member.id)
-        assert set([user.username, user2.username]) == set(allocator.get_users(project_id))
+        assert set([user.username, user2.username]) == allocator.get_users(project_id)
 
         tasks.remove_user_from_allocation(allocation_user2.pk)
 
@@ -266,7 +266,7 @@ class TestAllocation(base.TestBase):
                                                     project=openstack_project.id)
 
         self.assertEqual(len(roles), 0)
-        assert set([user.username]) == set(allocator.get_users(project_id))
+        assert set([user.username]) == allocator.get_users(project_id)
 
         # use the validate_allocations command to add a new user
         user3 = self.new_user()

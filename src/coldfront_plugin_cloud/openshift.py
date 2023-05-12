@@ -176,4 +176,4 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def get_users(self, project_id):
         url = f"{self.auth_url}/projects/{project_id}/users"
         r = self.session.get(url)
-        return self.check_response(r)
+        return set(self.check_response(r))

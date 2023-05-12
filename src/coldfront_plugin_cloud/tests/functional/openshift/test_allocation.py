@@ -78,7 +78,7 @@ class TestAllocation(base.TestBase):
         allocator._get_role(user.username, project_id)
         allocator._get_role(user2.username, project_id)
 
-        assert set([user.username, user2.username]) == set(allocator.get_users(project_id))
+        assert set([user.username, user2.username]) == allocator.get_users(project_id)
 
         tasks.remove_user_from_allocation(allocation_user2.pk)
 
@@ -86,7 +86,7 @@ class TestAllocation(base.TestBase):
         with self.assertRaises(openshift.NotFound):
             allocator._get_role(user2.username, project_id)
 
-        assert set([user.username]) == set(allocator.get_users(project_id))
+        assert set([user.username]) == allocator.get_users(project_id)
 
         # use the validate_allocations command to add a new user
         user3 = self.new_user()

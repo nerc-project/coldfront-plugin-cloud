@@ -427,5 +427,5 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         role_assignments = self.identity.role_assignments.list(role=role.id,
                                                                project=project_id,
                                                                include_names=True)
-        user_names = (role_assignment.user["name"] for role_assignment in role_assignments)
+        user_names = set(role_assignment.user["name"] for role_assignment in role_assignments)
         return user_names
