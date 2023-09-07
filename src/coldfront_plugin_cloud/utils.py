@@ -5,7 +5,8 @@ import pytz
 import re
 import secrets
 
-from coldfront.core.allocation.models import (AllocationAttribute,
+from coldfront.core.allocation.models import (Allocation,
+                                              AllocationAttribute,
                                               AllocationAttributeType,
                                               AllocationChangeRequest,
                                               AllocationAttributeChangeRequest,)
@@ -54,15 +55,19 @@ def get_sanitized_project_name(project_name):
     return project_name
 
 
-def calculate_quota_unit_hours(allocation, attribute, start, end):
+def calculate_quota_unit_hours(allocation: Allocation,
+                               attribute: str,
+                               start: datetime,
+                               end: datetime):
     """Returns unit*hours of quota allocated in a given period.
 
     Calculation is rounded up by the hour and tracks the history of change
     requests.
 
+    :param allocation: Allocation object with the attribute to calculate.
     :param attribute: Name of the attribute to calculate.
     :param start: Start time to being calculation.
-    :param end: Optional. End time for calculation.
+    :param end: End time for calculation.
     :return: Value of attribute * amount of hours.
     """
 
