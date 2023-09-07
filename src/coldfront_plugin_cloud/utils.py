@@ -147,8 +147,7 @@ def calculate_quota_unit_hours(allocation: Allocation,
         last_event_time = event_time
         last_event_value = int(event.value)
 
-    # No special logic is required after processing the last event, just
-    # continue treating the
+    # The value remains the same from the last event until the end.
     since_last_event = math.ceil((end - last_event_time).total_seconds())
     value_times_seconds += since_last_event * last_event_value
 
