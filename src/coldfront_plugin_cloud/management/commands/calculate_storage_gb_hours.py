@@ -61,6 +61,8 @@ class Command(BaseCommand):
                             help='Start period for billing.')
         parser.add_argument('--end', type=datetime_type, required=True,
                             help='End period for billing.')
+        parser.add_argument('--output', type=str, default='invoices.csv',
+                             help='CSV file to write invoices to.')
 
     def handle(self, *args, **options):
         def process_invoice_row(allocation, attribute, price):
@@ -98,7 +100,7 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
-        with open('invoices.csv', 'w', newline='') as f:
+        with open(options['output'], 'w', newline='') as f:
             csv_invoice_writer = csv.writer(
                 f, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL
             )
