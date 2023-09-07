@@ -15,19 +15,20 @@ import pytz
 logger = logging.getLogger(__name__)
 
 
+def datetime_type(v):
+    return pytz.utc.localize(datetime.strptime(v, '%Y-%m-%d'))
+
+
 class Command(BaseCommand):
     help = "Generate invoices for storage billing."
 
     def add_arguments(self, parser):
-        parser.add_argument('--start', type=str, required=True,
+        parser.add_argument('--start', type=datetime_type, required=True,
                             help='Start period for billing.')
-        parser.add_argument('--end', type=str, required=True,
+        parser.add_argument('--end', type=datetime_type, required=True,
                             help='End period for billing.')
 
     def handle(self, *args, **options):
-        start = pytz.utc.localize(datetime.strptime(options["start"], '%Y-%m-%d'))
-        end = pytz.utc.localize(datetime.strptime(options["end"], '%Y-%m-%d'))
-
         openstack_resources = Resource.objects.filter(
             resource_type=ResourceType.objects.get(
                 name='OpenStack'
@@ -76,7 +77,9 @@ class Command(BaseCommand):
                     (attributes.QUOTA_VOLUMES_GB, 1),
                     (attributes.QUOTA_OBJECT_GB, 1)
                 ]:
-                    time = utils.calculate_quota_unit_hours(allocation, attr, start, end)
+                    time = utils.calculate_quota_unit_hours(
+                        allocation, attr, options['start'], options['end']
+                    )
                     billed = time * price_per_unit
                     if billed > 0:
                         csv_invoice_writer.writerow(
@@ -104,7 +107,9 @@ class Command(BaseCommand):
                 for attr, price_per_unit in [
                     (attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 1)
                 ]:
-                    time = utils.calculate_quota_unit_hours(allocation, attr, start, end)
+                    time = utils.calculate_quota_unit_hours(
+                        allocation, attr, options['start'], options['end']
+                    )
                     billed = time * price_per_unit
                     if billed > 0:
                         csv_invoice_writer.writerow(
