@@ -79,7 +79,7 @@ class Command(BaseCommand):
                     Invoice_Type_Hours=billed,
                     Invoice_Type=attr,
                 )
-                csv_invoice_writer.write(
+                csv_invoice_writer.writerow(
                     row.get_values()
                 )
 
