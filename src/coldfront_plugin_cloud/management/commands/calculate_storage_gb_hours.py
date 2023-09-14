@@ -74,6 +74,7 @@ class Command(BaseCommand):
             if billed > 0:
                 row = InvoiceRow(
                     Interval=f"{options['start']} - {options['end']}",
+                    Project_Name=allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME),
                     Project_ID=allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
                     PI=allocation.project.pi,
                     Invoice_Type_Hours=billed,
