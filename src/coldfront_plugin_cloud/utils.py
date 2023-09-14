@@ -116,28 +116,35 @@ def calculate_quota_unit_hours(allocation: Allocation,
             change_requests = AllocationChangeRequest.objects.filter(
                 allocation=allocation,
                 status__name = "Approved"
-            )
+            ).order_by("-created")
             for cr in change_requests:
-                print(f"Looking at: Last event at {last_event_time}, cr at"
-                      f" {cr.history.first().created}, change at {event_time}")
-                # The moment of creation for the change request, must fall
-                # between the last event and inclusive of the next event.
-                if last_event_time < cr.history.first().created <= event_time:
+                # We start going backwards through the change requests until
+                # find one that happened just before the next event.
+                if cr.history.first().created <= event_time:
                     if attr_cr := AllocationAttributeChangeRequest.objects.filter(
                         allocation_change_request=cr,
                         allocation_attribute=allocation_attribute,
                         new_value=event.value,
                     ).first():
                         break
-
-            print(f"Couldn't find a matching changing request.")
+            if not attr_cr:
+                print(f"Couldn't find a matching changing request.")
 
         if attr_cr:
             # If a matching change request is found, we divide the time
             # between these two events into two and count the value.
+            # Created may have happened in the previous billing cycle
+            # which we need to ignore.
             created = cr.history.first().created
+            if created < last_event_time:
+                created = last_event_time
+
+            print(f"Matching request: Last event at {last_event_time}, cr at"
+                  f" {cr.history.first().created}, change at {event_time}")
+
             before = math.ceil((created - last_event_time).total_seconds())
             after = math.ceil((event_time - created).total_seconds())
+
             value_times_seconds += (before * last_event_value) + (after * int(event.value))
             print(f"Last event at {last_event_time}, cr created at {created}, approved at {event_time}")
         else:
