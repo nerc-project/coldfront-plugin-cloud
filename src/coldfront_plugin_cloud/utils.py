@@ -95,6 +95,8 @@ def calculate_quota_unit_hours(allocation: Allocation,
 
     value_times_seconds = 0
     last_event_time = start
+    unbounded_last_event_time = None
+
     last_event_value = 0
     for event in value_history:
         event_time = event.modified
@@ -120,7 +122,12 @@ def calculate_quota_unit_hours(allocation: Allocation,
             for cr in change_requests:
                 # We start going backwards through the change requests until
                 # find one that happened just before the next event.
+                cr_created_at = cr.history.first().created
                 if cr.history.first().created <= event_time:
+                    if unbounded_last_event_time and unbounded_last_event_time < cr_created_at:
+                        # But after the unbounded last event time.
+                        continue
+
                     if attr_cr := AllocationAttributeChangeRequest.objects.filter(
                         allocation_change_request=cr,
                         allocation_attribute=allocation_attribute,
@@ -131,7 +138,7 @@ def calculate_quota_unit_hours(allocation: Allocation,
                 print(f"Couldn't find a matching changing request.")
 
         if attr_cr:
-            # If a matching change request is found, we divide the time
+            # If a matching change request (CR) is found, we divide the time
             # between these two events into two and count the value.
             # Created may have happened in the previous billing cycle
             # which we need to ignore.
@@ -152,6 +159,7 @@ def calculate_quota_unit_hours(allocation: Allocation,
             value_times_seconds += seconds_since_last_event * last_event_value
 
         last_event_time = event_time
+        unbounded_last_event_time = event.modified
         last_event_value = int(event.value)
 
     # The value remains the same from the last event until the end.
