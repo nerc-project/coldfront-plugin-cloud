@@ -87,7 +87,7 @@ class TestBase(TestCase):
         )
         return pu
 
-    def new_allocation(self, project, resource, quantity):
+    def new_allocation(self, project, resource, quantity) -> Allocation:
         allocation, _ = Allocation.objects.get_or_create(
             project=project,
             justification='a justification for testing data',
