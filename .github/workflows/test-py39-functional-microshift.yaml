@@ -23,6 +23,10 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Fix for "grup-efi-amd64-signed" missing
+        run: |
+          sudo apt-mark hold grub-efi-amd64-signed
+
       - name: Upgrade and install packages
         run: |
           bash ./ci/setup-ubuntu.sh
