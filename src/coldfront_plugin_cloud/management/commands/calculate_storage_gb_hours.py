@@ -1,4 +1,5 @@
 import csv
+from decimal import Decimal
 import dataclasses
 from datetime import datetime
 import logging
@@ -24,28 +25,40 @@ class InvoiceRow:
     Invoice_Address : str = ""
     Institution: str = ""
     Institution_Specific_Code: str = ""
-    Invoice_Type_Hours: int = ""
+    Invoice_Type_Hours: int = 0
     Invoice_Type: str = ""
-    Rate: str = ""
-    Cost: str = ""
+    Rate: Decimal = 0
+    Cost: Decimal = 0
+
 
     @classmethod
     def get_headers(cls):
-        """Returns all fields for display, with space instead of underscore."""
+        """Returns all headers for display."""
         return [
-            field.name.replace("_", " ") for field in dataclasses.fields(cls)
+            "Interval",
+            "Project - Allocation",
+            "Project - Allocation ID",
+            "Manager (PI)",
+            "Invoice Email",
+            "Invoice Address",
+            "Institution",
+            "Institution - Specific Code",
+            "SU Hours (GBhr or SUhr)",
+            "SU Type",
+            "Rate",
+            "Cost",
         ]
 
     def get_value(self, field: str):
         """Returns value for a field.
 
-        :param field: Field to return, with or without underscore.
+        :param field: Field to return.
         """
-        return getattr(self, field.replace(" ", "_"))
+        return getattr(self, field)
 
     def get_values(self):
         return [
-            self.get_value(field) for field in self.get_headers()
+            self.get_value(field.name) for field in dataclasses.fields(self)
         ]
 
 
@@ -63,6 +76,10 @@ class Command(BaseCommand):
                             help='End period for billing.')
         parser.add_argument('--output', type=str, default='invoices.csv',
                              help='CSV file to write invoices to.')
+        parser.add_argument('--openstack-gb-rate', type=Decimal, required=True,
+                            help='Rate for OpenStack Volume and Object GB/hour.')
+        parser.add_argument('--openshift-gb-rate', type=Decimal, required=True,
+                            help='Rate for OpenShift GB/hour.')
 
     def handle(self, *args, **options):
         def process_invoice_row(allocation, attribute, price):
@@ -79,6 +96,8 @@ class Command(BaseCommand):
                     PI=allocation.project.pi,
                     Invoice_Type_Hours=billed,
                     Invoice_Type=attr,
+                    Rate=rates[attr],
+                    Cost=billed * rates[attr]
                 )
                 csv_invoice_writer.writerow(
                     row.get_values()
@@ -100,6 +119,13 @@ class Command(BaseCommand):
         openshift_allocations = Allocation.objects.filter(
             resources__in=openshift_resources
         )
+
+        rates = {
+            attributes.QUOTA_VOLUMES_GB: options['openstack_gb_rate'],
+            attributes.QUOTA_OBJECT_GB: options['openstack_gb_rate'],
+            attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: options['openshift_gb_rate'],
+            attributes.QUOTA_REQUESTS_STORAGE: options['openshift_gb_rate']
+        }
 
         with open(options['output'], 'w', newline='') as f:
             csv_invoice_writer = csv.writer(
@@ -125,6 +151,7 @@ class Command(BaseCommand):
                 logger.debug(msg)
 
                 for attr, price_per_unit in [
-                    (attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 1)
+                    (attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 1),
+                    (attributes.QUOTA_REQUESTS_STORAGE, 1)
                 ]:
                     process_invoice_row(allocation, attr, price)
