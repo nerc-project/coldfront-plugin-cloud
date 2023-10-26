@@ -27,6 +27,7 @@ export KEYCLOAK_USER="admin"
 export KEYCLOAK_PASS="nomoresecret"
 export KEYCLOAK_REALM="master"
 
-coldfront test coldfront_plugin_cloud.tests.functional.openstack
+coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openstack
+coverage report
 
 openstack application credential delete $OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID
