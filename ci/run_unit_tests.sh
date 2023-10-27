@@ -6,4 +6,5 @@ fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
 
-coldfront test coldfront_plugin_cloud.tests.unit
+coverage run --source="." -m django test coldfront_plugin_cloud.tests.unit
+coverage report
