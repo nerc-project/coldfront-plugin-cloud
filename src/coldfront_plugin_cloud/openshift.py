@@ -150,9 +150,11 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         headers = {"Content-type": "application/json"}
         annotations = {"cf_project_id": str(self.allocation.project_id),
                        "cf_pi": self.allocation.project.pi.username}
+        labels = {'opendatahub.io/dashboard': True}
 
         payload = {"displayName": project_name,
-                   "annotations": annotations}
+                   "annotations": annotations,
+                   "labels": labels}
         r = self.session.put(url, data=json.dumps(payload), headers=headers)
         self.check_response(r)
 
