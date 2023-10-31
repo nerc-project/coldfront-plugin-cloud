@@ -20,19 +20,19 @@ logger = logging.getLogger(__name__)
 UNIT_QUOTA_MULTIPLIERS = {
     'openstack': {
         attributes.QUOTA_INSTANCES: 1,
-        attributes.QUOTA_VCPU: 2,
+        attributes.QUOTA_VCPU: 1,
         attributes.QUOTA_RAM: 4096,
         attributes.QUOTA_VOLUMES: 2,
-        attributes.QUOTA_VOLUMES_GB: 100,
+        attributes.QUOTA_VOLUMES_GB: 20,
         attributes.QUOTA_FLOATING_IPS: 0,
         attributes.QUOTA_OBJECT_GB: 1,
         attributes.QUOTA_GPU: 0,
     },
     'openshift': {
-        attributes.QUOTA_LIMITS_CPU: 2,
-        attributes.QUOTA_LIMITS_MEMORY: 2048,
+        attributes.QUOTA_LIMITS_CPU: 1,
+        attributes.QUOTA_LIMITS_MEMORY: 4096,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
-        attributes.QUOTA_REQUESTS_STORAGE: 10,
+        attributes.QUOTA_REQUESTS_STORAGE: 20,
         attributes.QUOTA_PVC: 2
     }
 }
