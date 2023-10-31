@@ -180,9 +180,9 @@ class TestAllocation(base.TestBase):
         # https://github.com/CCI-MOC/openshift-acct-mgt
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
-        # 4000m cores becomes 4 and 8192Mi becomes 8Gi
+        # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "4",
+            ":limits.cpu": "2",
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
