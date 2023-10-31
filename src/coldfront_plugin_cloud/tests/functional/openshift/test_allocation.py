@@ -125,7 +125,7 @@ class TestAllocation(base.TestBase):
         quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
-        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
             ":limits.cpu": "2",
             ":limits.memory": "8Gi",
@@ -173,7 +173,7 @@ class TestAllocation(base.TestBase):
 
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 4)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2)
 
         quota = allocator.get_quota(project_id)['Quota']
 
