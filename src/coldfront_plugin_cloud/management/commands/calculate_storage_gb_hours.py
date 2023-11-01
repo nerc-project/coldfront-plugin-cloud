@@ -82,22 +82,23 @@ class Command(BaseCommand):
                             help='Rate for OpenShift GB/hour.')
 
     def handle(self, *args, **options):
-        def process_invoice_row(allocation, attribute, price):
+        def process_invoice_row(allocation, attributes, su_name, rate):
             """Calculate the value and write the bill using the writer."""
-            time = utils.calculate_quota_unit_hours(
-                allocation, attribute, options['start'], options['end']
-            )
-            billed = time * price
-            if billed > 0:
+            time = 0
+            for attribute in attributes:
+                time += utils.calculate_quota_unit_hours(
+                    allocation, attribute, options['start'], options['end']
+                )
+            if time > 0:
                 row = InvoiceRow(
                     Interval=f"{options['start']} - {options['end']}",
                     Project_Name=allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME),
                     Project_ID=allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
                     PI=allocation.project.pi,
-                    Invoice_Type_Hours=billed,
-                    Invoice_Type=attr,
-                    Rate=rates[attr],
-                    Cost=billed * rates[attr]
+                    Invoice_Type_Hours=time,
+                    Invoice_Type=su_name,
+                    Rate=rate,
+                    Cost=time * rate
                 )
                 csv_invoice_writer.writerow(
                     row.get_values()
@@ -120,13 +121,6 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
-        rates = {
-            attributes.QUOTA_VOLUMES_GB: options['openstack_gb_rate'],
-            attributes.QUOTA_OBJECT_GB: options['openstack_gb_rate'],
-            attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: options['openshift_gb_rate'],
-            attributes.QUOTA_REQUESTS_STORAGE: options['openshift_gb_rate']
-        }
-
         with open(options['output'], 'w', newline='') as f:
             csv_invoice_writer = csv.writer(
                 f, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL
@@ -139,19 +133,20 @@ class Command(BaseCommand):
                 msg = f'Starting billing for for allocation {allocation_str}.'
                 logger.debug(msg)
 
-                for attr, price in [
-                    (attributes.QUOTA_VOLUMES_GB, 1),
-                    (attributes.QUOTA_OBJECT_GB, 1)
-                ]:
-                    process_invoice_row(allocation, attr, price)
+                process_invoice_row(
+                    allocation,
+                    [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
+                    "OpenStack Storage",
+                    options['openstack_gb_rate'])
 
             for allocation in openshift_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
                 msg = f'Starting billing for for allocation {allocation_str}.'
                 logger.debug(msg)
 
-                for attr, price_per_unit in [
-                    (attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 1),
-                    (attributes.QUOTA_REQUESTS_STORAGE, 1)
-                ]:
-                    process_invoice_row(allocation, attr, price)
+                process_invoice_row(
+                    allocation,
+                    [attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, attributes.QUOTA_REQUESTS_STORAGE],
+                    "OpenShift Storage",
+                    options['openshift_gb_rate']
+                )
