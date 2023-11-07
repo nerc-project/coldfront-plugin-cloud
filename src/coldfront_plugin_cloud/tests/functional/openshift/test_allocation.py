@@ -116,21 +116,21 @@ class TestAllocation(base.TestBase):
 
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 2)
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 2048)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 10)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
 
         quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
-        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "4",
-            ":limits.memory": "4Gi",
+            ":limits.cpu": "2",
+            ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "20Gi",
+            ":requests.storage": "40Gi",
             ":persistentvolumeclaims": "4",
         })
 
@@ -173,19 +173,19 @@ class TestAllocation(base.TestBase):
 
         project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 4)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2)
 
         quota = allocator.get_quota(project_id)['Quota']
 
         # https://github.com/CCI-MOC/openshift-acct-mgt
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
-        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "4",
-            ":limits.memory": "4Gi",
+            ":limits.cpu": "2",
+            ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "20Gi",
+            ":requests.storage": "40Gi",
             ":persistentvolumeclaims": "4",
         })
 
@@ -198,12 +198,12 @@ class TestAllocation(base.TestBase):
         quota = allocator.get_quota(project_id)['Quota']
         quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
-        # 4000m cores becomes 4 and 4096Mi becomes 4Gi
+        # 3000m cores becomes 3 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
             ":limits.cpu": "3",
-            ":limits.memory": "4Gi",
+            ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "20Gi",
+            ":requests.storage": "40Gi",
             ":persistentvolumeclaims": "4",
         })
 
