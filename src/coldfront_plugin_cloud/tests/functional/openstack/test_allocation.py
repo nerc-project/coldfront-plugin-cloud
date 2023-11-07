@@ -68,7 +68,7 @@ class TestAllocation(base.TestBase):
         # Check nova quota
         expected_nova_quota = {
             'instances': 1,
-            'cores': 2,
+            'cores': 1,
             'ram': 4096,
         }
         actual_nova_quota = self.compute.quotas.get(openstack_project.id)
@@ -78,7 +78,7 @@ class TestAllocation(base.TestBase):
         # Check cinder quota
         expected_cinder_quota = {
             'volumes': 2,
-            'gigabytes': 100,
+            'gigabytes': 20,
         }
         actual_cinder_quota = self.volume.quotas.get(openstack_project.id)
         for k, v in expected_cinder_quota.items():
@@ -95,10 +95,10 @@ class TestAllocation(base.TestBase):
         # Validate get_quota
         expected_quota = {
             'instances': 1,
-            'cores': 2,
+            'cores': 1,
             'ram': 4096,
             'volumes': 2,
-            'gigabytes': 100,
+            'gigabytes': 20,
             'floatingip': 2,
             'x-account-meta-quota-bytes': 1,
         }
@@ -144,7 +144,7 @@ class TestAllocation(base.TestBase):
         # Check nova quota
         expected_nova_quota = {
             'instances': 1 * 3,
-            'cores': 2 * 3,
+            'cores': 1 * 3,
             'ram': 4096 * 3,
         }
         actual_nova_quota = self.compute.quotas.get(openstack_project.id)
@@ -154,7 +154,7 @@ class TestAllocation(base.TestBase):
         # Check cinder quota
         expected_cinder_quota = {
             'volumes': 2 * 3,
-            'gigabytes': 100 * 3,
+            'gigabytes': 20 * 3,
         }
         actual_cinder_quota = self.volume.quotas.get(openstack_project.id)
         for k, v in expected_cinder_quota.items():
@@ -170,7 +170,7 @@ class TestAllocation(base.TestBase):
 
         # Change allocation attribute for floating ips and cores
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 2)
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 3)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 1 * 3)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_FLOATING_IPS, 3)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_VCPU, 100)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 3)

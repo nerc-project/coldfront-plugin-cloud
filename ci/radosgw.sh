@@ -42,18 +42,19 @@ EOF
     --config /tmp/ceph.conf \
     --cluster-network $NETWORK \
     --mon-ip $IP \
-    --dashboard-password-noupdate \
-    --initial-dashboard-user admin \
-    --initial-dashboard-password ceph \
     --allow-fqdn-hostname \
-    --single-host-defaults
+    --single-host-defaults \
+    --log-to-file \
+    --skip-firewalld \
+    --skip-dashboard \
+    --skip-monitoring-stack
 }
 
 function osd_setup() {
   OSD1_BIN=$OSD_BIN_DIR/osd0.bin
   OSD2_BIN=$OSD_BIN_DIR/osd1.bin
-  dd if=/dev/zero of=$OSD1_BIN bs=512M count=1
-  dd if=/dev/zero of=$OSD2_BIN bs=512M count=1
+  dd if=/dev/zero of=$OSD1_BIN bs=512M count=2
+  dd if=/dev/zero of=$OSD2_BIN bs=512M count=2
   OSD1_DEV=$(losetup -f)
   losetup $OSD1_DEV $OSD1_BIN
   OSD2_DEV=$(losetup -f)
@@ -61,8 +62,8 @@ function osd_setup() {
   pvcreate $OSD1_DEV
   pvcreate $OSD2_DEV
   vgcreate rgw $OSD1_DEV $OSD2_DEV
-  lvcreate -n rgw-ceph-osd0 -L 500M rgw
-  lvcreate -n rgw-ceph-osd1 -L 500M rgw
+  lvcreate -n rgw-ceph-osd0 -L 1000M rgw
+  lvcreate -n rgw-ceph-osd1 -L 1000M rgw
   cephadm shell ceph orch daemon add osd $HOSTNAME:/dev/rgw/rgw-ceph-osd0
   cephadm shell ceph orch daemon add osd $HOSTNAME:/dev/rgw/rgw-ceph-osd1
 }
