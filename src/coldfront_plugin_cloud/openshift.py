@@ -85,7 +85,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         url = f"{self.auth_url}/projects/{project_id}/quota"
         payload = dict()
         for key, func in QUOTA_KEY_MAPPING.items():
-            if x := self.allocation.get_attribute(key):
+            if (x := self.allocation.get_attribute(key)) is not None:
                 payload.update(func(x))
         r = self.session.put(url, data=json.dumps({'Quota': payload}))
         self.check_response(r)

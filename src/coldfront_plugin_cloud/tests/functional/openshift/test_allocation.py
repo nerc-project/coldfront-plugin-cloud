@@ -120,6 +120,7 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 2 * 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
 
         quota = allocator.get_quota(project_id)['Quota']
@@ -131,6 +132,7 @@ class TestAllocation(base.TestBase):
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
+            ":requests.nvidia.com/gpu": "0",
             ":persistentvolumeclaims": "4",
         })
 
@@ -139,12 +141,14 @@ class TestAllocation(base.TestBase):
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_MEMORY, 8192)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 50)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_REQUESTS_STORAGE, 100)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_REQUESTS_GPU, 1)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_PVC, 10)
 
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 6)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 8192)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 50)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 100)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 1)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 10)
 
         # This call should update the openshift quota to match the current attributes
@@ -158,6 +162,7 @@ class TestAllocation(base.TestBase):
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "50Gi",
             ":requests.storage": "100Gi",
+            ":requests.nvidia.com/gpu": "1",
             ":persistentvolumeclaims": "10",
         })
 
@@ -186,6 +191,7 @@ class TestAllocation(base.TestBase):
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
+            ":requests.nvidia.com/gpu": "0",
             ":persistentvolumeclaims": "4",
         })
 
@@ -204,6 +210,7 @@ class TestAllocation(base.TestBase):
             ":limits.memory": "8Gi",
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
+            ":requests.nvidia.com/gpu": "0",
             ":persistentvolumeclaims": "4",
         })
 
