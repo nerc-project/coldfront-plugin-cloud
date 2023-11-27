@@ -151,7 +151,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         headers = {"Content-type": "application/json"}
         annotations = {"cf_project_id": str(self.allocation.project_id),
                        "cf_pi": self.allocation.project.pi.username}
-        labels = {'opendatahub.io/dashboard': True}
+        labels = {'opendatahub.io/dashboard': "true"}
 
         payload = {"displayName": project_name,
                    "annotations": annotations,
