@@ -1,3 +1,5 @@
+Testing Github actions
+
 # Cloud Plugin for ColdFront
 
 The cloud plugin allows resource allocations to be requested and
