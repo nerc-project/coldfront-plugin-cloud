@@ -15,7 +15,8 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_openshift_resource(
             name='Microshift',
-            auth_url=os.getenv('OS_AUTH_URL')
+            auth_url=os.getenv('OS_AUTH_URL'), 
+            identity_name="developer"
         )
 
     def test_new_allocation(self):

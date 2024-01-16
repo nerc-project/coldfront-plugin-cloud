@@ -3,8 +3,11 @@ import json
 import re
 import sys
 import time
+import logging
 
 import kubernetes.dynamic.exceptions as kexc
+
+logger = logging.getLogger(__name__)
 
 OPENSHIFT_ROLES = ["admin", "edit", "view"]
 
@@ -59,17 +62,13 @@ class MocOpenShift4x:
                 f"Invalid role, {role} is not one of {', '.join(OPENSHIFT_ROLES)}"
             )
 
-    def __init__(self, client, logger, config):
+    def __init__(self, client, logger, identity_name, quotas, limits):
         self.client = client
         self.logger = logger
-        self.id_provider = config["IDENTITY_PROVIDER"]
-        self.quotafile = config["QUOTA_DEF_FILE"]
-        self.limitfile = config["LIMIT_DEF_FILE"]
+        self.id_provider = identity_name
+        self.quotas = quotas
+        self.limits = limits
         self.apis = {}
-
-        if not self.limitfile:
-            self.logger.error("No default limit file provided.")
-            sys.exit(1)
 
     def get_resource_api(self, api_version: str, kind: str):
         """Either return the cached resource api from self.apis, or fetch a
@@ -115,10 +114,9 @@ class MocOpenShift4x:
                 self.update_rolebindings(project_name, rolebinding)
         except kexc.NotFoundError:
             rolebinding = self.create_rolebindings(project_name, user_name, role)
+        
+        self.logger.info(f"added user {user_name} to role {role} in {project_name}")
 
-        return {
-            "msg": f"added user {user_name} to role {role} in {project_name}",
-        }
 
     def remove_user_from_role(self, project_name, user_name, role):
         self.validate_role(role)
@@ -133,9 +131,9 @@ class MocOpenShift4x:
         except kexc.NotFoundError:
             pass
 
-        return {
-            "msg": f"removed user {user_name} from role {role} in {project_name}",
-        }
+        self.logger.info(f"removed user {user_name} from role {role} in {project_name}")
+
+        
 
     def update_moc_quota(self, project_name, new_quota, patch=False):
         """This will update resourcequota objects in a project and create new
@@ -156,20 +154,18 @@ class MocOpenShift4x:
         self.delete_moc_quota(project_name)
         self.create_shift_quotas(project_name, quota_def)
 
-        return {"msg": "MOC quotas updated"}
+        self.logger.info("MOC quotas updated")
 
     def get_quota_definitions(self):
-        self.logger.info("reading quotas from %s", self.quotafile)
-        with open(self.quotafile, "r") as file:
-            quota = json.load(file)
+
+        quota = self.quotas
         for k in quota:
             quota[k]["value"] = None
 
         return quota
 
     def get_limit_definitions(self):
-        with open(self.limitfile, "r") as file:
-            return json.load(file)
+        return self.limits
 
     def get_project(self, project_name):
         api = self.get_resource_api(API_PROJECT, "Project")
@@ -389,7 +385,7 @@ class MocOpenShift4x:
                 res = api.create(namespace=project_name, body=resource_quota).to_dict()
                 self.wait_for_quota_to_settle(project_name, res)
 
-        return {"msg": f"All quotas for {project_name} successfully created"}
+        self.logger.info(f"All quotas for {project_name} successfully created")
 
     def get_resourcequotas(self, project_name):
         """Returns a list of all of the resourcequota objects"""
@@ -412,7 +408,7 @@ class MocOpenShift4x:
         for resourcequota in resourcequotas:
             self.delete_resourcequota(project_name, resourcequota["metadata"]["name"])
 
-        return {"msg": f"All quotas for {project_name} successfully deleted"}
+        self.logger.info(f"All quotas for {project_name} successfully deleted")
 
     def get_moc_quota_from_resourcequotas(self, project_name):
         """This returns a dictionary suitable for merging in with the

@@ -9,7 +9,6 @@ on:
 env:
   PYTHONWARNINGS: ignore
   KUBECONFIG: ${{ github.workspace }}/kubeconfig
-  ACCT_MGT_VERSION: "6012025c247ab25fb2cab3be9ad06080e28713ee"
 
 jobs:
   build:
@@ -35,7 +34,7 @@ jobs:
         run: |
           bash ./ci/setup-oc-client.sh
 
-      - name: Install Microshift
+      - name: Install Microshift and add service account
         run: |
           ./ci/microshift.sh
 

@@ -15,6 +15,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
 
         with freezegun.freeze_time("2020-03-15 00:01:00"):
@@ -44,6 +45,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -73,6 +75,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -101,6 +104,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -140,6 +144,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -159,6 +164,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -181,6 +187,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
             auth_url="",
+            identity_name="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
