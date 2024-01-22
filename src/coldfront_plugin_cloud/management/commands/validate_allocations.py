@@ -51,6 +51,14 @@ class Command(BaseCommand):
 
         return failed_validation
 
+    def check_institution_specific_code(self, allocation):
+        attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
+        isc = allocation.get_attribute(attr)
+        if not isc:
+            utils.set_attribute_on_allocation(
+                allocation, attr, "N/A"
+            )
+
     def handle(self, *args, **options):
 
         # Openstack Resources first
@@ -64,6 +72,7 @@ class Command(BaseCommand):
             status=AllocationStatusChoice.objects.get(name='Active')
         )
         for allocation in openstack_allocations:
+            self.check_institution_specific_code(allocation)
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
             msg = f'Starting resource validation for allocation {allocation_str}.'
             logger.debug(msg)
@@ -134,6 +143,7 @@ class Command(BaseCommand):
         )
 
         for allocation in openshift_allocations:
+            self.check_institution_specific_code(allocation)
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
             logger.debug(
                 f"Starting resource validation for allocation {allocation_str}."
