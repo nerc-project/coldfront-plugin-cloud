@@ -23,9 +23,11 @@ RESOURCE_ATTRIBUTES = [RESOURCE_AUTH_URL,
 # TODO: Migration to rename the OpenStack specific prefix out of these attrs
 ALLOCATION_PROJECT_ID = 'Allocated Project ID'
 ALLOCATION_PROJECT_NAME = 'Allocated Project Name'
+ALLOCATION_INSTITUTION_SPECIFIC_CODE = 'Institution-Specific Code'
 
 ALLOCATION_ATTRIBUTES = [ALLOCATION_PROJECT_ID,
-                         ALLOCATION_PROJECT_NAME]
+                         ALLOCATION_PROJECT_NAME,
+                         ALLOCATION_INSTITUTION_SPECIFIC_CODE]
 
 ###########################################################
 # OpenStack Quota Attributes
