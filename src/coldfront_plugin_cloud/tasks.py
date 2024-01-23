@@ -98,6 +98,9 @@ def activate_allocation(allocation_pk):
             utils.set_attribute_on_allocation(allocation,
                                               attributes.ALLOCATION_PROJECT_ID,
                                               project_id)
+            utils.set_attribute_on_allocation(allocation,
+                                              attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE,
+                                              'N/A')
             set_quota_attributes()
 
             allocator.create_project_defaults(project_id)
