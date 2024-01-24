@@ -38,7 +38,7 @@ class Command(BaseCommand):
 
     def get_cloud_attrs(self, cloud_type):
         attrs = [
-            i for i in attributes.ALLOCATION_QUOTA_ATTRIBUTES if cloud_type in i
+            i for i in attributes.ALLOCATION_QUOTA_ATTRIBUTES if cloud_type in i.name
         ]
         return attrs
 
@@ -78,7 +78,7 @@ class Command(BaseCommand):
             alloc_attrs = []
             for attr in cloud_attrs:
                 try:
-                    alloc_attrs.append(float(allocation.get_attribute(attr)))
+                    alloc_attrs.append(float(allocation.get_attribute(attr.name)))
                 except TypeError:
                     logger.debug(f'!!! TYPE ERROR FOR ATTR {attr} (ALLOCATION: {alloc_id})')
                     alloc_attrs.append(0)
@@ -93,7 +93,7 @@ class Command(BaseCommand):
 
     def render_csv(self, allocations, cloud_type):
         headers = ['pi_email', 'cloud_type', 'project_id', 'project_title', 'alloc_id']
-        headers = headers + [i.replace(' ', '_') for i in self.get_cloud_attrs(cloud_type)]
+        headers = headers + [i.name.replace(' ', '_') for i in self.get_cloud_attrs(cloud_type)]
         f = csv.writer(sys.stdout)
         allocations.insert(0, headers)
         f.writerows(allocations)
