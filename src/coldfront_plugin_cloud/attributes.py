@@ -61,7 +61,7 @@ ALLOCATION_ATTRIBUTES = [
     CloudAllocationAttribute(
         name=ALLOCATION_INSTITUTION_SPECIFIC_CODE,
         type='Text',
-        is_changeable=False
+        is_changeable=True
     ),
 ]
 
