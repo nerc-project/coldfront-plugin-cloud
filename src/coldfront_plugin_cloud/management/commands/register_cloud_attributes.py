@@ -74,28 +74,28 @@ class Command(BaseCommand):
                              f' Cannot perform automatic migration.')
 
     def register_allocation_attributes(self):
-        def register(attribute_name, attribute_type):
+        alloc_attrs = (
+            attributes.ALLOCATION_ATTRIBUTES +
+            attributes.ALLOCATION_QUOTA_ATTRIBUTES
+        )
+
+        for attr in alloc_attrs:
             allocation_models.AllocationAttributeType.objects.get_or_create(
-                name=attribute_name,
+                name=attr.name,
                 attribute_type=allocation_models.AttributeType.objects.get(
-                    name=attribute_type),
-                has_usage=False,
-                is_private=False,
-                is_changeable='Quota' in attribute_name
+                    name=attr.type,
+                ),
+                has_usage=attr.has_usage,
+                is_private=attr.is_private,
+                is_changeable=attr.is_changeable,
             )
 
-        for allocation_attribute in attributes.ALLOCATION_ATTRIBUTES:
-            register(allocation_attribute, 'Text')
-
-        for allocation_quota_attribute in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-            register(allocation_quota_attribute, 'Int')
-
     def register_resource_attributes(self):
-        for resource_attribute_type in attributes.RESOURCE_ATTRIBUTES:
+        for attr in attributes.RESOURCE_ATTRIBUTES:
             resource_models.ResourceAttributeType.objects.get_or_create(
-                name=resource_attribute_type,
+                name=attr.name,
                 attribute_type=resource_models.AttributeType.objects.get(
-                    name='Text')
+                    name=attr.type),
             )
 
     def register_resource_type(self):

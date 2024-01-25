@@ -20,16 +20,18 @@ class TestAttributeMigration(base.TestBase):
         call_command('load_test_data')
         sys.stdout = backup
 
-    @mock.patch(
-        'coldfront_plugin_cloud.management.commands.register_cloud_attributes.RESOURCE_ATTRIBUTE_MIGRATIONS',
+    @mock.patch.object(
+        register_cloud_attributes,
+        'RESOURCE_ATTRIBUTE_MIGRATIONS',
         [
             ('Before Migration', 'After First Migration'),
             ('After First Migration', 'After Migration'),
             ('Not Present', 'Still not present'),
         ]
     )
-    @mock.patch(
-        'coldfront_plugin_cloud.management.commands.register_cloud_attributes.ALLOCATION_ATTRIBUTE_MIGRATIONS',
+    @mock.patch.object(
+        register_cloud_attributes,
+        'ALLOCATION_ATTRIBUTE_MIGRATIONS',
         [
             ('Before Migration', {
                 'name': 'After First Migration'
@@ -71,7 +73,9 @@ class TestAttributeMigration(base.TestBase):
             is_private=False
         )
 
-        with self.assertRaises(resource_models.ResourceAttributeType.DoesNotExist):
+        with self.assertRaises(
+            resource_models.ResourceAttributeType.DoesNotExist
+        ):
             resource_models.ResourceAttributeType.objects.get(
                 name='Before Migration'
             )
@@ -82,7 +86,9 @@ class TestAttributeMigration(base.TestBase):
                 name='Still not present'
             )
 
-        with self.assertRaises(allocation_models.AllocationAttributeType.DoesNotExist):
+        with self.assertRaises(
+            allocation_models.AllocationAttributeType.DoesNotExist
+        ):
             allocation_models.AllocationAttributeType.objects.get(
                 name='Before Migration'
             )
@@ -112,33 +118,52 @@ class TestAttributeMigration(base.TestBase):
         )
         call_command('register_cloud_attributes')
 
-        with self.assertRaises(allocation_models.AllocationAttributeType.DoesNotExist):
+        with self.assertRaises(
+            allocation_models.AllocationAttributeType.DoesNotExist
+        ):
             allocation_models.AllocationAttributeType.objects.get(
                 name='No Migration'
             )
 
     def test_rename_identity_url(self):
-        with mock.patch(
-                'coldfront_plugin_cloud.management.commands.register_cloud_attributes.RESOURCE_ATTRIBUTE_MIGRATIONS',
-                []
+        with mock.patch.object(
+            register_cloud_attributes,
+            'RESOURCE_ATTRIBUTE_MIGRATIONS',
+            [],
         ):
-            with mock.patch('coldfront_plugin_cloud.attributes.RESOURCE_AUTH_URL', 'OpenStack Auth URL'):
-                # The below is necessary because strings are passed into the list by value
-                attributes.RESOURCE_ATTRIBUTES[0] = attributes.RESOURCE_AUTH_URL
+            orig_auth_url_name = attributes.RESOURCE_AUTH_URL
+            new_auth_url_name = 'OpenStack Auth URL'
+            assert orig_auth_url_name != new_auth_url_name
+            auth_url_val = 'https://example.com'
+            new_auth_url_attr = attributes.CloudResourceAttribute(
+                name=new_auth_url_name,
+            )
+            new_resource_attrs = []
+            new_resource_attrs.extend(attributes.RESOURCE_ATTRIBUTES)
+            new_resource_attrs[0] = new_auth_url_attr
 
-                call_command('register_cloud_attributes')
-                resource = self.new_resource('Example', 'https://example.com')
+            with mock.patch.object(
+                attributes,
+                'RESOURCE_AUTH_URL',
+                new_auth_url_name,
+            ):
+                with mock.patch.object(
+                    attributes,
+                    'RESOURCE_ATTRIBUTES',
+                    new_resource_attrs,
+                ):
 
-                self.assertEqual(
-                    resource.get_attribute('OpenStack Auth URL'),
-                    'https://example.com'
-                )
+                    call_command('register_cloud_attributes')
+                    resource = self.new_resource('Example', auth_url_val)
 
-        attributes.RESOURCE_ATTRIBUTES[0] = attributes.RESOURCE_AUTH_URL
+                    self.assertEqual(
+                        resource.get_attribute(new_auth_url_name),
+                        auth_url_val,
+                    )
+
         call_command('register_cloud_attributes')
 
-        self.assertEqual(attributes.RESOURCE_AUTH_URL, 'Identity Endpoint URL')
         self.assertEqual(
-            resource.get_attribute('Identity Endpoint URL'),
+            resource.get_attribute(orig_auth_url_name),
             'https://example.com'
         )
