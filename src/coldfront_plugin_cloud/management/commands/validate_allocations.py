@@ -51,13 +51,18 @@ class Command(BaseCommand):
 
         return failed_validation
 
-    def check_institution_specific_code(self, allocation):
+    def check_institution_specific_code(self, allocation, apply):
         attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
         isc = allocation.get_attribute(attr)
         if not isc:
-            utils.set_attribute_on_allocation(
-                allocation, attr, "N/A"
-            )
+            alloc_str = f'{allocation.pk} of project "{allocation.project.title}"'
+            msg = f'Attribute "{attr}" missing on allocation {alloc_str}'
+            logger.warn(msg)
+            if apply:
+                utils.set_attribute_on_allocation(
+                    allocation, attr, "N/A"
+                )
+                logger.warn(f'Attribute "{attr}" added to allocation {alloc_str}')
 
     def handle(self, *args, **options):
 
@@ -72,7 +77,7 @@ class Command(BaseCommand):
             status=AllocationStatusChoice.objects.get(name='Active')
         )
         for allocation in openstack_allocations:
-            self.check_institution_specific_code(allocation)
+            self.check_institution_specific_code(allocation, options["apply"])
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
             msg = f'Starting resource validation for allocation {allocation_str}.'
             logger.debug(msg)
@@ -143,7 +148,7 @@ class Command(BaseCommand):
         )
 
         for allocation in openshift_allocations:
-            self.check_institution_specific_code(allocation)
+            self.check_institution_specific_code(allocation, options["apply"])
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
             logger.debug(
                 f"Starting resource validation for allocation {allocation_str}."
