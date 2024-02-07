@@ -168,13 +168,15 @@ class TestAllocation(base.TestBase):
         for k, v in expected_neutron_quota.items():
             self.assertEqual(actual_neutron_quota.get(k), v)
 
-        # Change allocation attribute for floating ips and cores
+        # Change allocation attribute for floating ips, cores and storage
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 2)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 1 * 3)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_FLOATING_IPS, 3)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_VCPU, 100)
+        utils.set_attribute_on_allocation(allocation, attributes.QUOTA_VOLUMES_GB, 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 3)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 100)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VOLUMES_GB), 0)
 
         tasks.activate_allocation(allocation.pk)
 
@@ -183,6 +185,8 @@ class TestAllocation(base.TestBase):
         self.assertEqual(new_neutron_quota['floatingip'], 3)
         actual_nova_quota = self.compute.quotas.get(openstack_project.id)
         self.assertEqual(actual_nova_quota.__getattr__('cores'), 100)
+        actual_cinder_quota = self.volume.quotas.get(openstack_project.id)
+        self.assertEqual(actual_cinder_quota.__getattr__('gigabytes'), 0)
 
         # Change allocation attributes for floating ips and cores again
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_FLOATING_IPS, 6)
