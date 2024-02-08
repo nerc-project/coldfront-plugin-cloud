@@ -82,10 +82,10 @@ class Command(BaseCommand):
                             help='Rate for OpenShift GB/hour.')
 
     def handle(self, *args, **options):
-        def process_invoice_row(allocation, attributes, su_name, rate):
+        def process_invoice_row(allocation, attrs, su_name, rate):
             """Calculate the value and write the bill using the writer."""
             time = 0
-            for attribute in attributes:
+            for attribute in attrs:
                 time += utils.calculate_quota_unit_hours(
                     allocation, attribute, options['start'], options['end']
                 )
