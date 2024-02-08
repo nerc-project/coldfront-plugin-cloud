@@ -166,8 +166,13 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             # and set the value in the attribute.
             payload = dict()
             for coldfront_attr, openstack_key in service['keys'].items():
-                if value := self.allocation.get_attribute(coldfront_attr):
+                value = self.allocation.get_attribute(coldfront_attr)
+                if value is not None:
                     payload[openstack_key] = value
+
+            if not payload:
+                # Skip if service doesn't have any associated attributes
+                continue
 
             if service_name == 'network':
                 self.network.update_quota(project_id, body={'quota': payload})
