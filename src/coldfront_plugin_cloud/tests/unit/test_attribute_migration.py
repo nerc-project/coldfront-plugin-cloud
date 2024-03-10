@@ -154,7 +154,7 @@ class TestAttributeMigration(base.TestBase):
                 ):
 
                     call_command('register_cloud_attributes')
-                    resource = self.new_resource('Example', auth_url_val)
+                    resource = self.new_openstack_resource('Example', auth_url_val)
 
                     self.assertEqual(
                         resource.get_attribute(new_auth_url_name),

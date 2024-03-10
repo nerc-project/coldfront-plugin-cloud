@@ -41,9 +41,9 @@ class TestBase(TestCase):
         username = username or f'{uuid.uuid4().hex}@example.com'
         User.objects.create(username=username, email=username)
         return User.objects.get(username=username)
-
+    
     @staticmethod
-    def new_resource(name=None, auth_url=None) -> Resource:
+    def new_esi_resource(name=None, auth_url=None) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
@@ -57,6 +57,26 @@ class TestBase(TestCase):
              role='member',
              public_network=os.getenv('OPENSTACK_PUBLIC_NETWORK_ID'),
              network_cidr='192.168.0.0/24',
+             esi=True
+        )
+        return Resource.objects.get(name=resource_name)
+
+    @staticmethod
+    def new_openstack_resource(name=None, auth_url=None) -> Resource:
+        resource_name = name or uuid.uuid4().hex
+
+        call_command(
+            'add_openstack_resource',
+             name=resource_name,
+             auth_url=auth_url or f'https://{resource_name}/identity/v3',
+             projects_domain='default',
+             users_domain='default',
+             idp='sso',
+             protocol='openid',
+             role='member',
+             public_network=os.getenv('OPENSTACK_PUBLIC_NETWORK_ID'),
+             network_cidr='192.168.0.0/24',
+             esi=False
         )
         return Resource.objects.get(name=resource_name)
 
