@@ -23,12 +23,6 @@ GB_IN_BYTES = 1000000000
 
 # Map the attribute name in ColdFront, to the client of the respective
 # service, the version of the API, and the key in the payload.
-# (Quan Pham) TODO: The name of the services should be the same as the
-# names or aliases listed in the Openstack Service Type Authority list 
-# (https://opendev.org/openstack/service-types-authority/)
-#
-# This is because we query the Openstack cluster to check what services 
-# are available. It is probably a bad idea to hardcode the service names here
 QUOTA_KEY_MAPPING = {
     'compute': {
         'keys': {
@@ -149,8 +143,6 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         service_list = self.identity.services.list()
         self.available_service_types = [service.type for service in service_list]
 
-        
-
     def create_project(self, suggested_project_name) -> base.ResourceAllocator.Project:
         project_name = utils.get_unique_project_name(
             suggested_project_name,
@@ -209,7 +201,6 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             payload[obj_q_mapping] *= GB_IN_BYTES
             if payload[obj_q_mapping] <= 0:
                 payload[obj_q_mapping] = 1
-
             self.object(project_id).post_account(headers=payload)
         except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug('No swift available, skipping its quota.')
