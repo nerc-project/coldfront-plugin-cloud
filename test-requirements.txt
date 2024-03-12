@@ -9,3 +9,6 @@ python-neutronclient
 python-swiftclient
 kubernetes
 openshift
+pytest
+pytest-check
+pytest-coverage

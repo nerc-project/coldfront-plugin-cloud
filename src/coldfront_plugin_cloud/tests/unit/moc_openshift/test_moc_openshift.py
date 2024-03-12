@@ -3,13 +3,19 @@ from unittest import mock
 
 import pytest
 
-from acct_mgt.moc_openshift import MocOpenShift4x
+from coldfront_plugin_cloud.acct_mgt.moc_openshift import MocOpenShift4x
 
 
 def test_moc_openshift(moc):
     assert moc.id_provider == "fake-id-provider"
-    assert moc.quotafile == "fake-quota-file"
-    assert moc.limitfile == "fake-limit-file"
+    assert moc.quotas == {
+        ":requests.fake1": {"base": 2, "coefficient": 0},
+        ":requests.fake2": {"base": 2, "coefficient": 0}
+    }
+    assert moc.limits == {
+        "type": "FakeContainer",
+        "default": {"cpu": "2", "memory": "1024Mi", "nvidia.com/gpu": "0"}
+    }
 
 
 def test_moc_openshift_no_limit():
@@ -17,11 +23,11 @@ def test_moc_openshift_no_limit():
         MocOpenShift4x(
             mock.Mock(),
             mock.Mock(),
-            {
-                "IDENTITY_PROVIDER": "fake",
-                "QUOTA_DEF_FILE": "fake",
-                "LIMIT_DEF_FILE": None,
-            },
+            **{
+                "identity_name": "fake-id-provider",
+                "quotas": "fake-quota-file",
+                "limits": None,
+            }
         )
 
 
@@ -31,11 +37,11 @@ def test_moc_openshift_no_quota():
         MocOpenShift4x(
             mock.Mock(),
             mock.Mock(),
-            {
-                "IDENTITY_PROVIDER": "fake",
-                "QUOTA_DEF_FILE": None,
-                "LIMIT_DEF_FILE": "fake",
-            },
+            **{
+                "identity_name": "fake-id-provider",
+                "quotas": None,
+                "limits": {"fake-limits": 1},
+            }
         )
 
 

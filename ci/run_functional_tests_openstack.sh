@@ -22,10 +22,6 @@ fi
 export DJANGO_SETTINGS_MODULE="local_settings"
 export FUNCTIONAL_TESTS="True"
 export OS_AUTH_URL="http://$HOST_IP/identity"
-export KEYCLOAK_URL="http://$HOST_IP:8080"
-export KEYCLOAK_USER="admin"
-export KEYCLOAK_PASS="nomoresecret"
-export KEYCLOAK_REALM="master"
 
 coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openstack
 coverage report

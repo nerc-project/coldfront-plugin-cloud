@@ -11,13 +11,13 @@ def test_user_rolebinding_exists_invalid_role(moc):
         moc.user_rolebinding_exists("fake-user", "fake-project", "invalid-role")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
 def test_user_rolebinding_exists_not(fake_get_rb, moc):
     fake_get_rb.side_effect = kexc.NotFoundError(mock.Mock())
     assert not moc.user_rolebinding_exists("fake-user", "fake-project", "admin")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
 def test_user_rolebinding_exists(fake_get_rb, moc):
     fake_get_rb.return_value = {
         "subjects": [
@@ -36,8 +36,8 @@ def test_add_user_to_role_invalid_role(moc):
         moc.add_user_to_role("fake-project", "fake-user", "invalid-role")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.update_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.update_rolebindings")
 def test_add_user_to_role(fake_update_rb, fake_get_rb, moc):
     fake_get_rb.return_value = {
         "subjects": [],
@@ -49,8 +49,8 @@ def test_add_user_to_role(fake_update_rb, fake_get_rb, moc):
     )
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.create_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.create_rolebindings")
 def test_add_user_to_role_not_exists(fake_create_rb, fake_get_rb, moc):
     fake_get_rb.side_effect = kexc.NotFoundError(mock.Mock())
 
@@ -63,7 +63,7 @@ def test_remove_user_from_role_invalid_role(moc):
         moc.remove_user_from_role("fake-project", "fake-user", "invalid-role")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_rolebindings")
 def test_remove_user_from_role(fake_get_rb, moc):
     fake_get_rb.return_value = {
         "subjects": [{"kind": "User", "name": "fake-user"}],

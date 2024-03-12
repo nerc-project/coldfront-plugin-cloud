@@ -1,7 +1,7 @@
 # pylint: disable=missing-module-docstring
 import pytest
 
-import acct_mgt.moc_openshift
+import coldfront_plugin_cloud.acct_mgt.moc_openshift as moc_openshift
 
 
 @pytest.mark.parametrize(
@@ -29,4 +29,4 @@ import acct_mgt.moc_openshift
     ],
 )
 def test_clean_openshift_metadata(data, expected):
-    assert acct_mgt.moc_openshift.clean_openshift_metadata(data) == expected
+    assert moc_openshift.clean_openshift_metadata(data) == expected

@@ -5,15 +5,20 @@ from unittest import mock
 import logging
 import pytest
 
-from acct_mgt.moc_openshift import MocOpenShift4x
-
+from coldfront_plugin_cloud.acct_mgt.moc_openshift import MocOpenShift4x
 
 @pytest.fixture
 def config():
     return {
-        "IDENTITY_PROVIDER": "fake-id-provider",
-        "QUOTA_DEF_FILE": "fake-quota-file",
-        "LIMIT_DEF_FILE": "fake-limit-file",
+        "identity_name": "fake-id-provider",
+        "quotas": {
+            ":requests.fake1": {"base": 2, "coefficient": 0},
+            ":requests.fake2": {"base": 2, "coefficient": 0}
+        },
+        "limits": {
+            "type": "FakeContainer",
+            "default": {"cpu": "2", "memory": "1024Mi", "nvidia.com/gpu": "0"}
+        },
     }
 
 
@@ -21,4 +26,4 @@ def config():
 def moc(config):
     fake_client = mock.Mock(spec=["resources"])
     fake_logger = mock.Mock(spec=logging.Logger)
-    return MocOpenShift4x(fake_client, fake_logger, config)
+    return MocOpenShift4x(fake_client, fake_logger, **config)

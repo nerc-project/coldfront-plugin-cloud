@@ -70,6 +70,10 @@ class MocOpenShift4x:
         self.limits = limits
         self.apis = {}
 
+        if not self.limits:
+            self.logger.error("No default limit file provided.")
+            sys.exit(1)
+
     def get_resource_api(self, api_version: str, kind: str):
         """Either return the cached resource api from self.apis, or fetch a
         new one, store it in self.apis, and return it."""

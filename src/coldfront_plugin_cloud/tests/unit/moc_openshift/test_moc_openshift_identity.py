@@ -52,13 +52,13 @@ def test_delete_identity(moc):
     )
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_user")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_user")
 def test_useridentitymapping_exists(fake_get_user, moc):
     fake_get_user.return_value = {"identities": ["fake-id-provider:fake-id"]}
     assert moc.useridentitymapping_exists("fake-user", "fake-id")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.get_user")
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.get_user")
 def test_useridentitymapping_exists_not(fake_get_user, moc):
     fake_get_user.side_effect = kexc.NotFoundError(mock.Mock())
     assert not moc.useridentitymapping_exists("fake-user", "fake-id")

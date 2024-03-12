@@ -28,7 +28,7 @@ def test_project_exists_not(moc):
     assert not moc.project_exists("fake-project")
 
 
-@mock.patch("acct_mgt.moc_openshift.MocOpenShift4x.create_limits", mock.Mock())
+@mock.patch("coldfront_plugin_cloud.acct_mgt.moc_openshift.MocOpenShift4x.create_limits", mock.Mock())
 def test_create_project(moc):
     moc.create_project("fake-project", "Fake Project", "fake-user")
     moc.client.resources.get.return_value.create.assert_called_with(
