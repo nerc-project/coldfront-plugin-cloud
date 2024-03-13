@@ -2,8 +2,8 @@
 #
 # Tests expect the resource to be name Devstack
 set -xe
-
-source /opt/stack/devstack-plugin-oidc/tools/config.sh
+REPO_PATH=$PWD
+source $REPO_PATH/ci/devstack-config-ip.sh 
 source /opt/stack/devstack/openrc admin admin
 
 credential_name=$(openssl rand -base64 12)
