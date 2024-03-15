@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import urllib.parse
+import time
 
 import swiftclient
 from swiftclient import exceptions as swift_exceptions
@@ -417,8 +418,9 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         ports = neutron.list_ports(project_id=project_id,
                                    device_id=router_id,
                                    network_id=network_id)['ports']
-        while ports[0]['status']:
+        while ports[0]['status'] != 'ACTIVE':
             print("polling port")
+            time.sleep(1)
             ports = neutron.list_ports(project_id=project_id,
                                    device_id=router_id,
                                    network_id=network_id)['ports']
