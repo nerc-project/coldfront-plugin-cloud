@@ -42,6 +42,7 @@ echo "
     IP_VERSION=4
     GIT_DEPTH=1
     GIT_BASE=https://github.com
+    KEYSTONE_ADMIN_ENDPOINT=True
     enable_plugin keystone https://github.com/openstack/keystone
     enable_service keystone-oidc-federation
 

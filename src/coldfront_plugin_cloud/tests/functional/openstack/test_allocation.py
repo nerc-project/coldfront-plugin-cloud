@@ -27,6 +27,7 @@ class TestAllocation(base.TestBase):
         self.role_member = self.identity.roles.find(name='member')
 
     def test_new_allocation(self):
+        print("--- In test_new_allocation ---")
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
@@ -55,6 +56,7 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check default network
+        print("--- Checking network resources ---")
         network = self.networking.list_networks(
             project_id=project_id, name='default_network')['networks'][0]
         router = self.networking.list_routers(
@@ -62,6 +64,7 @@ class TestAllocation(base.TestBase):
         ports = self.networking.list_ports(project_id=project_id,
                                            network_id=network['id'],
                                            device_id=router['id'])['ports']
+        print("--- And our ports are: ", ports)
         self.assertIsNotNone(ports)
         self.assertEqual(ports[0]['status'], 'ACTIVE')
 
