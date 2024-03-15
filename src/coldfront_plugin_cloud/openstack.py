@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import urllib.parse
+import time
 
 import swiftclient
 from swiftclient import exceptions as swift_exceptions
@@ -337,7 +338,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                                          name='default_network')
         if networks := networks['networks']:
             network = networks[0]
-            logger.info(f'Default network with ID {network["network"]["id"]} '
+            print(f'Default network with ID {network["network"]["id"]} '
                         f'already exists for project {project_id}.')
         else:
             default_network_payload = {
@@ -349,7 +350,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                 }
             }
             network = neutron.create_network(body=default_network_payload)
-            logger.info(f'Default network with ID {network["network"]["id"]} '
+            print(f'Default network with ID {network["network"]["id"]} '
                         f'created for project {project_id}.')
 
         # Get or create default subnet
@@ -357,7 +358,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                                        name='default_subnet')
         if subnets := subnets['subnets']:
             subnet = subnets[0]
-            logger.info(f'Default subnet with ID {subnet["subnet"]["id"]} '
+            print(f'Default subnet with ID {subnet["subnet"]["id"]} '
                         f'already exists for project {project_id}.')
         else:
             default_subnet_payload = {
@@ -373,7 +374,7 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                 }
             }
             subnet = neutron.create_subnet(body=default_subnet_payload)
-            logger.info(f'Default subnet with ID {subnet["subnet"]["id"]} '
+            print(f'Default subnet with ID {subnet["subnet"]["id"]} '
                         f'created for project {project_id}.')
 
         # Get or create default router
@@ -405,14 +406,24 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                                    device_id=router_id,
                                    network_id=network_id)
         if ports['ports']:
-            logger.info(f'Router {router_id} already connected to network {network_id} for '
+            print(f'Router {router_id} already connected to network {network_id} for '
                         f'project {project_id}.')
         else:
             default_interface_payload = {'subnet_id': subnet_id}
             neutron.add_interface_router(router_id,
                                          body=default_interface_payload)
-            logger.info(f'Router {router_id} connected to subnet {subnet_id} for '
+            print(f'Router {router_id} connected to subnet {subnet_id} for '
                         f'project {project_id}.')
+            
+        ports = neutron.list_ports(project_id=project_id,
+                                   device_id=router_id,
+                                   network_id=network_id)['ports']
+        while ports[0]['status'] != 'ACTIVE':
+            print("polling port")
+            time.sleep(1)
+            ports = neutron.list_ports(project_id=project_id,
+                                   device_id=router_id,
+                                   network_id=network_id)['ports']
 
     def create_project_defaults(self, project_id):
         if self.resource.get_attribute(attributes.RESOURCE_DEFAULT_PUBLIC_NETWORK):
