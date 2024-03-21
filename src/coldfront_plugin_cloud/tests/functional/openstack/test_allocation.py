@@ -1,6 +1,7 @@
 import os
 import unittest
 import uuid
+import time
 
 from coldfront_plugin_cloud import attributes, openstack, tasks, utils
 from coldfront_plugin_cloud.tests import base
@@ -55,6 +56,8 @@ class TestAllocation(base.TestBase):
         self.assertEqual(roles[0].role['id'], self.role_member.id)
 
         # Check default network
+        # Port build-up time is not instant
+        time.sleep(5)
         network = self.networking.list_networks(
             project_id=project_id, name='default_network')['networks'][0]
         router = self.networking.list_routers(
