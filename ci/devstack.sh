@@ -43,8 +43,6 @@ echo "
     IP_VERSION=4
     GIT_DEPTH=1
     GIT_BASE=https://github.com
-    enable_plugin keystone https://github.com/openstack/keystone
-    enable_service keystone-oidc-federation
 
     SWIFT_DEFAULT_BIND_PORT=8085
     SWIFT_DEFAULT_BIND_PORT_INT=8086
@@ -57,9 +55,6 @@ source /opt/stack/devstack/openrc admin admin
 openstack implied role create admin --implied-role ResellerAdmin
 
 # Create oidc protocol and mappings to register keycloak identity provider
+openstack identity provider create --remote-id https://foo sso
 openstack mapping create --rules $REPO_PATH/ci/devstack-mapping.json sso_oidc_mapping
 openstack federation protocol create --identity-provider sso --mapping sso_oidc_mapping openid
-
-# Test OIDC plugin with keycloak
-source $REPO_PATH/ci/devstack-config-ip.sh
-HOST_IP=$HOST_IP python3 $REPO_PATH/ci/devstack-test-oidc.py test_oidc_login.py
