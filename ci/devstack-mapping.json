@@ -4,12 +4,6 @@
             {
                 "user": {
                     "name": "{0}"
-                },
-                "group": {
-                    "name": "federated_users",
-                    "domain": {
-                        "name": "federated_domain"
-                    }
                 }
             }
         ],
