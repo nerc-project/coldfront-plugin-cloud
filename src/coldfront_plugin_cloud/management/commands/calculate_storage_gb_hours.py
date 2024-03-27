@@ -155,6 +155,9 @@ class Command(BaseCommand):
                     Project_Name=allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME),
                     Project_ID=allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
                     PI=allocation.project.pi,
+                    Institution_Specific_Code=allocation.get_attribute(
+                        attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
+                    ) or "N/A",
                     Invoice_Type_Hours=time,
                     Invoice_Type=su_name,
                     Rate=rate,
