@@ -25,3 +25,4 @@ jobs:
       - name: Run functional tests
         run: |
           ./ci/run_unit_tests.sh
+          pytest ./src/coldfront_plugin_cloud/tests/unit/moc_openshift/ -v --cov=acct_mgt --cov-report=term
