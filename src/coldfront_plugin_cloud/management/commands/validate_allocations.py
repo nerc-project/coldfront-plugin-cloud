@@ -253,3 +253,16 @@ class Command(BaseCommand):
                             logger.warning(
                                 f"Quota for allocation {project_id} was out of date. Reapplied!"
                             )
+
+        # (Quan Pham) TODO Implement validating ESI resource
+        # Should these validation code be put in a sepearate file or 
+        # in tasks.py or utils.py as functions for each resource type?
+        esi_resources = Resource.objects.filter(
+            resource_type=ResourceType.objects.get(
+                name='ESI'
+            )
+        )
+        esi_allocations = Allocation.objects.filter(
+            resources__in=esi_resources,
+            status=AllocationStatusChoice.objects.get(name='Active')
+        )

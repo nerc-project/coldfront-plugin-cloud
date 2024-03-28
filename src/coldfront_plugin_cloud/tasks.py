@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 # Map the amount of quota that 1 unit of `quantity` gets you
 # This is multiplied to the quantity of that resource allocation.
+# (Quan Pham) TODO What should be the multipliers and static quota
+# for ESI resources? Also, should these attribute variable names be
+# renamed? It makes it a bit confusing which ones are Openstack or Openshift
 UNIT_QUOTA_MULTIPLIERS = {
     'openstack': {
         attributes.QUOTA_INSTANCES: 1,
@@ -35,6 +38,9 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_REQUESTS_STORAGE: 20,
         attributes.QUOTA_REQUESTS_GPU: 0,
         attributes.QUOTA_PVC: 2
+    },
+    'esi': {
+
     }
 }
 

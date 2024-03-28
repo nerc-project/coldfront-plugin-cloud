@@ -89,6 +89,12 @@ QUOTA_REQUESTS_STORAGE = 'OpenShift Request on Storage Quota (GB)'
 QUOTA_REQUESTS_GPU = 'OpenShift Request on GPU Quota'
 QUOTA_PVC = 'OpenShift Persistent Volume Claims Quota'
 
+###########################################################
+# ESI Quota Attributes 
+# (Quan Pham) TODO Know what ESI specific attributes would be, if any
+# From Mainn's suggesting, I've added networks and floating ips
+ESI_FLOATING_IPS = 'ESI  Floating IP Quota'
+ESI_NETWORKS = 'ESI Network Quota'
 
 ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_INSTANCES),

@@ -18,7 +18,7 @@ class TestAllocation(base.TestBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.resource = self.new_resource(name='Devstack',
+        self.resource = self.new_openstack_resource(name='Devstack',
                                           auth_url=os.getenv('OS_AUTH_URL'))
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
