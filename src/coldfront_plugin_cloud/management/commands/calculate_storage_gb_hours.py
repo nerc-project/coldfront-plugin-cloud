@@ -93,7 +93,7 @@ class Command(BaseCommand):
                             default='https://s3.us-east-005.backblazeb2.com')
         parser.add_argument('--s3-bucket-name', type=str,
                             default='nerc-invoicing')
-        parser.add_option('--upload-to-s3',
+        parser.add_argument('--upload-to-s3', default=False, action='store_true',
                           help='Upload generated CSV invoice to S3 storage.')
 
     @staticmethod
@@ -219,7 +219,7 @@ class Command(BaseCommand):
                 )
 
         if options['upload_to_s3']:
-            logger.info(f'Uploading to S3 endpoint {options['s3_endpoint_url']}.')
+            logger.info(f'Uploading to S3 endpoint {options["s3_endpoint_url"]}.')
             self.upload_to_s3(options['s3_endpoint_url'],
                               options['s3_bucket'],
                               options['output'],
