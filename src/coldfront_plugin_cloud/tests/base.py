@@ -20,6 +20,7 @@ from coldfront.core.resource.models import (Resource,
                                             ResourceType,
                                             ResourceAttribute,
                                             ResourceAttributeType)
+from coldfront.core.field_of_science.models import FieldOfScience
 from django.core.management import call_command
 
 from coldfront_plugin_cloud import attributes
@@ -105,3 +106,10 @@ class TestBase(TestCase):
             status=AllocationUserStatusChoice.objects.get(name='Active')
         )
         return au
+    
+    def new_field_of_science(self, description=None):
+        description = description or uuid.uuid4().hex
+        fos, _ = FieldOfScience.objects.get_or_create(
+            is_selectable=True, description=description
+        )
+        return fos
