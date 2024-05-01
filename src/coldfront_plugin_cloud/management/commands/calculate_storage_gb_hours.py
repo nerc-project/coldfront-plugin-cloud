@@ -154,7 +154,7 @@ class Command(BaseCommand):
                     InvoiceMonth=options['invoice_month'],
                     Project_Name=allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME),
                     Project_ID=allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID),
-                    PI=allocation.project.pi,
+                    PI=allocation.project.pi.email,
                     Institution_Specific_Code=allocation.get_attribute(
                         attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
                     ) or "N/A",
