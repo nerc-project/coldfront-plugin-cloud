@@ -132,9 +132,13 @@ class Command(BaseCommand):
                         logger.warning(msg)
 
             if failed_validation and options['apply']:
-                allocator.set_quota(
-                    allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-                )
+                try:
+                    allocator.set_quota(
+                        allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+                    )
+                except Exception as e:
+                    logger.error(f'setting openstack quota failed: {e}')
+                    continue
                 logger.warning(f'Quota for allocation {allocation_str} was out of date. Reapplied!')
 
         # Deal with OpenShift
@@ -249,7 +253,11 @@ class Command(BaseCommand):
                         logger.warning(msg)
 
                         if options["apply"]:
-                            allocator.set_quota(project_id)
-                            logger.warning(
-                                f"Quota for allocation {project_id} was out of date. Reapplied!"
-                            )
+                            try:
+                                allocator.set_quota(project_id)
+                                logger.warning(
+                                    f"Quota for allocation {project_id} was out of date. Reapplied!"
+                                )
+                            except Exception as e:
+                                logger.error(f'setting openshift quota failed: {e}')
+                                continue
