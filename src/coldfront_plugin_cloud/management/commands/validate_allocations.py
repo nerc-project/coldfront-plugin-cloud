@@ -233,8 +233,10 @@ class Command(BaseCommand):
                             current_value = round(current_value / suffix["Mi"])
                         elif "Storage" in attr.name:
                             current_value = round(current_value / suffix["Gi"])
+                    elif current_value and current_value == "0":
+                        current_value = 0
 
-                    if expected_value is None and current_value:
+                    if expected_value is None and current_value is not None:
                         msg = (
                             f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
                             f" Current quota is {current_value}."
