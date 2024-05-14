@@ -120,7 +120,7 @@ class Command(BaseCommand):
                     current_value = quota.get(key, None)
                     if key == obj_key and expected_value <= 0:
                         expected_obj_value = 1
-                        current_value = allocator.object(project_id).head_account().get(obj_key)
+                        current_value = int(allocator.object(project_id).head_account().get(obj_key))
                         if current_value != expected_obj_value:
                             failed_validation = True
                             msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
