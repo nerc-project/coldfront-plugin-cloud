@@ -216,10 +216,25 @@ class TestAllocation(base.TestBase):
                 allocation.get_attribute(attributes.QUOTA_OBJECT_GB),
                 allocator.get_quota(openstack_project.id)[obj_key]
             )
+
             # setting 0 object quota in coldfront -> 1 byte quota in swift/rgw
             utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 0)
             self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 0)
             tasks.activate_allocation(allocation.pk)
+            obj_quota = allocator.object(project_id).head_account().get(obj_key)
+            self.assertEqual(int(obj_quota), 1)
+
+            # test validate_allocations works for object quota set to 0
+            utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 3)
+            self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 3)
+            tasks.activate_allocation(allocation.pk)
+            self.assertEqual(
+                allocation.get_attribute(attributes.QUOTA_OBJECT_GB),
+                allocator.get_quota(openstack_project.id)[obj_key]
+            )
+            utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 0)
+            self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 0)
+            call_command('validate_allocations', apply=True)
             obj_quota = allocator.object(project_id).head_account().get(obj_key)
             self.assertEqual(int(obj_quota), 1)
 

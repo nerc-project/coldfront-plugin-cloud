@@ -105,6 +105,8 @@ class Command(BaseCommand):
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
+            obj_key = openstack.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr.name:
                     key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
@@ -116,7 +118,15 @@ class Command(BaseCommand):
 
                     expected_value = allocation.get_attribute(attr.name)
                     current_value = quota.get(key, None)
-                    if expected_value is None and current_value:
+                    if key == obj_key and expected_value <= 0:
+                        expected_obj_value = 1
+                        current_value = allocator.object(project_id).head_account().get(obj_key)
+                        if current_value != expected_obj_value:
+                            failed_validation = True
+                            msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
+                                   f' value of {expected_obj_value} on allocation {allocation_str}')
+                            logger.warning(msg)
+                    elif expected_value is None and current_value:
                         msg = (f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
                                f' Current quota is {current_value}.')
                         if options['apply']:
