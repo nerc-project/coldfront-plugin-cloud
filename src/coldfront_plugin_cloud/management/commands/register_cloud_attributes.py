@@ -25,6 +25,9 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ('OpenShift Limit on RAM Quota', {
         'name': 'OpenShift Limit on RAM Quota (MB)'
     }),
+    ('OpenStack Volume Quota', {
+        'name': 'OpenStack Number of Volumes Quota'
+    }),
     ('OpenStack Compute RAM Quota', {
         'name': 'OpenStack Compute RAM Quota (MiB)'
     }),
