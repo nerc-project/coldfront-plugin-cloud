@@ -25,6 +25,24 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ('OpenShift Limit on RAM Quota', {
         'name': 'OpenShift Limit on RAM Quota (MB)'
     }),
+    ('OpenStack Compute RAM Quota', {
+        'name': 'OpenStack Compute RAM Quota (MiB)'
+    }),
+    ('OpenStack Volume GB Quota', {
+        'name': 'OpenStack Volume Quota (GiB)'
+    }),
+    ('OpenStack Swift Quota in Gigabytes', {
+        'name': 'OpenStack Swift Quota (GiB)'
+    }),
+    ('OpenShift Limit on RAM Quota (MB)', {
+        'name': 'OpenShift Limit on RAM Quota (MiB)'
+    }),
+    ('OpenShift Limit on Ephemeral Storage Quota (GB)', {
+        'name': 'OpenShift Limit on Ephemeral Storage Quota (GiB)'
+    }),  
+    ('OpenShift Request on Storage Quota (GB)', {
+        'name': 'OpenShift Request on Storage Quota (GiB)'
+    }),
 ]
 
 RESOURCE_ATTRIBUTE_MIGRATIONS = [
