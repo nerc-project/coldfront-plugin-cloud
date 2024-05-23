@@ -31,9 +31,6 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ('OpenStack Volume GB Quota', {
         'name': 'OpenStack Volume Quota (GiB)'
     }),
-    ('OpenStack Swift Quota in Gigabytes', {
-        'name': 'OpenStack Swift Quota (GiB)'
-    }),
     ('OpenShift Limit on RAM Quota (MB)', {
         'name': 'OpenShift Limit on RAM Quota (MiB)'
     }),
