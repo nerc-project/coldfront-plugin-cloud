@@ -71,7 +71,7 @@ QUOTA_INSTANCES = 'OpenStack Compute Instance Quota'
 QUOTA_RAM = 'OpenStack Compute RAM Quota (MiB)'
 QUOTA_VCPU = 'OpenStack Compute vCPU Quota'
 
-QUOTA_VOLUMES = 'OpenStack Volume Quota'
+QUOTA_VOLUMES = 'OpenStack Number of Volumes Quota'
 QUOTA_VOLUMES_GB = 'OpenStack Volume Quota (GiB)'
 
 QUOTA_FLOATING_IPS = 'OpenStack Floating IP Quota'
