@@ -68,11 +68,11 @@ ALLOCATION_ATTRIBUTES = [
 ###########################################################
 # OpenStack Quota Attributes
 QUOTA_INSTANCES = 'OpenStack Compute Instance Quota'
-QUOTA_RAM = 'OpenStack Compute RAM Quota'
+QUOTA_RAM = 'OpenStack Compute RAM Quota (MiB)'
 QUOTA_VCPU = 'OpenStack Compute vCPU Quota'
 
-QUOTA_VOLUMES = 'OpenStack Volume Quota'
-QUOTA_VOLUMES_GB = 'OpenStack Volume GB Quota'
+QUOTA_VOLUMES = 'OpenStack Number of Volumes Quota'
+QUOTA_VOLUMES_GB = 'OpenStack Volume Quota (GiB)'
 
 QUOTA_FLOATING_IPS = 'OpenStack Floating IP Quota'
 
@@ -83,9 +83,9 @@ QUOTA_GPU = 'OpenStack GPU Quota'
 ###########################################################
 # OpenShift Quota Attributes
 QUOTA_LIMITS_CPU = 'OpenShift Limit on CPU Quota'
-QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota (MB)'
-QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = 'OpenShift Limit on Ephemeral Storage Quota (GB)'
-QUOTA_REQUESTS_STORAGE = 'OpenShift Request on Storage Quota (GB)'
+QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota (MiB)'
+QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = 'OpenShift Limit on Ephemeral Storage Quota (GiB)'
+QUOTA_REQUESTS_STORAGE = 'OpenShift Request on Storage Quota (GiB)'
 QUOTA_REQUESTS_GPU = 'OpenShift Request on GPU Quota'
 QUOTA_PVC = 'OpenShift Persistent Volume Claims Quota'
 
