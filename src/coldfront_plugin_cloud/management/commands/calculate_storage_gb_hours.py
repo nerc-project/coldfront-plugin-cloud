@@ -1,5 +1,5 @@
 import csv
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import dataclasses
 from datetime import datetime, timedelta
 import logging
@@ -161,7 +161,7 @@ class Command(BaseCommand):
                     Invoice_Type_Hours=time,
                     Invoice_Type=su_name,
                     Rate=rate,
-                    Cost=time * rate
+                    Cost=(time * rate).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
                 )
                 csv_invoice_writer.writerow(
                     row.get_values()
