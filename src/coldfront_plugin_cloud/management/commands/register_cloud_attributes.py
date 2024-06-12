@@ -43,6 +43,9 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ('OpenShift Request on Storage Quota (GB)', {
         'name': 'OpenShift Request on Storage Quota (GiB)'
     }),
+    ('OpenStack Swift Quota in Gigabytes', {
+        'name': 'OpenStack Swift Quota (GiB)'
+    }),
 ]
 
 RESOURCE_ATTRIBUTE_MIGRATIONS = [
