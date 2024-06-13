@@ -14,6 +14,8 @@ from coldfront.core.resource.models import Resource, ResourceType
 from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 import pytz
 
+from nerc_rates import load_from_url
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -85,10 +87,6 @@ class Command(BaseCommand):
         )
         parser.add_argument('--output', type=str, default='invoices.csv',
                              help='CSV file to write invoices to.')
-        parser.add_argument('--openstack-gb-rate', type=Decimal, required=True,
-                            help='Rate for OpenStack Volume and Object GB/hour.')
-        parser.add_argument('--openshift-gb-rate', type=Decimal, required=True,
-                            help='Rate for OpenShift GB/hour.')
         parser.add_argument('--s3-endpoint-url', type=str,
                             default='https://s3.us-east-005.backblazeb2.com')
         parser.add_argument('--s3-bucket-name', type=str,
@@ -187,6 +185,10 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
+        rates = load_from_url()
+        storage_rate = Decimal(rates.get_value_at('Storage GB Rate', options["invoice_month"]))
+        logger.info(f'Using storage rate {storage_rate} for {options["invoice_month"]}')
+
         logger.info(f'Writing to {options["output"]}.')
         with open(options['output'], 'w', newline='') as f:
             csv_invoice_writer = csv.writer(
@@ -204,7 +206,7 @@ class Command(BaseCommand):
                     allocation,
                     [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
                     "OpenStack Storage",
-                    options['openstack_gb_rate'])
+                    storage_rate)
 
             for allocation in openshift_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
@@ -215,7 +217,7 @@ class Command(BaseCommand):
                     allocation,
                     [attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, attributes.QUOTA_REQUESTS_STORAGE],
                     "OpenShift Storage",
-                    options['openshift_gb_rate']
+                    storage_rate
                 )
 
         if options['upload_to_s3']:
