@@ -15,8 +15,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--name', type=str, required=True,
                             help='Name of OpenShift resource')
-        parser.add_argument('--auth-url', type=str, required=True,
-                            help='URL of the openshift-acct-mgt endpoint')
+        parser.add_argument('--cluster-url', type=str, required=True,
+                            help='URL of the Openshift cluster')
+        parser.add_argument('--identity-name', type=str, required=True,
+                            help='Name of the cluster\'s identity provider')
         parser.add_argument('--role', type=str, default='edit',
                             help='Role for user when added to project (default: edit)')
 
@@ -35,7 +37,7 @@ class Command(BaseCommand):
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name=attributes.RESOURCE_AUTH_URL),
             resource=openshift,
-            value=options['auth_url']
+            value=options['cluster_url']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
@@ -43,3 +45,10 @@ class Command(BaseCommand):
             resource=openshift,
             value=options['role']
         )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_IDENTITY_NAME),
+            resource=openshift,
+            value=options['identity_name']
+        )
+        
