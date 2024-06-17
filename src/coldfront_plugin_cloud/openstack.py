@@ -19,7 +19,7 @@ from coldfront_plugin_cloud import attributes, base, utils
 logger = logging.getLogger(__name__)
 
 # 1 GB = 1 000 000 000 B = 10^9 B
-GB_IN_BYTES = 1000000000
+GB_IN_BYTES = 2 ** 30
 
 # Map the attribute name in ColdFront, to the client of the respective
 # service, the version of the API, and the key in the payload.
