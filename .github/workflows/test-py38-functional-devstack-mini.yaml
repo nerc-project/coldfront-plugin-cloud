@@ -1,0 +1,26 @@
+name: test-py38-functional-devstack-mini
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install smaller Devstack
+        run: |
+          ./ci/devstack_mini.sh
+
+      - name: Install ColdFront and plugin
+        run: |
+          ./ci/setup.sh
+
+      - name: Run functional tests
+        run: |
+          ./ci/run_functional_tests_openstack_mini.sh

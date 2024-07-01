@@ -273,3 +273,17 @@ class Command(BaseCommand):
                             except Exception as e:
                                 logger.error(f'setting openshift quota failed: {e}')
                                 continue
+
+
+        # (Quan Pham) TODO Implement validating ESI resource
+        # Should these validation code be put in a sepearate file or 
+        # in tasks.py or utils.py as functions for each resource type?
+        esi_resources = Resource.objects.filter(
+            resource_type=ResourceType.objects.get(
+                name='ESI'
+            )
+        )
+        esi_allocations = Allocation.objects.filter(
+            resources__in=esi_resources,
+            status=AllocationStatusChoice.objects.get(name='Active')
+        )
