@@ -208,7 +208,7 @@ class Command(BaseCommand):
 
             for allocation in openstack_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-                msg = f'Starting billing for for allocation {allocation_str}.'
+                msg = f'Starting billing for allocation {allocation_str}.'
                 logger.debug(msg)
 
                 process_invoice_row(
@@ -219,7 +219,7 @@ class Command(BaseCommand):
 
             for allocation in openshift_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-                msg = f'Starting billing for for allocation {allocation_str}.'
+                msg = f'Starting billing for allocation {allocation_str}.'
                 logger.debug(msg)
 
                 process_invoice_row(
