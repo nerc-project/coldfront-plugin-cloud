@@ -11,6 +11,9 @@ from coldfront_plugin_cloud import utils
 from coldfront.core.allocation import models as allocation_models
 
 
+SECONDS_IN_DAY = 3600 * 24
+
+
 class TestCalculateAllocationQuotaHours(base.TestBase):
     def test_new_allocation_quota(self):
         self.resource = self.new_openshift_resource(
@@ -377,3 +380,135 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
         )
         self.assertEqual(value, 144)
+
+    def test_calculate_time_excluded_intervals(self):
+        """Test get_included_duration for correctness"""
+        def get_excluded_interval_datetime_list(excluded_interval_list):
+            return [
+                [datetime.datetime(t1[0], t1[1], t1[2], 0, 0, 0), 
+                datetime.datetime(t2[0], t2[1], t2[2], 0, 0, 0)] 
+                for t1, t2 in excluded_interval_list
+            ]
+
+        # Single interval within active period
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 15), (2020, 3, 16)),)
+        )
+
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 15, 0, 0, 0),
+            datetime.datetime(2020, 3, 17, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, SECONDS_IN_DAY * 1)
+
+        # Interval starts before active period
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 13), (2020, 3, 16)),)
+        )
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 15, 0, 0, 0),
+            datetime.datetime(2020, 3, 18, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, SECONDS_IN_DAY * 2)
+
+        # Interval ending after active period
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 16), (2020, 3, 18)),)
+        )
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 15, 0, 0, 0),
+            datetime.datetime(2020, 3, 17, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, SECONDS_IN_DAY)
+
+        # Intervals outside active period
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 1), (2020, 3, 5)),
+             ((2020, 3, 10), (2020, 3, 11)),
+             ((2020, 3, 20), (2020, 3, 25)),)
+        )
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 12, 0, 0, 0),
+            datetime.datetime(2020, 3, 19, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, SECONDS_IN_DAY * 7)
+
+        # Multiple intervals in and out of active period
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 13), (2020, 3, 15)),
+             ((2020, 3, 16), (2020, 3, 17)),
+             ((2020, 3, 18), (2020, 3, 20)),)
+        )
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 14, 0, 0, 0),
+            datetime.datetime(2020, 3, 19, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, SECONDS_IN_DAY * 2)
+
+        # Interval completely excluded
+        excluded_intervals = get_excluded_interval_datetime_list(
+            (((2020, 3, 1), (2020, 3, 30)),)
+        )
+        value = utils.get_included_duration(
+            datetime.datetime(2020, 3, 14, 0, 0, 0),
+            datetime.datetime(2020, 3, 18, 0, 0, 0),
+            excluded_intervals
+        )
+        self.assertEqual(value, 0)
+
+    def test_load_excluded_intervals(self):
+        """Test load_excluded_intervals returns valid output"""
+
+        # Single interval
+        interval_list = [
+            "2023-01-01,2023-01-02"
+        ]
+        output = utils.load_excluded_intervals(interval_list)
+        self.assertEqual(output, [
+            [datetime.datetime(2023, 1, 1, 0, 0, 0),
+            datetime.datetime(2023, 1, 2, 0, 0, 0)]
+        ])
+
+        # More than 1 interval
+        interval_list = [
+            "2023-01-01,2023-01-02",
+            "2023-01-04,2023-01-15",
+        ]
+        output = utils.load_excluded_intervals(interval_list)
+        self.assertEqual(output, [
+            [datetime.datetime(2023, 1, 1, 0, 0, 0),
+            datetime.datetime(2023, 1, 2, 0, 0, 0)],
+            [datetime.datetime(2023, 1, 4, 0, 0, 0),
+            datetime.datetime(2023, 1, 15, 0, 0, 0)]
+        ])
+
+    def test_load_excluded_intervals_invalid(self):
+        """Test when given invalid time intervals"""
+
+        # First interval is invalid
+        invalid_interval = ["foo"]
+        with self.assertRaises(ValueError):
+            utils.load_excluded_intervals(invalid_interval)
+
+        # First interval is valid, but not second
+        invalid_interval = ["2001-01-01,2002-01-01", "foo,foo"]
+        with self.assertRaises(ValueError):
+            utils.load_excluded_intervals(invalid_interval)
+
+        # End date is before start date
+        invalid_interval = ["2000-10-01,2000-01-01"]
+        with self.assertRaises(AssertionError):
+            utils.load_excluded_intervals(invalid_interval)
+
+        # Overlapping intervals
+        invalid_interval = [
+            "2000-01-01,2000-01-04",
+            "2000-01-02,2000-01-06",                
+        ]
+        with self.assertRaises(AssertionError):
+            utils.load_excluded_intervals(invalid_interval)
