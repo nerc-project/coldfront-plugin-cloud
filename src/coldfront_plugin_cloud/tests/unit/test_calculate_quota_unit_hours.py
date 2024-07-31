@@ -1,4 +1,5 @@
 import datetime
+import unittest
 import pytz
 
 import freezegun
@@ -176,6 +177,157 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
         )
         self.assertEqual(value, 0)
+
+    @unittest.expectedFailure
+    def test_change_request_decrease(self):
+        """Test for when a change request decreases the quota"""
+        self.resource = self.new_openshift_resource(
+            name="",
+            auth_url="",
+        )
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+
+        with freezegun.freeze_time("2020-03-15 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 2)
+
+        with freezegun.freeze_time("2020-03-17 00:00:00"):
+            cr = allocation_models.AllocationChangeRequest.objects.create(
+                allocation=allocation,
+                status = allocation_models.AllocationChangeStatusChoice.objects.filter(
+                    name="Approved").first()
+            )
+            attr = allocation_models.AllocationAttribute.objects.filter(
+                allocation_attribute_type__name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+                allocation=allocation
+            ).first()
+            allocation_models.AllocationAttributeChangeRequest.objects.create(
+                allocation_change_request=cr,
+                allocation_attribute=attr,
+                new_value=0,
+            )
+
+        with freezegun.freeze_time("2020-03-19 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 0)
+            
+        allocation.refresh_from_db()
+
+        value = utils.calculate_quota_unit_hours(
+            allocation,
+            attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+            pytz.utc.localize(datetime.datetime(2020, 3, 1, 0, 0, 1)),
+            pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
+        )
+        self.assertEqual(value, 96)
+
+    def test_change_request_increase(self):
+        """Test for when a change request increases the quota"""
+        self.resource = self.new_openshift_resource(
+            name="",
+            auth_url="",
+        )
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+
+        with freezegun.freeze_time("2020-03-15 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 2)
+
+        with freezegun.freeze_time("2020-03-17 00:00:00"):
+            cr = allocation_models.AllocationChangeRequest.objects.create(
+                allocation=allocation,
+                status = allocation_models.AllocationChangeStatusChoice.objects.filter(
+                    name="Approved").first()
+            )
+            attr = allocation_models.AllocationAttribute.objects.filter(
+                allocation_attribute_type__name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+                allocation=allocation
+            ).first()
+            allocation_models.AllocationAttributeChangeRequest.objects.create(
+                allocation_change_request=cr,
+                allocation_attribute=attr,
+                new_value=4,
+            )
+
+        with freezegun.freeze_time("2020-03-19 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 4)
+            
+        allocation.refresh_from_db()
+
+        value = utils.calculate_quota_unit_hours(
+            allocation,
+            attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+            pytz.utc.localize(datetime.datetime(2020, 3, 1, 0, 0, 1)),
+            pytz.utc.localize(datetime.datetime(2020, 3, 20, 23, 59, 59))
+        )
+        self.assertEqual(value, 384)
+
+    @unittest.expectedFailure
+    def test_change_request_decrease_multiple(self):
+        """Test for when multiple different change request decreases the quota"""
+        self.resource = self.new_openshift_resource(
+            name="",
+            auth_url="",
+        )
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+
+        with freezegun.freeze_time("2020-03-15 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 2)
+            
+        # In this case, approved CR is the first CR submitted
+        with freezegun.freeze_time("2020-03-16 00:00:00"):
+            cr = allocation_models.AllocationChangeRequest.objects.create(
+                allocation=allocation,
+                status = allocation_models.AllocationChangeStatusChoice.objects.filter(
+                    name="Approved").first()
+            )
+            attr = allocation_models.AllocationAttribute.objects.filter(
+                allocation_attribute_type__name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+                allocation=allocation
+            ).first()
+            allocation_models.AllocationAttributeChangeRequest.objects.create(
+                allocation_change_request=cr,
+                allocation_attribute=attr,
+                new_value=0,
+            )
+
+        with freezegun.freeze_time("2020-03-17 00:00:00"):
+            cr = allocation_models.AllocationChangeRequest.objects.create(
+                allocation=allocation,
+                status = allocation_models.AllocationChangeStatusChoice.objects.filter(
+                    name="Approved").first()
+            )
+            attr = allocation_models.AllocationAttribute.objects.filter(
+                allocation_attribute_type__name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+                allocation=allocation
+            ).first()
+            allocation_models.AllocationAttributeChangeRequest.objects.create(
+                allocation_change_request=cr,
+                allocation_attribute=attr,
+                new_value=1,
+            )
+
+        with freezegun.freeze_time("2020-03-19 00:00:00"):
+            utils.set_attribute_on_allocation(
+                allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 0)
+            
+        allocation.refresh_from_db()
+
+        value = utils.calculate_quota_unit_hours(
+            allocation,
+            attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+            pytz.utc.localize(datetime.datetime(2020, 3, 1, 0, 0, 1)),
+            pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
+        )
+        self.assertEqual(value, 48)
 
     def test_new_allocation_quota_change_request(self):
         self.resource = self.new_openshift_resource(
