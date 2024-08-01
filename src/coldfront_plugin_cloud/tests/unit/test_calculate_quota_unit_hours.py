@@ -178,7 +178,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         )
         self.assertEqual(value, 0)
 
-    @unittest.expectedFailure
     def test_change_request_decrease(self):
         """Test for when a change request decreases the quota"""
         self.resource = self.new_openshift_resource(
@@ -267,7 +266,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         )
         self.assertEqual(value, 384)
 
-    @unittest.expectedFailure
     def test_change_request_decrease_multiple(self):
         """Test for when multiple different change request decreases the quota"""
         self.resource = self.new_openshift_resource(

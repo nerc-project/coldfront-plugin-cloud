@@ -124,7 +124,7 @@ def calculate_quota_unit_hours(allocation: Allocation,
                 # find one that happened just before the next event.
                 cr_created_at = cr.history.first().created
                 if cr.history.first().created <= event_time:
-                    if unbounded_last_event_time and unbounded_last_event_time < cr_created_at:
+                    if unbounded_last_event_time and unbounded_last_event_time > cr_created_at:
                         # But after the unbounded last event time.
                         continue
 
