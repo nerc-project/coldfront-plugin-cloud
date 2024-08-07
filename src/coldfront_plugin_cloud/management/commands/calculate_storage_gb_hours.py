@@ -14,6 +14,8 @@ from coldfront.core.resource.models import Resource, ResourceType
 from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 import pytz
 
+from nerc_rates import load_from_url
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -187,6 +189,19 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
+        rates = load_from_url()
+        openstack_storage_rate = openshift_storage_rate = Decimal(
+            rates.get_value_at('Storage GB Rate', options["invoice_month"]))
+        
+        if options['openstack_gb_rate']:
+            openstack_storage_rate = options['openstack_gb_rate']
+
+        if options['openshift_gb_rate']:
+            openshift_storage_rate = options['openshift_gb_rate']
+
+        logger.info(f'Using storage rate {openstack_storage_rate} (Openstack) and 
+                    {openshift_storage_rate} (Openshift) for {options["invoice_month"]}')
+
         logger.info(f'Writing to {options["output"]}.')
         with open(options['output'], 'w', newline='') as f:
             csv_invoice_writer = csv.writer(
@@ -204,7 +219,7 @@ class Command(BaseCommand):
                     allocation,
                     [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
                     "OpenStack Storage",
-                    options['openstack_gb_rate'])
+                    openstack_storage_rate)
 
             for allocation in openshift_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
@@ -215,7 +230,7 @@ class Command(BaseCommand):
                     allocation,
                     [attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, attributes.QUOTA_REQUESTS_STORAGE],
                     "OpenShift Storage",
-                    options['openshift_gb_rate']
+                    openshift_storage_rate
                 )
 
         if options['upload_to_s3']:
