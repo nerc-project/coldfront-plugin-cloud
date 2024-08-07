@@ -111,6 +111,9 @@ usage: coldfront add_openshift_resource [-h] --name NAME --auth-url AUTH_URL [--
 coldfront add_openshift_resource: error: the following arguments are required: --name, --auth-url
 ```
 
+### Configuring for ESI
+(Quan Pham) TODO Add instructions for configuring ESI
+
 ### Quotas
 
 The amount of quota to start out a resource allocation after approval, can be

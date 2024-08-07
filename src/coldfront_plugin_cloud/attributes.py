@@ -89,6 +89,10 @@ QUOTA_REQUESTS_STORAGE = 'OpenShift Request on Storage Quota (GiB)'
 QUOTA_REQUESTS_GPU = 'OpenShift Request on GPU Quota'
 QUOTA_PVC = 'OpenShift Persistent Volume Claims Quota'
 
+###########################################################
+# ESI Quota Attributes 
+ESI_FLOATING_IPS = 'ESI Floating IP Quota'
+ESI_NETWORKS = 'ESI Network Quota'
 
 ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_INSTANCES),
@@ -105,4 +109,6 @@ ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_REQUESTS_STORAGE),
     CloudAllocationAttribute(name=QUOTA_REQUESTS_GPU),
     CloudAllocationAttribute(name=QUOTA_PVC),
+    CloudAllocationAttribute(name=ESI_FLOATING_IPS),
+    CloudAllocationAttribute(name=ESI_NETWORKS)
 ]

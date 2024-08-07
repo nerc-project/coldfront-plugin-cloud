@@ -4,6 +4,7 @@ import re
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import openstack
 from coldfront_plugin_cloud import openshift
+from coldfront_plugin_cloud import esi
 from coldfront_plugin_cloud import utils
 from coldfront_plugin_cloud import tasks
 
@@ -105,11 +106,11 @@ class Command(BaseCommand):
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
-            obj_key = openstack.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+            obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
 
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr.name:
-                    key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
+                    key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
                     if not key:
                         # Note(knikolla): Some attributes are only maintained
                         # for bookkeeping purposes and do not have a
@@ -273,3 +274,74 @@ class Command(BaseCommand):
                             except Exception as e:
                                 logger.error(f'setting openshift quota failed: {e}')
                                 continue
+
+        esi_resources = Resource.objects.filter(
+            resource_type=ResourceType.objects.get(
+                name='ESI'
+            )
+        )
+        esi_allocations = Allocation.objects.filter(
+            resources__in=esi_resources,
+            status=AllocationStatusChoice.objects.get(name='Active')
+        )
+        for allocation in esi_allocations:
+            self.check_institution_specific_code(allocation, options["apply"])
+            allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
+            msg = f'Starting resource validation for allocation {allocation_str}.'
+            logger.debug(msg)
+
+            failed_validation = False
+
+            allocator = esi.ESIResourceAllocator(
+                allocation.resources.first(),
+                allocation
+            )
+
+            project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+            if not project_id:
+                logger.error(f'{allocation_str} is active but has no Project ID set.')
+                continue
+
+            try:
+                allocator.identity.projects.get(project_id)
+            except http.NotFound:
+                logger.error(f'{allocation_str} has Project ID {project_id}. But'
+                             f' no project found in OpenStack.')
+                continue
+
+            quota = allocator.get_quota(project_id)
+
+            failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
+
+            for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
+                if 'ESI' in attr.name:
+                    key = esi.ESIResourceAllocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
+
+                    expected_value = allocation.get_attribute(attr.name)
+                    current_value = quota.get(key, None)
+                    if expected_value is None and current_value:
+                        msg = (f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
+                               f' Current quota is {current_value}.')
+                        if options['apply']:
+                            utils.set_attribute_on_allocation(
+                                allocation, attr.name, current_value
+                            )
+                            msg = f'{msg} Attribute set to match current quota.'
+                        logger.warning(msg)
+                    elif not current_value == expected_value:
+                        failed_validation = True
+                        msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
+                               f' value of {expected_value} on allocation {allocation_str}')
+                        logger.warning(msg)
+
+            if failed_validation and options['apply']:
+                try:
+                    allocator.set_quota(
+                        allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+                    )
+                except Exception as e:
+                    logger.error(f'setting openstack quota failed: {e}')
+                    continue
+                logger.warning(f'Quota for allocation {allocation_str} was out of date. Reapplied!')
+
+        
