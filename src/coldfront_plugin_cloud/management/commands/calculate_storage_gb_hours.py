@@ -97,6 +97,9 @@ class Command(BaseCommand):
                             default='nerc-invoicing')
         parser.add_argument('--upload-to-s3', default=False, action='store_true',
                           help='Upload generated CSV invoice to S3 storage.')
+        parser.add_argument('--excluded-date-ranges', type=str, 
+                            default=None, nargs='+',
+                            help='List of date ranges excluded from billing')
 
     @staticmethod
     def default_start_argument():
@@ -149,7 +152,8 @@ class Command(BaseCommand):
             time = 0
             for attribute in attrs:
                 time += utils.calculate_quota_unit_hours(
-                    allocation, attribute, options['start'], options['end']
+                    allocation, attribute, options['start'], options['end'],
+                    excluded_intervals_list
                 )
             if time > 0:
                 row = InvoiceRow(
@@ -172,6 +176,13 @@ class Command(BaseCommand):
         logger.info(f'Processing invoices for {options["invoice_month"]}.')
         logger.info(f'Interval {options["start"] - options["end"]}.')
 
+        if options["excluded_date_ranges"]:
+            excluded_intervals_list = utils.load_excluded_intervals(
+                options["excluded_date_ranges"]
+            )
+        else:
+            excluded_intervals_list = None
+            
         openstack_resources = Resource.objects.filter(
             resource_type=ResourceType.objects.get(
                 name='OpenStack'
@@ -212,7 +223,7 @@ class Command(BaseCommand):
 
             for allocation in openstack_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-                msg = f'Starting billing for for allocation {allocation_str}.'
+                msg = f'Starting billing for allocation {allocation_str}.'
                 logger.debug(msg)
 
                 process_invoice_row(
@@ -223,7 +234,7 @@ class Command(BaseCommand):
 
             for allocation in openshift_allocations:
                 allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-                msg = f'Starting billing for for allocation {allocation_str}.'
+                msg = f'Starting billing for allocation {allocation_str}.'
                 logger.debug(msg)
 
                 process_invoice_row(
