@@ -5,6 +5,7 @@ set -xe
 
 export OPENSHIFT_MICROSHIFT_USERNAME="admin"
 export OPENSHIFT_MICROSHIFT_PASSWORD="pass"
+export OPENSHIFT_MICROSHIFT_TOKEN="$(oc create token -n onboarding onboarding-serviceaccount)"
 
 if [[ ! "${CI}" == "true" ]]; then
     source /tmp/coldfront_venv/bin/activate
