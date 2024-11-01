@@ -22,6 +22,6 @@ jobs:
         run: |
           ./ci/setup.sh
 
-      - name: Run functional tests
+      - name: Run unit tests
         run: |
           ./ci/run_unit_tests.sh
