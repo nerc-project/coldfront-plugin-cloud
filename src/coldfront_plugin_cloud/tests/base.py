@@ -31,7 +31,7 @@ class TestBase(TestCase):
     def setUp(self) -> None:
         # Otherwise output goes to the terminal for every test that is run
         backup, sys.stdout = sys.stdout, open(devnull, 'a')
-        call_command('initial_setup', )
+        call_command('initial_setup', '-f')
         call_command('load_test_data')
         call_command('register_cloud_attributes')
         sys.stdout = backup

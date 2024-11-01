@@ -1,6 +1,6 @@
 git+https://github.com/CCI-MOC/nerc-rates@74eb4a7#egg=nerc_rates
 boto3
-coldfront >= 1.0.4
+coldfront >= 1.1.0
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
 python-memcached==1.59
