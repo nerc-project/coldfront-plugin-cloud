@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -xe
 
 # If running on Github actions, don't create a virtualenv

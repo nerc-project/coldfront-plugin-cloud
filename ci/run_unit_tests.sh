@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -xe
 
 if [[ ! "${CI}" == "true" ]]; then
