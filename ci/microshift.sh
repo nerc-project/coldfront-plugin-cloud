@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Installs Microshift on Docker
 #

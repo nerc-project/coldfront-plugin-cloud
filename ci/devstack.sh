@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Installs Devstack with the OIDC plugin
 #
