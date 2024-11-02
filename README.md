@@ -78,11 +78,14 @@ dashboard or through the helper command:
 
 ```bash
 $ coldfront add_openstack_resource
-usage: coldfront add_openstack_resource [-h] --name NAME --auth-url AUTH_URL [--users-domain USERS_DOMAIN] [--projects-domain PROJECTS_DOMAIN] --idp IDP
-                                        [--protocol PROTOCOL] [--role ROLE] [--version] [-v {0,1,2,3}] [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback]
-                                        [--no-color] [--force-color]
+usage: coldfront add_openstack_resource [-h] --name NAME --auth-url AUTH_URL [--users-domain USERS_DOMAIN] [--projects-domain PROJECTS_DOMAIN] --idp IDP [--protocol PROTOCOL] [--role ROLE]
+                                        [--public-network PUBLIC_NETWORK] [--network-cidr NETWORK_CIDR] [--esi] [--version] [-v {0,1,2,3}] [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback]
+                                        [--no-color] [--force-color] [--skip-checks]
 coldfront add_openstack_resource: error: the following arguments are required: --name, --auth-url, --idp
 ```
+
+An Openstack resource can be specified as an ESI resource by setting the `--esi` command flag.
+ESI resource allocations will only have quotas for network resources by default.
 
 ### Configuring for OpenShift
 
