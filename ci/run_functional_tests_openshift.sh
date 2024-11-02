@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Creates the appropriate credentials and runs tests
 #
 # Tests expect the resource to be name Devstack
