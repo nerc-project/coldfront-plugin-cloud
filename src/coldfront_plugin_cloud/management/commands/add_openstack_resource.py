@@ -34,13 +34,23 @@ class Command(BaseCommand):
         parser.add_argument('--network-cidr', type=str, default='192.168.0.0/24',
                             help='CIDR for default networks. '
                                  'Ignored if no --public-network.')
+        parser.add_argument('--esi', action='store_true',
+                            help='Indicates this is an ESI resource (default: False)')
 
     def handle(self, *args, **options):
+
+        if options['esi']:
+            resource_description = 'ESI Bare Metal environment'
+            resource_type = 'ESI'
+        else:
+            resource_description = 'OpenStack cloud environment'
+            resource_type = 'OpenStack'
+
         openstack, _ = Resource.objects.get_or_create(
-            resource_type=ResourceType.objects.get(name='OpenStack'),
+            resource_type=ResourceType.objects.get(name=resource_type),
             parent_resource=None,
             name=options['name'],
-            description='OpenStack cloud environment',
+            description=resource_description,
             is_available=True,
             is_public=True,
             is_allocatable=True
@@ -82,18 +92,21 @@ class Command(BaseCommand):
             resource=openstack,
             value=options['role']
         )
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name='quantity_label'),
-            resource=openstack,
-            value='Units of computing to allocate to the project. 1 Unit = 1 Instance, 2 vCPU, 0 GPU, 4G RAM, 2 Volumes, 100 GB Volume Storage, and 1 GB Object Storage'
-        )
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name='quantity_default_value'),
-            resource=openstack,
-            value=1
-        )
+
+        # Quantity values do not make sense for an ESI allocation
+        if not options['esi']:
+            ResourceAttribute.objects.get_or_create(
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name='quantity_label'),
+                resource=openstack,
+                value='Units of computing to allocate to the project. 1 Unit = 1 Instance, 2 vCPU, 0 GPU, 4G RAM, 2 Volumes, 100 GB Volume Storage, and 1 GB Object Storage'
+            )
+            ResourceAttribute.objects.get_or_create(
+                resource_attribute_type=ResourceAttributeType.objects.get(
+                    name='quantity_default_value'),
+                resource=openstack,
+                value=1
+            )
 
         if options['public_network']:
             ResourceAttribute.objects.get_or_create(

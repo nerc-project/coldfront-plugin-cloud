@@ -10,6 +10,7 @@ from coldfront_plugin_cloud import (attributes,
                                     base,
                                     openstack,
                                     openshift,
+                                    esi,
                                     utils)
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_REQUESTS_STORAGE: 20,
         attributes.QUOTA_REQUESTS_GPU: 0,
         attributes.QUOTA_PVC: 2
+    },
+    'esi': {
+        attributes.QUOTA_FLOATING_IPS: 0,
+        attributes.QUOTA_NETWORKS: 0
     }
 }
 
@@ -48,6 +53,10 @@ STATIC_QUOTA = {
     },
     'openshift': {
         attributes.QUOTA_REQUESTS_GPU: 0,
+    },
+    'esi': {
+        attributes.QUOTA_FLOATING_IPS: 1,
+        attributes.QUOTA_NETWORKS: 1
     }
 }
 
@@ -56,6 +65,7 @@ def find_allocator(allocation) -> base.ResourceAllocator:
     allocators = {
         'openstack': openstack.OpenStackResourceAllocator,
         'openshift': openshift.OpenShiftResourceAllocator,
+        'esi': esi.ESIResourceAllocator,
     }
     # TODO(knikolla): It doesn't seem to be possible to select multiple resources
     # when requesting a new allocation, so why is this multivalued?
