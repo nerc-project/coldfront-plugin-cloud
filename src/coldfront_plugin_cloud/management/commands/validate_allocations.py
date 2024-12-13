@@ -4,6 +4,7 @@ import re
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import openstack
 from coldfront_plugin_cloud import openshift
+from coldfront_plugin_cloud import esi
 from coldfront_plugin_cloud import utils
 from coldfront_plugin_cloud import tasks
 
@@ -66,11 +67,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        # Openstack Resources first
+        # Deal with Openstack and ESI resources
         openstack_resources = Resource.objects.filter(
-            resource_type=ResourceType.objects.get(
-                name='OpenStack'
-            )
+            resource_type__name__in=['OpenStack', 'ESI']
         )
         openstack_allocations = Allocation.objects.filter(
             resources__in=openstack_resources,
@@ -84,10 +83,7 @@ class Command(BaseCommand):
 
             failed_validation = False
 
-            allocator = openstack.OpenStackResourceAllocator(
-                allocation.resources.first(),
-                allocation
-            )
+            allocator = tasks.find_allocator(allocation)
 
             project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
             if not project_id:
@@ -105,11 +101,11 @@ class Command(BaseCommand):
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
-            obj_key = openstack.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+            obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
 
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if 'OpenStack' in attr.name:
-                    key = openstack.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
+                    key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
                     if not key:
                         # Note(knikolla): Some attributes are only maintained
                         # for bookkeeping purposes and do not have a
@@ -147,7 +143,7 @@ class Command(BaseCommand):
                         allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
                     )
                 except Exception as e:
-                    logger.error(f'setting openstack quota failed: {e}')
+                    logger.error(f'setting {allocation.resources.first()} quota failed: {e}')
                     continue
                 logger.warning(f'Quota for allocation {allocation_str} was out of date. Reapplied!')
 

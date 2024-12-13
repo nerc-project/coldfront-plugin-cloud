@@ -75,6 +75,7 @@ QUOTA_VOLUMES = 'OpenStack Number of Volumes Quota'
 QUOTA_VOLUMES_GB = 'OpenStack Volume Quota (GiB)'
 
 QUOTA_FLOATING_IPS = 'OpenStack Floating IP Quota'
+QUOTA_NETWORKS = 'Openstack Network Quota'
 
 QUOTA_OBJECT_GB = 'OpenStack Swift Quota (GiB)'
 
@@ -96,6 +97,7 @@ ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_VCPU),
     CloudAllocationAttribute(name=QUOTA_VOLUMES),
     CloudAllocationAttribute(name=QUOTA_VOLUMES_GB),
+    CloudAllocationAttribute(name=QUOTA_NETWORKS),
     CloudAllocationAttribute(name=QUOTA_FLOATING_IPS),
     CloudAllocationAttribute(name=QUOTA_OBJECT_GB),
     CloudAllocationAttribute(name=QUOTA_GPU),

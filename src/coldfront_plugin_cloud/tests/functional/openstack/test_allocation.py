@@ -18,7 +18,7 @@ class TestAllocation(base.TestBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.resource = self.new_resource(name='Devstack',
+        self.resource = self.new_openstack_resource(name='Devstack',
                                           auth_url=os.getenv('OS_AUTH_URL'))
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
@@ -207,7 +207,7 @@ class TestAllocation(base.TestBase):
 
         # Change allocation attributes for object store quota
         current_quota = allocator.get_quota(openstack_project.id)
-        obj_key = openstack.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+        obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
         if obj_key in current_quota.keys():
             utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 6)
             self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 6)

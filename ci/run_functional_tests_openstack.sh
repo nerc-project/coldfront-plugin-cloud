@@ -15,6 +15,9 @@ export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET=$(
 export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID=$(
     openstack application credential show "$credential_name" -f value -c id)
 
+export OPENSTACK_ESI_APPLICATION_CREDENTIAL_SECRET=$OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET
+export OPENSTACK_ESI_APPLICATION_CREDENTIAL_ID=$OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID
+
 export OPENSTACK_PUBLIC_NETWORK_ID=$(openstack network show public -f value -c id)
 
 if [[ ! "${CI}" == "true" ]]; then
@@ -30,6 +33,7 @@ export KEYCLOAK_PASS="nomoresecret"
 export KEYCLOAK_REALM="master"
 
 coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openstack
+coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.esi
 coverage report
 
 openstack application credential delete $OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID
