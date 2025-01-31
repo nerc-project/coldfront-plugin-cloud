@@ -68,7 +68,7 @@ class InvoiceRow:
 
 
 def datetime_type(v):
-    return pytz.utc.localize(datetime.strptime(v, '%Y-%m-%d'))
+    return pytz.utc.localize(datetime.fromisoformat(v))
 
 
 class Command(BaseCommand):
@@ -97,9 +97,9 @@ class Command(BaseCommand):
                             default='nerc-invoicing')
         parser.add_argument('--upload-to-s3', default=False, action='store_true',
                           help='Upload generated CSV invoice to S3 storage.')
-        parser.add_argument('--excluded-date-ranges', type=str, 
+        parser.add_argument('--excluded-time-ranges', type=str,
                             default=None, nargs='+',
-                            help='List of date ranges excluded from billing')
+                            help='List of time ranges excluded from billing, in ISO format.')
 
     @staticmethod
     def default_start_argument():
@@ -176,9 +176,9 @@ class Command(BaseCommand):
         logger.info(f'Processing invoices for {options["invoice_month"]}.')
         logger.info(f'Interval {options["start"] - options["end"]}.')
 
-        if options["excluded_date_ranges"]:
+        if options["excluded_time_ranges"]:
             excluded_intervals_list = utils.load_excluded_intervals(
-                options["excluded_date_ranges"]
+                options["excluded_time_ranges"]
             )
         else:
             excluded_intervals_list = None

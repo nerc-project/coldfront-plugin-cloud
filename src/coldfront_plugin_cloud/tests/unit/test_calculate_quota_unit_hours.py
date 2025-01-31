@@ -391,16 +391,17 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             ]
 
         # Single interval within active period
-        excluded_intervals = get_excluded_interval_datetime_list(
-            (((2020, 3, 15), (2020, 3, 16)),)
-        )
+        excluded_intervals = [
+            (datetime.datetime(2020, 3, 15, 9, 30, 0),
+             datetime.datetime(2020, 3, 16, 10, 30, 0)),
+        ]
 
         value = utils.get_included_duration(
             datetime.datetime(2020, 3, 15, 0, 0, 0),
             datetime.datetime(2020, 3, 17, 0, 0, 0),
             excluded_intervals
         )
-        self.assertEqual(value, SECONDS_IN_DAY * 1)
+        self.assertEqual(value, SECONDS_IN_DAY * 1 - 3600)
 
         # Interval starts before active period
         excluded_intervals = get_excluded_interval_datetime_list(
@@ -477,14 +478,14 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         # More than 1 interval
         interval_list = [
             "2023-01-01,2023-01-02",
-            "2023-01-04,2023-01-15",
+            "2023-01-04 09:00:00,2023-01-15 10:00:00",
         ]
         output = utils.load_excluded_intervals(interval_list)
         self.assertEqual(output, [
             [datetime.datetime(2023, 1, 1, 0, 0, 0),
             datetime.datetime(2023, 1, 2, 0, 0, 0)],
-            [datetime.datetime(2023, 1, 4, 0, 0, 0),
-            datetime.datetime(2023, 1, 15, 0, 0, 0)]
+            [datetime.datetime(2023, 1, 4, 9, 0, 0),
+            datetime.datetime(2023, 1, 15, 10, 0, 0)]
         ])
 
     def test_load_excluded_intervals_invalid(self):
