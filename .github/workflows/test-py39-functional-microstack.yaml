@@ -1,4 +1,4 @@
-name: test-py39-functional
+name: test-py39-functional-microstack
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,11 @@ jobs:
               microstack.openstack application credential create "$CREDENTIAL_NAME" -f value -c secret)
           export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID=$(
               microstack.openstack application credential show "$CREDENTIAL_NAME" -f value -c id)
+          export OPENSTACK_ESI_APPLICATION_CREDENTIAL_SECRET=$OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET
+          export OPENSTACK_ESI_APPLICATION_CREDENTIAL_ID=$OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_ID
+
           export OPENSTACK_PUBLIC_NETWORK_ID=$(microstack.openstack network show external -f value -c id)
           export OS_AUTH_URL="https://localhost:5000"
 
           coldfront test coldfront_plugin_cloud.tests.functional.openstack
+          coldfront test coldfront_plugin_cloud.tests.functional.esi
