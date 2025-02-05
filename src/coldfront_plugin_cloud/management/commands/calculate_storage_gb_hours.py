@@ -210,8 +210,8 @@ class Command(BaseCommand):
         if options['openshift_gb_rate']:
             openshift_storage_rate = options['openshift_gb_rate']
 
-        logger.info(f'Using storage rate {openstack_storage_rate} (Openstack) and 
-                    {openshift_storage_rate} (Openshift) for {options["invoice_month"]}')
+        logger.info(f'Using storage rate {openstack_storage_rate} (Openstack) and '
+                    f'{openshift_storage_rate} (Openshift) for {options["invoice_month"]}')
 
         logger.info(f'Writing to {options["output"]}.')
         with open(options['output'], 'w', newline='') as f:
