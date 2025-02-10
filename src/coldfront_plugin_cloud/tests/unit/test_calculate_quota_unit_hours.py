@@ -1,6 +1,7 @@
 import datetime
 import unittest
 import pytz
+import tempfile
 
 import freezegun
 
@@ -9,6 +10,7 @@ from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud import utils
 
 from coldfront.core.allocation import models as allocation_models
+from django.core.management import call_command
 
 
 SECONDS_IN_DAY = 3600 * 24
@@ -41,6 +43,17 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
         )
         self.assertEqual(value, 96)
+
+        with tempfile.NamedTemporaryFile() as fp:
+            call_command(
+                'calculate_storage_gb_hours',
+                '--output', fp.name,
+                '--start', '2020-03-01',
+                '--end', '2020-3-31',
+                '--openstack-gb-rate','0.0000087890625',
+                '--openshift-gb-rate','0.0000087890625',
+                '--invoice-month','2020-03'
+            )
 
 
     def test_new_allocation_quota_expired(self):
