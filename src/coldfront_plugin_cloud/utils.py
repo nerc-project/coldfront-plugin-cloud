@@ -189,8 +189,8 @@ def load_excluded_intervals(excluded_interval_arglist):
         assert end_dt > start_dt, f"Interval end date ({end}) is before start date ({start})!"
         excluded_intervals_list.append(
             [
-                datetime.datetime.fromisoformat(start),
-                datetime.datetime.fromisoformat(end)
+                pytz.utc.localize(datetime.datetime.fromisoformat(start)),
+                pytz.utc.localize(datetime.datetime.fromisoformat(end))
             ] 
         )
 

@@ -49,10 +49,25 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
                 'calculate_storage_gb_hours',
                 '--output', fp.name,
                 '--start', '2020-03-01',
-                '--end', '2020-3-31',
+                '--end', '2020-03-31',
                 '--openstack-gb-rate','0.0000087890625',
                 '--openshift-gb-rate','0.0000087890625',
                 '--invoice-month','2020-03'
+            )
+
+        # Let's test a complete CLI call including excluded time, while we're at it. This is not for testing
+        # the validity but just the unerrored execution of the complete pipeline.
+        # Tests that verify the correct output are further down in the test file.
+        with tempfile.NamedTemporaryFile() as fp:
+            call_command(
+                'calculate_storage_gb_hours',
+                '--output', fp.name,
+                '--start', '2020-03-01',
+                '--end', '2020-03-31',
+                '--openstack-gb-rate','0.0000087890625',
+                '--openshift-gb-rate','0.0000087890625',
+                '--invoice-month','2020-03',
+                '--excluded-time-ranges', '2020-03-02 00:00:00,2020-03-03 05:00:00'
             )
 
 
@@ -484,8 +499,8 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         ]
         output = utils.load_excluded_intervals(interval_list)
         self.assertEqual(output, [
-            [datetime.datetime(2023, 1, 1, 0, 0, 0),
-            datetime.datetime(2023, 1, 2, 0, 0, 0)]
+            [pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0))]
         ])
 
         # More than 1 interval
@@ -495,10 +510,10 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         ]
         output = utils.load_excluded_intervals(interval_list)
         self.assertEqual(output, [
-            [datetime.datetime(2023, 1, 1, 0, 0, 0),
-            datetime.datetime(2023, 1, 2, 0, 0, 0)],
-            [datetime.datetime(2023, 1, 4, 9, 0, 0),
-            datetime.datetime(2023, 1, 15, 10, 0, 0)]
+            [pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0))],
+            [pytz.utc.localize(datetime.datetime(2023, 1, 4, 9, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 15, 10, 0, 0))]
         ])
 
     def test_load_excluded_intervals_invalid(self):
