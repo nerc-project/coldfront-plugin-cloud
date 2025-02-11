@@ -1,6 +1,7 @@
 import datetime
 import unittest
 import pytz
+import tempfile
 
 import freezegun
 
@@ -9,6 +10,7 @@ from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud import utils
 
 from coldfront.core.allocation import models as allocation_models
+from django.core.management import call_command
 
 
 SECONDS_IN_DAY = 3600 * 24
@@ -41,6 +43,32 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             pytz.utc.localize(datetime.datetime(2020, 3, 31, 23, 59, 59))
         )
         self.assertEqual(value, 96)
+
+        with tempfile.NamedTemporaryFile() as fp:
+            call_command(
+                'calculate_storage_gb_hours',
+                '--output', fp.name,
+                '--start', '2020-03-01',
+                '--end', '2020-03-31',
+                '--openstack-gb-rate','0.0000087890625',
+                '--openshift-gb-rate','0.0000087890625',
+                '--invoice-month','2020-03'
+            )
+
+        # Let's test a complete CLI call including excluded time, while we're at it. This is not for testing
+        # the validity but just the unerrored execution of the complete pipeline.
+        # Tests that verify the correct output are further down in the test file.
+        with tempfile.NamedTemporaryFile() as fp:
+            call_command(
+                'calculate_storage_gb_hours',
+                '--output', fp.name,
+                '--start', '2020-03-01',
+                '--end', '2020-03-31',
+                '--openstack-gb-rate','0.0000087890625',
+                '--openshift-gb-rate','0.0000087890625',
+                '--invoice-month','2020-03',
+                '--excluded-time-ranges', '2020-03-02 00:00:00,2020-03-03 05:00:00'
+            )
 
 
     def test_new_allocation_quota_expired(self):
@@ -391,16 +419,17 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             ]
 
         # Single interval within active period
-        excluded_intervals = get_excluded_interval_datetime_list(
-            (((2020, 3, 15), (2020, 3, 16)),)
-        )
+        excluded_intervals = [
+            (datetime.datetime(2020, 3, 15, 9, 30, 0),
+             datetime.datetime(2020, 3, 16, 10, 30, 0)),
+        ]
 
         value = utils.get_included_duration(
             datetime.datetime(2020, 3, 15, 0, 0, 0),
             datetime.datetime(2020, 3, 17, 0, 0, 0),
             excluded_intervals
         )
-        self.assertEqual(value, SECONDS_IN_DAY * 1)
+        self.assertEqual(value, SECONDS_IN_DAY * 1 - 3600)
 
         # Interval starts before active period
         excluded_intervals = get_excluded_interval_datetime_list(
@@ -470,21 +499,21 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         ]
         output = utils.load_excluded_intervals(interval_list)
         self.assertEqual(output, [
-            [datetime.datetime(2023, 1, 1, 0, 0, 0),
-            datetime.datetime(2023, 1, 2, 0, 0, 0)]
+            [pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0))]
         ])
 
         # More than 1 interval
         interval_list = [
             "2023-01-01,2023-01-02",
-            "2023-01-04,2023-01-15",
+            "2023-01-04 09:00:00,2023-01-15 10:00:00",
         ]
         output = utils.load_excluded_intervals(interval_list)
         self.assertEqual(output, [
-            [datetime.datetime(2023, 1, 1, 0, 0, 0),
-            datetime.datetime(2023, 1, 2, 0, 0, 0)],
-            [datetime.datetime(2023, 1, 4, 0, 0, 0),
-            datetime.datetime(2023, 1, 15, 0, 0, 0)]
+            [pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0))],
+            [pytz.utc.localize(datetime.datetime(2023, 1, 4, 9, 0, 0)),
+            pytz.utc.localize(datetime.datetime(2023, 1, 15, 10, 0, 0))]
         ])
 
     def test_load_excluded_intervals_invalid(self):

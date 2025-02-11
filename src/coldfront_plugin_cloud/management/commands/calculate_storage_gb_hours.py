@@ -14,10 +14,24 @@ from coldfront.core.resource.models import Resource, ResourceType
 from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 import pytz
 
-from nerc_rates import load_from_url
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_RATES = None
+
+
+def get_rates():
+    # nerc-rates doesn't work with Python 3.9, which is what ColdFront is currently
+    # using in Production. Lazily load the rates only when either of the storage rates
+    # is not set via CLI arguments, so we can keep providing them via CLI until we upgrade
+    # Python version.
+    global _RATES
+
+    if _RATES is None:
+        from nerc_rates import load_from_url
+        _RATES = load_from_url()
+    return _RATES
 
 
 @dataclasses.dataclass
@@ -68,7 +82,7 @@ class InvoiceRow:
 
 
 def datetime_type(v):
-    return pytz.utc.localize(datetime.strptime(v, '%Y-%m-%d'))
+    return pytz.utc.localize(datetime.fromisoformat(v))
 
 
 class Command(BaseCommand):
@@ -87,9 +101,9 @@ class Command(BaseCommand):
         )
         parser.add_argument('--output', type=str, default='invoices.csv',
                              help='CSV file to write invoices to.')
-        parser.add_argument('--openstack-gb-rate', type=Decimal, required=True,
+        parser.add_argument('--openstack-gb-rate', type=Decimal, required=False,
                             help='Rate for OpenStack Volume and Object GB/hour.')
-        parser.add_argument('--openshift-gb-rate', type=Decimal, required=True,
+        parser.add_argument('--openshift-gb-rate', type=Decimal, required=False,
                             help='Rate for OpenShift GB/hour.')
         parser.add_argument('--s3-endpoint-url', type=str,
                             default='https://s3.us-east-005.backblazeb2.com')
@@ -97,9 +111,9 @@ class Command(BaseCommand):
                             default='nerc-invoicing')
         parser.add_argument('--upload-to-s3', default=False, action='store_true',
                           help='Upload generated CSV invoice to S3 storage.')
-        parser.add_argument('--excluded-date-ranges', type=str, 
+        parser.add_argument('--excluded-time-ranges', type=str,
                             default=None, nargs='+',
-                            help='List of date ranges excluded from billing')
+                            help='List of time ranges excluded from billing, in ISO format.')
 
     @staticmethod
     def default_start_argument():
@@ -176,9 +190,9 @@ class Command(BaseCommand):
         logger.info(f'Processing invoices for {options["invoice_month"]}.')
         logger.info(f'Interval {options["start"] - options["end"]}.')
 
-        if options["excluded_date_ranges"]:
+        if options["excluded_time_ranges"]:
             excluded_intervals_list = utils.load_excluded_intervals(
-                options["excluded_date_ranges"]
+                options["excluded_time_ranges"]
             )
         else:
             excluded_intervals_list = None
@@ -200,15 +214,19 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
-        rates = load_from_url()
-        openstack_storage_rate = openshift_storage_rate = Decimal(
-            rates.get_value_at('Storage GB Rate', options["invoice_month"]))
-        
         if options['openstack_gb_rate']:
             openstack_storage_rate = options['openstack_gb_rate']
+        else:
+            openstack_storage_rate = Decimal(
+                get_rates().get_value_at('Storage GB Rate', options["invoice_month"])
+            )
 
         if options['openshift_gb_rate']:
             openshift_storage_rate = options['openshift_gb_rate']
+        else:
+            openshift_storage_rate = Decimal(
+                get_rates().get_value_at('Storage GB Rate', options["invoice_month"])
+            )
 
         logger.info(f'Using storage rate {openstack_storage_rate} (Openstack) and '
                     f'{openshift_storage_rate} (Openshift) for {options["invoice_month"]}')
