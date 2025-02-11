@@ -7,7 +7,33 @@ from requests.auth import HTTPBasicAuth
 import time
 from simplejson.errors import JSONDecodeError
 
+import kubernetes
+import kubernetes.dynamic.exceptions as kexc
+from openshift.dynamic import DynamicClient
+
 from coldfront_plugin_cloud import attributes, base, utils
+
+
+logger = logging.getLogger(__name__)
+
+
+API_PROJECT = "project.openshift.io/v1"
+API_USER = "user.openshift.io/v1"
+API_RBAC = "rbac.authorization.k8s.io/v1"
+API_CORE = "v1"
+IGNORED_ATTRIBUTES = [
+    "resourceVersion",
+    "creationTimestamp",
+    "uid",
+]
+
+def clean_openshift_metadata(obj):
+    if "metadata" in obj:
+        for attr in IGNORED_ATTRIBUTES:
+            if attr in obj["metadata"]:
+                del obj["metadata"][attr]
+
+    return obj
 
 QUOTA_KEY_MAPPING = {
     attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},
@@ -37,6 +63,34 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     resource_type = 'openshift'
 
     project_name_max_length = 63
+
+    def __init__(self, resource, allocation):
+        super().__init__(resource, allocation)
+        self.safe_resource_name = utils.env_safe_name(resource.name)
+        self.id_provider = resource.get_attribute(attributes.RESOURCE_IDENTITY_NAME)
+        self.apis = {}
+
+        self.functional_tests = os.environ.get("FUNCTIONAL_TESTS", "").lower()
+        self.verify = os.getenv(f"OPENSHIFT_{self.safe_resource_name}_VERIFY", "").lower()
+
+    @functools.cached_property
+    def k8_client(self):
+        # Load Endpoint URL and Auth token for new k8 client
+        openshift_token = os.getenv(f"OPENSHIFT_{self.safe_resource_name}_TOKEN")
+        openshift_url = self.resource.get_attribute(attributes.RESOURCE_AUTH_URL)
+
+        k8_config = kubernetes.client.Configuration()
+        k8_config.api_key["authorization"] = openshift_token
+        k8_config.api_key_prefix["authorization"] = "Bearer"
+        k8_config.host = openshift_url
+
+        if self.verify == "false":
+            k8_config.verify_ssl = False
+        else:
+            k8_config.verify_ssl = True
+
+        k8s_client = kubernetes.client.ApiClient(configuration=k8_config)
+        return DynamicClient(k8s_client)
 
     @functools.cached_property
     def session(self):
@@ -71,6 +125,18 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             raise Conflict(f"{response.status_code}: {response.text}")
         else:
             raise ApiException(f"{response.status_code}: {response.text}")
+        
+    def qualified_id_user(self, id_user):
+        return f"{self.id_provider}:{id_user}"
+
+    def get_resource_api(self, api_version: str, kind: str):
+        """Either return the cached resource api from self.apis, or fetch a
+        new one, store it in self.apis, and return it."""
+        k = f"{api_version}:{kind}"
+        api = self.apis.setdefault(
+            k, self.k8_client.resources.get(api_version=api_version, kind=kind)
+        )
+        return api
 
     def create_project(self, suggested_project_name):
         sanitized_project_name = utils.get_sanitized_project_name(suggested_project_name)
@@ -113,13 +179,14 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             pass
 
     def get_federated_user(self, username):
-        url = f"{self.auth_url}/users/{username}"
-        try:
-            r = self.session.get(url)
-            self.check_response(r)
+        if (
+            self._openshift_user_exists(username)
+            and self._openshift_get_identity(username)
+            and self._openshift_useridentitymapping_exists(username, username)
+        ):
             return {'username': username}
-        except NotFound:
-            pass
+        
+        logger.info(f"User ({username}) does not exist")
 
     def create_federated_user(self, unique_id):
         url = f"{self.auth_url}/users/{unique_id}"
@@ -183,3 +250,39 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         url = f"{self.auth_url}/projects/{project_id}/users"
         r = self.session.get(url)
         return set(self.check_response(r))
+    
+    def _openshift_get_user(self, username):
+        api = self.get_resource_api(API_USER, "User")
+        return clean_openshift_metadata(api.get(name=username).to_dict())
+    
+    def _openshift_get_identity(self, id_user):
+        api = self.get_resource_api(API_USER, "Identity")
+        return clean_openshift_metadata(
+            api.get(name=self.qualified_id_user(id_user)).to_dict()
+        )
+    
+    def _openshift_user_exists(self, user_name):
+        try:
+            self._openshift_get_user(user_name)
+        except kexc.NotFoundError:
+            return False
+        return True
+    
+    def _openshift_identity_exists(self, id_user):
+        try:
+            self._openshift_get_identity(id_user)
+        except kexc.NotFoundError:
+            return False
+        return True
+    
+    def _openshift_useridentitymapping_exists(self, user_name, id_user):
+        try:
+            user = self._openshift_get_user(user_name)
+        except kexc.NotFoundError:
+            return False
+
+        return any(
+            identity == self.qualified_id_user(id_user)
+            for identity in user.get("identities", [])
+        )
+    
