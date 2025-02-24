@@ -121,6 +121,8 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 2 * 5)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 2 * 0)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU_A100_SXM4), 2 * 0)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU_V100), 2 * 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
 
         quota = allocator.get_quota(project_id)['Quota']
@@ -133,6 +135,8 @@ class TestAllocation(base.TestBase):
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
             ":requests.nvidia.com/gpu": "0",
+            ":requests.nvidia.com/A100_SXM4_40GB": "0",
+            ":requests.nvidia.com/GV100GL_Tesla_V100": "0",
             ":persistentvolumeclaims": "4",
         })
 
@@ -163,6 +167,8 @@ class TestAllocation(base.TestBase):
             ":limits.ephemeral-storage": "50Gi",
             ":requests.storage": "100Gi",
             ":requests.nvidia.com/gpu": "1",
+            ":requests.nvidia.com/A100_SXM4_40GB": "0",
+            ":requests.nvidia.com/GV100GL_Tesla_V100": "0",
             ":persistentvolumeclaims": "10",
         })
 
@@ -192,6 +198,8 @@ class TestAllocation(base.TestBase):
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
             ":requests.nvidia.com/gpu": "0",
+            ":requests.nvidia.com/A100_SXM4_40GB": "0",
+            ":requests.nvidia.com/GV100GL_Tesla_V100": "0",
             ":persistentvolumeclaims": "4",
         })
 
@@ -211,6 +219,8 @@ class TestAllocation(base.TestBase):
             ":limits.ephemeral-storage": "10Gi",
             ":requests.storage": "40Gi",
             ":requests.nvidia.com/gpu": "0",
+            ":requests.nvidia.com/A100_SXM4_40GB": "0",
+            ":requests.nvidia.com/GV100GL_Tesla_V100": "0",
             ":persistentvolumeclaims": "4",
         })
 
