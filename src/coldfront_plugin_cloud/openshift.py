@@ -35,15 +35,6 @@ def clean_openshift_metadata(obj):
 
     return obj
 
-QUOTA_KEY_MAPPING = {
-    attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},
-    attributes.QUOTA_LIMITS_MEMORY: lambda x: {":limits.memory": f"{x}Mi"},
-    attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {":limits.ephemeral-storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_STORAGE: lambda x: {":requests.storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_GPU: lambda x: {":requests.nvidia.com/gpu": f"{x}"},
-    attributes.QUOTA_PVC: lambda x: {":persistentvolumeclaims": f"{x}"},
-}
-
 
 class ApiException(Exception):
     def __init__(self, message):
@@ -59,6 +50,14 @@ class Conflict(ApiException):
 
 
 class OpenShiftResourceAllocator(base.ResourceAllocator):
+    QUOTA_KEY_MAPPING = {
+        attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},
+        attributes.QUOTA_LIMITS_MEMORY: lambda x: {":limits.memory": f"{x}Mi"},
+        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {":limits.ephemeral-storage": f"{x}Gi"},
+        attributes.QUOTA_REQUESTS_STORAGE: lambda x: {":requests.storage": f"{x}Gi"},
+        attributes.QUOTA_REQUESTS_GPU: lambda x: {":requests.nvidia.com/gpu": f"{x}"},
+        attributes.QUOTA_PVC: lambda x: {":persistentvolumeclaims": f"{x}"},
+    }
 
     resource_type = 'openshift'
 
@@ -150,7 +149,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def set_quota(self, project_id):
         url = f"{self.auth_url}/projects/{project_id}/quota"
         payload = dict()
-        for key, func in QUOTA_KEY_MAPPING.items():
+        for key, func in self.QUOTA_KEY_MAPPING.items():
             if (x := self.allocation.get_attribute(key)) is not None:
                 payload.update(func(x))
         r = self.session.put(url, data=json.dumps({'Quota': payload}))

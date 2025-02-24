@@ -81,13 +81,14 @@ class TestBase(TestCase):
         return Resource.objects.get(name=resource_name)
 
     @staticmethod
-    def new_openshift_resource(name=None, auth_url=None) -> Resource:
+    def new_openshift_resource(name=None, auth_url=None, for_virtualization=False) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             'add_openshift_resource',
             name=resource_name,
             auth_url=auth_url or 'https://onboarding-onboarding.cluster.local',
+            for_virtualization=for_virtualization
         )
         return Resource.objects.get(name=resource_name)
 
