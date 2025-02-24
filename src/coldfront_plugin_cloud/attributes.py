@@ -88,6 +88,8 @@ QUOTA_LIMITS_MEMORY = 'OpenShift Limit on RAM Quota (MiB)'
 QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = 'OpenShift Limit on Ephemeral Storage Quota (GiB)'
 QUOTA_REQUESTS_STORAGE = 'OpenShift Request on Storage Quota (GiB)'
 QUOTA_REQUESTS_GPU = 'OpenShift Request on GPU Quota'
+QUOTA_REQUESTS_VM_GPU_A100_SXM4 = 'OpenShift Request on VM GPU A100 SXM4 40GB' # TODO: Confirm display name for these attributes
+QUOTA_REQUESTS_VM_GPU_V100 = 'OpenShift Request on VM GPU V100'
 QUOTA_PVC = 'OpenShift Persistent Volume Claims Quota'
 
 
@@ -106,5 +108,7 @@ ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_LIMITS_EPHEMERAL_STORAGE_GB),
     CloudAllocationAttribute(name=QUOTA_REQUESTS_STORAGE),
     CloudAllocationAttribute(name=QUOTA_REQUESTS_GPU),
+    CloudAllocationAttribute(name=QUOTA_REQUESTS_VM_GPU_A100_SXM4),
+    CloudAllocationAttribute(name=QUOTA_REQUESTS_VM_GPU_V100),
     CloudAllocationAttribute(name=QUOTA_PVC),
 ]
