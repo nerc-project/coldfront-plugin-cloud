@@ -35,15 +35,6 @@ def clean_openshift_metadata(obj):
 
     return obj
 
-QUOTA_KEY_MAPPING = {
-    attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
-    attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
-    attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {"limits.ephemeral-storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
-    attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
-}
-
 
 class ApiException(Exception):
     def __init__(self, message):
@@ -59,6 +50,14 @@ class Conflict(ApiException):
 
 
 class OpenShiftResourceAllocator(base.ResourceAllocator):
+    QUOTA_KEY_MAPPING = {
+        attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
+        attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
+        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {"limits.ephemeral-storage": f"{x}Gi"},
+        attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
+        attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
+        attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
+    }
 
     resource_type = 'openshift'
 
@@ -160,7 +159,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         object in the project namespace with no extra scopes"""
 
         quota_spec = {}
-        for key, func in QUOTA_KEY_MAPPING.items():
+        for key, func in self.QUOTA_KEY_MAPPING.items():
             if (x := self.allocation.get_attribute(key)) is not None:
                 quota_spec.update(func(x))
 

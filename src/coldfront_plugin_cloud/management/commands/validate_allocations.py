@@ -147,10 +147,10 @@ class Command(BaseCommand):
                     continue
                 logger.warning(f'Quota for allocation {allocation_str} was out of date. Reapplied!')
 
-        # Deal with OpenShift
+        # Deal with OpenShift and Openshift VM
 
         openshift_resources = Resource.objects.filter(
-            resource_type=ResourceType.objects.get(name="OpenShift")
+            resource_type__name__in=['OpenShift', 'Openshift Virtualization']
         )
         openshift_allocations = Allocation.objects.filter(
             resources__in=openshift_resources,
@@ -164,9 +164,7 @@ class Command(BaseCommand):
                 f"Starting resource validation for allocation {allocation_str}."
             )
 
-            allocator = openshift.OpenShiftResourceAllocator(
-                allocation.resources.first(), allocation
-            )
+            allocator = tasks.find_allocator(allocation)
 
             project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
 
@@ -189,8 +187,12 @@ class Command(BaseCommand):
 
             for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
                 if "OpenShift" in attr.name:
-                    key_with_lambda = openshift.QUOTA_KEY_MAPPING.get(attr.name, None)
-
+                    key_with_lambda = openshift.OpenShiftResourceAllocator.QUOTA_KEY_MAPPING.get(attr.name, None)
+                    
+                    # Openshift and Openshift VM allocations have different quota attributes
+                    if not key_with_lambda:
+                        continue
+                    
                     # This gives me just the plain key
                     key = list(key_with_lambda(1).keys())[0]
 

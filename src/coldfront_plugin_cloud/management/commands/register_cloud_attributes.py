@@ -129,6 +129,9 @@ class Command(BaseCommand):
         resource_models.ResourceType.objects.get_or_create(
             name='ESI', description='ESI Bare Metal Cloud'
         )
+        resource_models.ResourceType.objects.get_or_create(
+            name='OpenShift Virtualization', description='OpenShift Virtualization'
+        )
 
     def handle(self, *args, **options):
         self.register_resource_type()
