@@ -9,7 +9,7 @@ on:
 env:
   PYTHONWARNINGS: ignore
   KUBECONFIG: ${{ github.workspace }}/kubeconfig
-  ACCT_MGT_VERSION: "6012025c247ab25fb2cab3be9ad06080e28713ee"
+  ACCT_MGT_VERSION: "42db8f80962fd355eac1bc80a1894dc6bb824f12"
 
 jobs:
   build:
