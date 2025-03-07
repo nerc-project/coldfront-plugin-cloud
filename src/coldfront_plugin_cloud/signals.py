@@ -6,11 +6,15 @@ from django_q.tasks import async_task
 from coldfront_plugin_cloud.tasks import (activate_allocation,
                                           add_user_to_allocation,
                                           disable_allocation,
-                                          remove_user_from_allocation)
+                                          remove_user_from_allocation,
+                                          get_allocation_usage,
+                                          approve_change_request)
+from coldfront_plugin_cloud import utils
 from coldfront.core.allocation.signals import (allocation_activate,
                                                allocation_activate_user,
                                                allocation_disable,
                                                allocation_remove_user,
+                                               allocation_change_created,
                                                allocation_change_approved)
 
 
@@ -52,3 +56,20 @@ def activate_allocation_user_receiver(sender, **kwargs):
 def allocation_remove_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get('allocation_user_pk')
     remove_user_from_allocation(allocation_user_pk)
+
+# TODO (Quan): How to/should we do the functional test for this?
+@receiver(allocation_change_created)
+def allocation_change_created_receiver(sender, **kwargs):
+    allocation_pk = kwargs.get('allocation_pk')
+    allocation_change_pk = kwargs.get('allocation_change_pk')
+
+    if not utils.check_cr_only_decreases(allocation_change_pk):
+        return
+    
+    if utils.check_cr_set_to_zero(allocation_change_pk):
+        return
+    
+    allocation_quota_usage = get_allocation_usage(allocation_pk)
+    if allocation_quota_usage and utils.check_usage_is_lower(allocation_change_pk, allocation_quota_usage):
+        approve_change_request(allocation_change_pk) # Updates attributes on Coldfront side
+        allocation_change_approved.send(None, allocation_pk=allocation_pk, allocation_change_pk=allocation_change_pk)

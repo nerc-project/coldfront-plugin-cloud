@@ -12,6 +12,7 @@ from coldfront.core.allocation.models import (Allocation,
                                               AllocationAttributeChangeRequest,)
 
 from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud import openshift
 
 
 def env_safe_name(name):
@@ -220,3 +221,121 @@ def get_included_duration(start: datetime.datetime,
         total_interval_duration -= (e_interval_end - e_interval_start).total_seconds()
 
     return math.ceil(total_interval_duration)
+
+
+def parse_openshift_quota_value(attr_name, quota_value):
+    PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+
+    suffix = {
+        "Ki": 2**10,
+        "Mi": 2**20,
+        "Gi": 2**30,
+        "Ti": 2**40,
+        "Pi": 2**50,
+        "Ei": 2**60,
+        "m": 10**-3,
+        "K": 10**3,
+        "M": 10**6,
+        "G": 10**9,
+        "T": 10**12,
+        "P": 10**15,
+        "E": 10**18,
+    }
+
+    if quota_value and quota_value != "0":
+        result = re.search(PATTERN, quota_value)
+
+        if result is None:
+            raise ValueError(
+                f"Unable to parse quota_value = '{quota_value}' for {attr_name}"
+            )
+
+        value = int(result.groups()[0])
+        unit = result.groups()[1]
+
+        # Convert to number i.e. without any unit suffix
+
+        if unit is not None:
+            quota_value = value * suffix[unit]
+        else:
+            quota_value = value
+
+        # Convert some attributes to units that coldfront uses
+
+        if "RAM" in attr_name:
+            return round(quota_value / suffix["Mi"])
+        elif "Storage" in attr_name:
+            return round(quota_value / suffix["Gi"])
+        return quota_value
+    elif quota_value and quota_value == "0":
+        return 0
+
+
+def check_if_quota_attr(attr_name):
+    for quota_attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
+        if attr_name == quota_attr.name:
+            return True
+    return False
+
+
+def check_cr_only_decreases(allocation_change_pk):
+    """Checks if the change request only decreases the quota.
+
+    :param allocation_change_pk: key of AllocationChangeRequest object.
+    :return: True if the change request only decreases the quota.
+    """
+    allocation_cr = AllocationChangeRequest.objects.get(pk=allocation_change_pk)
+    allocation_attr_cr_list = AllocationAttributeChangeRequest.objects.filter(
+        allocation_change_request=allocation_cr
+    )
+
+    for allocation_attr_cr in allocation_attr_cr_list:
+        attr_name = allocation_attr_cr.allocation_attribute.allocation_attribute_type.name
+        if check_if_quota_attr(attr_name):
+            if int(allocation_attr_cr.new_value) > int(allocation_attr_cr.allocation_attribute.value):
+                return False
+    return True
+
+
+def check_cr_set_to_zero(allocation_change_pk):
+    """Checks if the change request only decreases the quota.
+
+    :param allocation_change_pk: key of AllocationChangeRequest object.
+    :return: True if the change request only decreases the quota.
+    """
+    allocation_cr = AllocationChangeRequest.objects.get(pk=allocation_change_pk)
+    allocation_attr_cr_list = AllocationAttributeChangeRequest.objects.filter(
+        allocation_change_request=allocation_cr
+    )
+
+    for allocation_attr_cr in allocation_attr_cr_list:
+        attr_name = allocation_attr_cr.allocation_attribute.allocation_attribute_type.name
+        if check_if_quota_attr(attr_name):
+            if int(allocation_attr_cr.new_value) == 0:
+                return True
+    return False
+
+
+def check_usage_is_lower(allocation_change_pk, allocation_quota_usage):
+    """Checks if the usage is lower than the quota.
+
+    :param allocation_change_pk: AllocationChangeRequest object.
+    :param allocation_quota_usage: Quota usage to compare.
+    :return: True if the usage is lower than the quota.
+    """
+    allocation_cr = AllocationChangeRequest.objects.get(pk=allocation_change_pk)
+    allocation_attr_cr_list = AllocationAttributeChangeRequest.objects.filter(
+        allocation_change_request=allocation_cr
+    )
+
+    for allocation_attr_cr in allocation_attr_cr_list:
+        attr_name = allocation_attr_cr.allocation_attribute.allocation_attribute_type.name
+        if check_if_quota_attr(attr_name):
+            # TODO (Quan) Copied from `validate_allocations`, I feel like this is very messy 
+            quota_key_with_lambda = openshift.QUOTA_KEY_MAPPING.get(attr_name, None)
+            quota_key = list(quota_key_with_lambda(1).keys())[0]                
+            if int(allocation_attr_cr.new_value) < parse_openshift_quota_value(attr_name, allocation_quota_usage[quota_key]):
+                return False
+    return True
+    
+    
