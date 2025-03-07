@@ -204,6 +204,21 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             "Quota": quota,
         }
         return quota_object
+    
+    def _get_moc_quota_used_from_resourcequotas(self, project_id):
+        resourcequotas = self._openshift_get_resourcequotas(project_id)
+        moc_quota_used = {}
+        for rq in resourcequotas:
+            moc_quota_used.update(rq["status"]["used"])
+        return moc_quota_used
+    
+    def get_quota_used(self, project_id):
+        resourcequotas = self._openshift_get_resourcequotas(project_id)
+        moc_quota_used = {}
+        # TODO Any concerns about this being a list? Can a project have multiple resourcequotas?
+        for rq in resourcequotas:
+            moc_quota_used.update(rq["status"]["used"])
+        return moc_quota_used
 
     def create_project_defaults(self, project_id):
         pass
