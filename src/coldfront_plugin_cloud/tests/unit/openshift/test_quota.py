@@ -109,3 +109,25 @@ class TestOpenshiftQuota(base.TestBase):
         ]
         res = self.allocator.get_quota("fake-project")
         self.assertEqual(res, expected_quota)
+
+    @mock.patch(
+        "coldfront_plugin_cloud.openshift.OpenShiftResourceAllocator._openshift_get_resourcequotas"
+    )
+    def test_get_moc_usage(self, fake_get_quota):
+        fake_usage = {
+            "limits.cpu": "2000m",
+            "limits.memory": "4096Mi",
+        }
+        fake_get_quota.return_value = [
+            {
+                "status": {"used": fake_usage},
+            }
+        ]
+        res = self.allocator.get_usage("fake-project")
+        self.assertEqual(
+            res,
+            {
+                "OpenShift Limit on CPU Quota": 2.0,
+                "OpenShift Limit on RAM Quota (MiB)": 4096,
+            },
+        )
