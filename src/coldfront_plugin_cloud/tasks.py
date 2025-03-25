@@ -35,6 +35,8 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
         attributes.QUOTA_REQUESTS_STORAGE: 20,
         attributes.QUOTA_REQUESTS_GPU: 0,
+        attributes.QUOTA_REQUESTS_GPU_A100_SXM4: 0,
+        attributes.QUOTA_REQUESTS_GPU_V100: 0,
         attributes.QUOTA_PVC: 2
     },
     'esi': {
