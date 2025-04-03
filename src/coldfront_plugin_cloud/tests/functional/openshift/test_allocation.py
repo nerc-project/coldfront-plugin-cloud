@@ -1,6 +1,7 @@
 import os
 import time
 import unittest
+from unittest import mock
 import uuid
 
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
@@ -323,4 +324,55 @@ class TestAllocation(base.TestBase):
             allocator._openshift_useridentitymapping_exists(
                 user.username, user.username
             )
+        )
+
+    @mock.patch.object(
+        tasks,
+        "UNIT_QUOTA_MULTIPLIERS",
+        {
+            "openshift": {
+                attributes.QUOTA_LIMITS_CPU: 1,
+            }
+        },
+    )
+    def test_allocation_new_attribute(self):
+        """When a new attribute is introduced, but pre-existing allocations don't have it"""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+            },
+        )
+
+        # Add a new attribute for Openshift
+        tasks.UNIT_QUOTA_MULTIPLIERS["openshift"][attributes.QUOTA_LIMITS_MEMORY] = 4096
+
+        call_command("validate_allocations", apply=True)
+        allocation.refresh_from_db()
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+        self.assertEqual(
+            allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096
+        )
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+                "limits.memory": "8Gi",
+            },
         )
