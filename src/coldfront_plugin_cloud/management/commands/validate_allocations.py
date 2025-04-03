@@ -103,39 +103,38 @@ class Command(BaseCommand):
 
             obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
 
-            for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-                if 'OpenStack' in attr.name:
-                    key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
-                    if not key:
-                        # Note(knikolla): Some attributes are only maintained
-                        # for bookkeeping purposes and do not have a
-                        # corresponding quota set on the service.
-                        continue
+            for attr in tasks.get_expected_attributes(allocator):
+                key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
+                if not key:
+                    # Note(knikolla): Some attributes are only maintained
+                    # for bookkeeping purposes and do not have a
+                    # corresponding quota set on the service.
+                    continue
 
-                    expected_value = allocation.get_attribute(attr.name)
-                    current_value = quota.get(key, None)
-                    if key == obj_key and expected_value <= 0:
-                        expected_obj_value = 1
-                        current_value = int(allocator.object(project_id).head_account().get(obj_key))
-                        if current_value != expected_obj_value:
-                            failed_validation = True
-                            msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
-                                   f' value of {expected_obj_value} on allocation {allocation_str}')
-                            logger.warning(msg)
-                    elif expected_value is None and current_value:
-                        msg = (f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
-                               f' Current quota is {current_value}.')
-                        if options['apply']:
-                            utils.set_attribute_on_allocation(
-                                allocation, attr.name, current_value
-                            )
-                            msg = f'{msg} Attribute set to match current quota.'
-                        logger.warning(msg)
-                    elif not current_value == expected_value:
+                expected_value = allocation.get_attribute(attr)
+                current_value = quota.get(key, None)
+                if key == obj_key and expected_value <= 0:
+                    expected_obj_value = 1
+                    current_value = int(allocator.object(project_id).head_account().get(obj_key))
+                    if current_value != expected_obj_value:
                         failed_validation = True
-                        msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
-                               f' value of {expected_value} on allocation {allocation_str}')
+                        msg = (f'Value for quota for {attr} = {current_value} does not match expected'
+                                f' value of {expected_obj_value} on allocation {allocation_str}')
                         logger.warning(msg)
+                elif expected_value is None and current_value:
+                    msg = (f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                            f' Current quota is {current_value}.')
+                    if options['apply']:
+                        utils.set_attribute_on_allocation(
+                            allocation, attr, current_value
+                        )
+                        msg = f'{msg} Attribute set to match current quota.'
+                    logger.warning(msg)
+                elif not current_value == expected_value:
+                    failed_validation = True
+                    msg = (f'Value for quota for {attr} = {current_value} does not match expected'
+                            f' value of {expected_value} on allocation {allocation_str}')
+                    logger.warning(msg)
 
             if failed_validation and options['apply']:
                 try:
@@ -185,89 +184,84 @@ class Command(BaseCommand):
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
-            for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-                if "OpenShift" in attr.name:
-                    key_with_lambda = openshift.OpenShiftResourceAllocator.QUOTA_KEY_MAPPING.get(attr.name, None)
-                    
-                    # Openshift and Openshift VM allocations have different quota attributes
-                    if not key_with_lambda:
-                        continue
-                    
-                    # This gives me just the plain key
-                    key = list(key_with_lambda(1).keys())[0]
+            for attr in tasks.get_expected_attributes(allocator):
+                key_with_lambda = allocator.QUOTA_KEY_MAPPING.get(attr, None)
 
-                    expected_value = allocation.get_attribute(attr.name)
-                    current_value = quota.get(key, None)
+                # This gives me just the plain key
+                key = list(key_with_lambda(1).keys())[0]
 
-                    PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+                expected_value = allocation.get_attribute(attr)
+                current_value = quota.get(key, None)
 
-                    suffix = {
-                        "Ki": 2**10,
-                        "Mi": 2**20,
-                        "Gi": 2**30,
-                        "Ti": 2**40,
-                        "Pi": 2**50,
-                        "Ei": 2**60,
-                        "m": 10**-3,
-                        "K": 10**3,
-                        "M": 10**6,
-                        "G": 10**9,
-                        "T": 10**12,
-                        "P": 10**15,
-                        "E": 10**18,
-                    }
+                PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
 
-                    if current_value and current_value != "0":
-                        result = re.search(PATTERN, current_value)
+                suffix = {
+                    "Ki": 2**10,
+                    "Mi": 2**20,
+                    "Gi": 2**30,
+                    "Ti": 2**40,
+                    "Pi": 2**50,
+                    "Ei": 2**60,
+                    "m": 10**-3,
+                    "K": 10**3,
+                    "M": 10**6,
+                    "G": 10**9,
+                    "T": 10**12,
+                    "P": 10**15,
+                    "E": 10**18,
+                }
 
-                        if result is None:
-                            raise CommandError(
-                                f"Unable to parse current_value = '{current_value}' for {attr.name}"
-                            )
+                if current_value and current_value != "0":
+                    result = re.search(PATTERN, current_value)
 
-                        value = int(result.groups()[0])
-                        unit = result.groups()[1]
-
-                        # Convert to number i.e. without any unit suffix
-
-                        if unit is not None:
-                            current_value = value * suffix[unit]
-                        else:
-                            current_value = value
-
-                        # Convert some attributes to units that coldfront uses
-
-                        if "RAM" in attr.name:
-                            current_value = round(current_value / suffix["Mi"])
-                        elif "Storage" in attr.name:
-                            current_value = round(current_value / suffix["Gi"])
-                    elif current_value and current_value == "0":
-                        current_value = 0
-
-                    if expected_value is None and current_value is not None:
-                        msg = (
-                            f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
-                            f" Current quota is {current_value}."
+                    if result is None:
+                        raise CommandError(
+                            f"Unable to parse current_value = '{current_value}' for {attr}"
                         )
-                        if options["apply"]:
-                            utils.set_attribute_on_allocation(
-                                allocation, attr.name, current_value
-                            )
-                            msg = f"{msg} Attribute set to match current quota."
-                        logger.warning(msg)
-                    elif not (current_value == expected_value):
-                        msg = (
-                            f"Value for quota for {attr.name} = {current_value} does not match expected"
-                            f" value of {expected_value} on allocation {allocation_str}"
-                        )
-                        logger.warning(msg)
 
-                        if options["apply"]:
-                            try:
-                                allocator.set_quota(project_id)
-                                logger.warning(
-                                    f"Quota for allocation {project_id} was out of date. Reapplied!"
-                                )
-                            except Exception as e:
-                                logger.error(f'setting openshift quota failed: {e}')
-                                continue
+                    value = int(result.groups()[0])
+                    unit = result.groups()[1]
+
+                    # Convert to number i.e. without any unit suffix
+
+                    if unit is not None:
+                        current_value = value * suffix[unit]
+                    else:
+                        current_value = value
+
+                    # Convert some attributes to units that coldfront uses
+
+                    if "RAM" in attr:
+                        current_value = round(current_value / suffix["Mi"])
+                    elif "Storage" in attr:
+                        current_value = round(current_value / suffix["Gi"])
+                elif current_value and current_value == "0":
+                    current_value = 0
+
+                if expected_value is None and current_value is not None:
+                    msg = (
+                        f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                        f" Current quota is {current_value}."
+                    )
+                    if options["apply"]:
+                        utils.set_attribute_on_allocation(
+                            allocation, attr, current_value
+                        )
+                        msg = f"{msg} Attribute set to match current quota."
+                    logger.warning(msg)
+                elif not (current_value == expected_value):
+                    msg = (
+                        f"Value for quota for {attr} = {current_value} does not match expected"
+                        f" value of {expected_value} on allocation {allocation_str}"
+                    )
+                    logger.warning(msg)
+
+                    if options["apply"]:
+                        try:
+                            allocator.set_quota(project_id)
+                            logger.warning(
+                                f"Quota for allocation {project_id} was out of date. Reapplied!"
+                            )
+                        except Exception as e:
+                            logger.error(f'setting openshift quota failed: {e}')
+                            continue
