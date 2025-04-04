@@ -183,7 +183,7 @@ class Command(BaseCommand):
                 )
                 continue
 
-            quota = allocator.get_quota(project_id)["Quota"]
+            quota = allocator.get_quota(project_id)
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 

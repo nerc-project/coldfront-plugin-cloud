@@ -126,17 +126,16 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 2 * 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
 
-        quota = allocator.get_quota(project_id)['Quota']
-        quota = {k: v for k, v in quota.items() if v is not None}
+        quota = allocator.get_quota(project_id)
         # The return value will update to the most relevant unit, so
         # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "2",
-            ":limits.memory": "8Gi",
-            ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "40Gi",
-            ":requests.nvidia.com/gpu": "0",
-            ":persistentvolumeclaims": "4",
+            "limits.cpu": "2",
+            "limits.memory": "8Gi",
+            "limits.ephemeral-storage": "10Gi",
+            "requests.storage": "40Gi",
+            "requests.nvidia.com/gpu": "0",
+            "persistentvolumeclaims": "4",
         })
 
         # change a bunch of attributes
@@ -157,16 +156,16 @@ class TestAllocation(base.TestBase):
         # This call should update the openshift quota to match the current attributes
         call_command('validate_allocations', apply=True)
 
-        quota = allocator.get_quota(project_id)['Quota']
+        quota = allocator.get_quota(project_id)
         quota = {k: v for k, v in quota.items() if v is not None}
 
         self.assertEqual(quota, {
-            ":limits.cpu": "6",
-            ":limits.memory": "8Gi",
-            ":limits.ephemeral-storage": "50Gi",
-            ":requests.storage": "100Gi",
-            ":requests.nvidia.com/gpu": "1",
-            ":persistentvolumeclaims": "10",
+            "limits.cpu": "6",
+            "limits.memory": "8Gi",
+            "limits.ephemeral-storage": "50Gi",
+            "requests.storage": "100Gi",
+            "requests.nvidia.com/gpu": "1",
+            "persistentvolumeclaims": "10",
         })
 
     def test_reactivate_allocation(self):
@@ -183,19 +182,17 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2)
 
-        quota = allocator.get_quota(project_id)['Quota']
+        quota = allocator.get_quota(project_id)
 
-        # https://github.com/CCI-MOC/openshift-acct-mgt
-        quota = {k: v for k, v in quota.items() if v is not None}
         # The return value will update to the most relevant unit, so
         # 2000m cores becomes 2 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "2",
-            ":limits.memory": "8Gi",
-            ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "40Gi",
-            ":requests.nvidia.com/gpu": "0",
-            ":persistentvolumeclaims": "4",
+            "limits.cpu": "2",
+            "limits.memory": "8Gi",
+            "limits.ephemeral-storage": "10Gi",
+            "requests.storage": "40Gi",
+            "requests.nvidia.com/gpu": "0",
+            "persistentvolumeclaims": "4",
         })
 
         # Simulate an attribute change request and subsequent approval which
@@ -204,17 +201,16 @@ class TestAllocation(base.TestBase):
         tasks.activate_allocation(allocation.pk)
         allocation.refresh_from_db()
 
-        quota = allocator.get_quota(project_id)['Quota']
-        quota = {k: v for k, v in quota.items() if v is not None}
+        quota = allocator.get_quota(project_id)
         # The return value will update to the most relevant unit, so
         # 3000m cores becomes 3 and 8192Mi becomes 8Gi
         self.assertEqual(quota, {
-            ":limits.cpu": "3",
-            ":limits.memory": "8Gi",
-            ":limits.ephemeral-storage": "10Gi",
-            ":requests.storage": "40Gi",
-            ":requests.nvidia.com/gpu": "0",
-            ":persistentvolumeclaims": "4",
+            "limits.cpu": "3",
+            "limits.memory": "8Gi",
+            "limits.ephemeral-storage": "10Gi",
+            "requests.storage": "40Gi",
+            "requests.nvidia.com/gpu": "0",
+            "persistentvolumeclaims": "4",
         })
 
         allocator._get_role(user.username, project_id)
