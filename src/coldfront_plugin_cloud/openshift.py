@@ -77,7 +77,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def k8_client(self):
         # Load Endpoint URL and Auth token for new k8 client
         openshift_token = os.getenv(f"OPENSHIFT_{self.safe_resource_name}_TOKEN")
-        openshift_url = self.resource.get_attribute(attributes.RESOURCE_AUTH_URL)
+        openshift_url = self.resource.get_attribute(attributes.RESOURCE_API_URL)
 
         k8_config = kubernetes.client.Configuration()
         k8_config.api_key["authorization"] = openshift_token
@@ -181,7 +181,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def get_federated_user(self, username):
         if (
             self._openshift_user_exists(username)
-            and self._openshift_get_identity(username)
+            and self._openshift_identity_exists(username)
             and self._openshift_useridentitymapping_exists(username, username)
         ):
             return {'username': username}
@@ -264,22 +264,36 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _openshift_user_exists(self, user_name):
         try:
             self._openshift_get_user(user_name)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            # Ensures error raise because resource not found, 
+            # not because of other reasons, like incorrect url
+            e_info = json.loads(e.body)
+            if (
+                e_info["reason"] == "NotFound"
+                and e_info["details"]["name"] == user_name
+            ):
+                return False
+            raise e
         return True
     
     def _openshift_identity_exists(self, id_user):
         try:
             self._openshift_get_identity(id_user)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            e_info = json.loads(e.body)
+            if e_info.get("reason") == "NotFound":
+                return False
+            raise e
         return True
     
     def _openshift_useridentitymapping_exists(self, user_name, id_user):
         try:
             user = self._openshift_get_user(user_name)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            e_info = json.loads(e.body)
+            if e_info.get("reason") == "NotFound":
+                return False
+            raise e
 
         return any(
             identity == self.qualified_id_user(id_user)
