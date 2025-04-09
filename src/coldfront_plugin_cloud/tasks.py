@@ -4,7 +4,10 @@ import secrets
 import time
 
 from coldfront.core.allocation.models import (Allocation,
-                                              AllocationUser)
+                                              AllocationUser,
+                                              AllocationChangeRequest,
+                                              AllocationChangeStatusChoice,
+                                              AllocationAttributeChangeRequest)
 
 from coldfront_plugin_cloud import (attributes,
                                     base,
@@ -172,3 +175,32 @@ def remove_user_from_allocation(allocation_user_pk):
             allocator.remove_role_from_user(username, project_id)
         else:
             logger.warning('No project has been created. Nothing to disable.')
+
+
+def get_allocation_usage(allocation_pk):
+    allocation = Allocation.objects.get(pk=allocation_pk)
+    # Note(quan): Only supports Openshift for now
+    if allocator := find_allocator(allocation):
+        if allocator.resource_type == 'openshift':
+            if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+                # TODO (Quan) Apply function to convert the fetched quota values into numbers
+                return allocator.get_quota_used(project_id)
+            else:
+                logger.warning('No project has been created. No quota to check.')
+                return
+        
+
+def approve_change_request(
+        allocation_change_request_pk,
+):
+    allocation_cr = AllocationChangeRequest.objects.get(pk=allocation_change_request_pk)
+    allocation_change_status_active_obj = AllocationChangeStatusChoice.objects.get(
+                name='Approved')
+    allocation_cr.status = allocation_change_status_active_obj
+    allocation_cr.save()
+    allocation_attr_cr_list = AllocationAttributeChangeRequest.objects.filter(
+        allocation_change_request=allocation_cr
+    )
+    for attribute_change in allocation_attr_cr_list:
+        attribute_change.allocation_attribute.value = attribute_change.new_value
+        attribute_change.allocation_attribute.save()
