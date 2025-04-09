@@ -17,6 +17,10 @@ class Command(BaseCommand):
                             help='Name of OpenShift resource')
         parser.add_argument('--auth-url', type=str, required=True,
                             help='URL of the openshift-acct-mgt endpoint')
+        parser.add_argument('--api-url', type=str, required=True,
+                            help='API URL of the openshift cluster')
+        parser.add_argument('--idp', type=str, required=True,
+                            help='Name of Openshift identity provider')
         parser.add_argument('--role', type=str, default='edit',
                             help='Role for user when added to project (default: edit)')
 
@@ -36,6 +40,18 @@ class Command(BaseCommand):
                 name=attributes.RESOURCE_AUTH_URL),
             resource=openshift,
             value=options['auth_url']
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_API_URL),
+            resource=openshift,
+            value=options['api_url']
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_IDENTITY_NAME),
+            resource=openshift,
+            value=options['idp']
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
