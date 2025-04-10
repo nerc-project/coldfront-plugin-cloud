@@ -11,6 +11,7 @@ from coldfront_plugin_cloud import (attributes,
                                     openstack,
                                     openshift,
                                     esi,
+                                    openshift_vm,
                                     utils)
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,16 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_REQUESTS_GPU: 0,
         attributes.QUOTA_PVC: 2
     },
+    'openshift_vm': { 
+        attributes.QUOTA_LIMITS_CPU: 1,
+        attributes.QUOTA_LIMITS_MEMORY: 4096,
+        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
+        attributes.QUOTA_REQUESTS_STORAGE: 20,
+        attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
+        attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
+        attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
+        attributes.QUOTA_PVC: 2
+    },
     'esi': {
         attributes.QUOTA_FLOATING_IPS: 0,
         attributes.QUOTA_NETWORKS: 0
@@ -57,7 +68,12 @@ STATIC_QUOTA = {
     'esi': {
         attributes.QUOTA_FLOATING_IPS: 1,
         attributes.QUOTA_NETWORKS: 1
-    }
+    },
+    'openshift_vm': {
+        attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
+        attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
+        attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
+    },
 }
 
 
@@ -66,6 +82,7 @@ def find_allocator(allocation) -> base.ResourceAllocator:
         'openstack': openstack.OpenStackResourceAllocator,
         'openshift': openshift.OpenShiftResourceAllocator,
         'esi': esi.ESIResourceAllocator,
+        'openshift virtualization': openshift_vm.OpenShiftVMResourceAllocator
     }
     # TODO(knikolla): It doesn't seem to be possible to select multiple resources
     # when requesting a new allocation, so why is this multivalued?

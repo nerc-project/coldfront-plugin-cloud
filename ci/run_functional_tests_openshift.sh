@@ -19,4 +19,5 @@ export FUNCTIONAL_TESTS="True"
 export OS_AUTH_URL="https://onboarding-onboarding.cluster.local"
 
 coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openshift
+coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openshift_vm
 coverage report

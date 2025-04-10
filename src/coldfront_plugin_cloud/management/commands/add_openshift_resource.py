@@ -19,13 +19,23 @@ class Command(BaseCommand):
                             help='URL of the openshift-acct-mgt endpoint')
         parser.add_argument('--role', type=str, default='edit',
                             help='Role for user when added to project (default: edit)')
+        parser.add_argument('--for-virtualization', action='store_true',
+                            help='Indicates this is an Openshift Virtualization resource (default: False)')
 
     def handle(self, *args, **options):
+
+        if options['for_virtualization']:
+            resource_description = 'OpenShift Virtualization environment'
+            resource_type = 'OpenShift Virtualization'
+        else:
+            resource_description = 'OpenShift cloud environment'
+            resource_type = 'OpenShift'
+
         openshift, _ = Resource.objects.get_or_create(
-            resource_type=ResourceType.objects.get(name='OpenShift'),
+            resource_type=ResourceType.objects.get(name=resource_type),
             parent_resource=None,
             name=options['name'],
-            description='OpenShift cloud environment',
+            description=resource_description,
             is_available=True,
             is_public=True,
             is_allocatable=True
