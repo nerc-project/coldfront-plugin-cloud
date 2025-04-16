@@ -52,6 +52,21 @@ class Command(BaseCommand):
 
         return failed_validation
 
+    @staticmethod
+    def get_expected_attributes(allocator):
+        resource_name = allocator.resource_type
+        return list(tasks.UNIT_QUOTA_MULTIPLIERS[resource_name].keys())
+
+    @staticmethod
+    def set_default_quota_on_allocation(allocation, allocator, coldfront_attr):
+        uqm = tasks.UNIT_QUOTA_MULTIPLIERS[allocator.resource_type]
+        value = allocation.quantity * uqm.get(coldfront_attr, 0)
+        value += tasks.STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
+        utils.set_attribute_on_allocation(
+            allocation, coldfront_attr, value
+        )
+        return value
+
     def check_institution_specific_code(self, allocation, apply):
         attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
         isc = allocation.get_attribute(attr)
@@ -103,39 +118,38 @@ class Command(BaseCommand):
 
             obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
 
-            for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-                if 'OpenStack' in attr.name:
-                    key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr.name, None)
-                    if not key:
-                        # Note(knikolla): Some attributes are only maintained
-                        # for bookkeeping purposes and do not have a
-                        # corresponding quota set on the service.
-                        continue
+            for attr in self.get_expected_attributes(allocator):
+                key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
+                if not key:
+                    # Note(knikolla): Some attributes are only maintained
+                    # for bookkeeping purposes and do not have a
+                    # corresponding quota set on the service.
+                    continue
 
-                    expected_value = allocation.get_attribute(attr.name)
-                    current_value = quota.get(key, None)
-                    if key == obj_key and expected_value <= 0:
-                        expected_obj_value = 1
-                        current_value = int(allocator.object(project_id).head_account().get(obj_key))
-                        if current_value != expected_obj_value:
-                            failed_validation = True
-                            msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
-                                   f' value of {expected_obj_value} on allocation {allocation_str}')
-                            logger.warning(msg)
-                    elif expected_value is None and current_value:
-                        msg = (f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
-                               f' Current quota is {current_value}.')
-                        if options['apply']:
-                            utils.set_attribute_on_allocation(
-                                allocation, attr.name, current_value
-                            )
-                            msg = f'{msg} Attribute set to match current quota.'
-                        logger.warning(msg)
-                    elif not current_value == expected_value:
+                expected_value = allocation.get_attribute(attr)
+                current_value = quota.get(key, None)
+                if key == obj_key and expected_value <= 0:
+                    expected_obj_value = 1
+                    current_value = int(allocator.object(project_id).head_account().get(obj_key))
+                    if current_value != expected_obj_value:
                         failed_validation = True
-                        msg = (f'Value for quota for {attr.name} = {current_value} does not match expected'
-                               f' value of {expected_value} on allocation {allocation_str}')
+                        msg = (f'Value for quota for {attr} = {current_value} does not match expected'
+                                f' value of {expected_obj_value} on allocation {allocation_str}')
                         logger.warning(msg)
+                elif expected_value is None and current_value:
+                    msg = (f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                            f' Current quota is {current_value}.')
+                    if options['apply']:
+                        utils.set_attribute_on_allocation(
+                            allocation, attr, current_value
+                        )
+                        msg = f'{msg} Attribute set to match current quota.'
+                    logger.warning(msg)
+                elif not current_value == expected_value:
+                    failed_validation = True
+                    msg = (f'Value for quota for {attr} = {current_value} does not match expected'
+                            f' value of {expected_value} on allocation {allocation_str}')
+                    logger.warning(msg)
 
             if failed_validation and options['apply']:
                 try:
@@ -187,75 +201,86 @@ class Command(BaseCommand):
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
 
-            for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-                if "OpenShift" in attr.name:
-                    key_with_lambda = openshift.QUOTA_KEY_MAPPING.get(attr.name, None)
+            for attr in self.get_expected_attributes(allocator):
+                key_with_lambda = openshift.QUOTA_KEY_MAPPING.get(attr, None)
 
-                    # This gives me just the plain key
-                    key = list(key_with_lambda(1).keys())[0]
+                # This gives me just the plain key
+                key = list(key_with_lambda(1).keys())[0]
 
-                    expected_value = allocation.get_attribute(attr.name)
-                    current_value = quota.get(key, None)
+                expected_value = allocation.get_attribute(attr)
+                current_value = quota.get(key, None)
 
-                    PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+                PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
 
-                    suffix = {
-                        "Ki": 2**10,
-                        "Mi": 2**20,
-                        "Gi": 2**30,
-                        "Ti": 2**40,
-                        "Pi": 2**50,
-                        "Ei": 2**60,
-                        "m": 10**-3,
-                        "K": 10**3,
-                        "M": 10**6,
-                        "G": 10**9,
-                        "T": 10**12,
-                        "P": 10**15,
-                        "E": 10**18,
-                    }
+                suffix = {
+                    "Ki": 2**10,
+                    "Mi": 2**20,
+                    "Gi": 2**30,
+                    "Ti": 2**40,
+                    "Pi": 2**50,
+                    "Ei": 2**60,
+                    "m": 10**-3,
+                    "K": 10**3,
+                    "M": 10**6,
+                    "G": 10**9,
+                    "T": 10**12,
+                    "P": 10**15,
+                    "E": 10**18,
+                }
 
-                    if current_value and current_value != "0":
-                        result = re.search(PATTERN, current_value)
+                if current_value and current_value != "0":
+                    result = re.search(PATTERN, current_value)
 
-                        if result is None:
-                            raise CommandError(
-                                f"Unable to parse current_value = '{current_value}' for {attr.name}"
-                            )
-
-                        value = int(result.groups()[0])
-                        unit = result.groups()[1]
-
-                        # Convert to number i.e. without any unit suffix
-
-                        if unit is not None:
-                            current_value = value * suffix[unit]
-                        else:
-                            current_value = value
-
-                        # Convert some attributes to units that coldfront uses
-
-                        if "RAM" in attr.name:
-                            current_value = round(current_value / suffix["Mi"])
-                        elif "Storage" in attr.name:
-                            current_value = round(current_value / suffix["Gi"])
-                    elif current_value and current_value == "0":
-                        current_value = 0
-
-                    if expected_value is None and current_value is not None:
-                        msg = (
-                            f'Attribute "{attr.name}" expected on allocation {allocation_str} but not set.'
-                            f" Current quota is {current_value}."
+                    if result is None:
+                        raise CommandError(
+                            f"Unable to parse current_value = '{current_value}' for {attr}"
                         )
-                        if options["apply"]:
-                            utils.set_attribute_on_allocation(
-                                allocation, attr.name, current_value
-                            )
-                            msg = f"{msg} Attribute set to match current quota."
-                        logger.warning(msg)
-                    elif not (current_value == expected_value):
+
+                    value = int(result.groups()[0])
+                    unit = result.groups()[1]
+
+                    # Convert to number i.e. without any unit suffix
+
+                    if unit is not None:
+                        current_value = value * suffix[unit]
+                    else:
+                        current_value = value
+
+                    # Convert some attributes to units that coldfront uses
+
+                    if "RAM" in attr:
+                        current_value = round(current_value / suffix["Mi"])
+                    elif "Storage" in attr:
+                        current_value = round(current_value / suffix["Gi"])
+                elif current_value and current_value == "0":
+                    current_value = 0
+
+                if expected_value is None and current_value is not None:
+                    msg = (
+                        f'Attribute "{attr}" expected on allocation {allocation_str} but not set.'
+                        f" Current quota is {current_value}."
+                    )
+                    if options["apply"]:
+                        utils.set_attribute_on_allocation(
+                            allocation, attr, current_value
+                        )
+                        msg = f"{msg} Attribute set to match current quota."
+                    logger.warning(msg)
+                else:
+                    if current_value is None and expected_value is None:
                         msg = (
-                            f"Value for quota for {attr.name} = {current_value} does not match expected"
+                            f"Value for quota for {attr} is not set anywhere"
+                            f" on allocation {allocation_str}"
+                        )
+                        logger.warning(msg)
+
+                        if options["apply"]:
+                            expected_value = self.set_default_quota_on_allocation(allocation, allocator, attr)
+                            logger.warning(f"Added default quota for {attr} to allocation {allocation_str} to {expected_value}")
+
+                    if not (current_value == expected_value):
+                        msg = (
+                            f"Value for quota for {attr} = {current_value} does not match expected"
                             f" value of {expected_value} on allocation {allocation_str}"
                         )
                         logger.warning(msg)
