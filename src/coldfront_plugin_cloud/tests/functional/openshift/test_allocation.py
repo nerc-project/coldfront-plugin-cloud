@@ -15,7 +15,8 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_openshift_resource(
             name='Microshift',
-            auth_url=os.getenv('OS_AUTH_URL')
+            auth_url=os.getenv('OS_AUTH_URL'),
+            api_url=os.getenv('OS_API_URL'),
         )
 
     def test_new_allocation(self):
@@ -36,7 +37,8 @@ class TestAllocation(base.TestBase):
         allocator._get_project(project_id)
 
         # Check user and roles
-        allocator.get_federated_user(user.username)
+        user_info = allocator.get_federated_user(user.username)
+        self.assertEqual(user_info, {'username': user.username})
 
         allocator._get_role(user.username, project_id)
 
@@ -73,7 +75,8 @@ class TestAllocation(base.TestBase):
         tasks.add_user_to_allocation(allocation_user2.pk)
         allocator._get_role(user.username, project_id)
 
-        allocator.get_federated_user(user2.username)
+        user_info = allocator.get_federated_user(user.username)
+        self.assertEqual(user_info, {'username': user.username})
 
         allocator._get_role(user.username, project_id)
         allocator._get_role(user2.username, project_id)
