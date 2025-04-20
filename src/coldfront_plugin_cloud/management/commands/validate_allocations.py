@@ -52,6 +52,22 @@ class Command(BaseCommand):
 
         return failed_validation
 
+    @staticmethod
+    def sync_openshift_project_labels(project_id, allocator, apply):
+        cloud_namespace_obj = allocator._openshift_get_namespace(project_id)
+        cloud_namespace_obj_labels = cloud_namespace_obj["metadata"]["labels"]
+        if missing_or_incorrect_labels := [
+            label_items[0] for label_items in openshift.PROJECT_DEFAULT_LABELS.items() if 
+            label_items not in cloud_namespace_obj_labels.items()
+        ]:
+            logger.warning(
+                f"Openshift project {project_id} is missing default labels: {', '.join(missing_or_incorrect_labels)}"
+            )
+            cloud_namespace_obj_labels.update(openshift.PROJECT_DEFAULT_LABELS)
+            if apply:
+                allocator.patch_project(project_id, cloud_namespace_obj)
+                logger.warning(f"Labels updated for Openshift project {project_id}: {', '.join(missing_or_incorrect_labels)}")
+
     def check_institution_specific_code(self, allocation, apply):
         attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
         isc = allocation.get_attribute(attr)
@@ -183,6 +199,7 @@ class Command(BaseCommand):
             quota = allocator.get_quota(project_id)
 
             failed_validation = Command.sync_users(project_id, allocation, allocator, options["apply"])
+            Command.sync_openshift_project_labels(project_id, allocator, options["apply"])
 
             for attr in tasks.get_expected_attributes(allocator):
                 key_with_lambda = allocator.QUOTA_KEY_MAPPING.get(attr, None)

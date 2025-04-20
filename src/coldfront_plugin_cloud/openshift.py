@@ -27,6 +27,14 @@ IGNORED_ATTRIBUTES = [
     "uid",
 ]
 
+
+PROJECT_DEFAULT_LABELS = {
+    'opendatahub.io/dashboard': "true",
+    'modelmesh-enabled': "true",
+    'nerc.mghpcc.org/allow-unencrypted-routes': "true"
+}
+
+
 def clean_openshift_metadata(obj):
     if "metadata" in obj:
         for attr in IGNORED_ATTRIBUTES:
@@ -146,6 +154,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         self._create_project(project_name, project_id)
         return self.Project(project_name, project_id)
     
+    def patch_project(self, project_id, new_project_spec):
+        self._openshift_patch_namespace(project_id, new_project_spec)
+    
     def delete_moc_quotas(self, project_id):
         """deletes all resourcequotas from an openshift project"""
         resourcequotas = self._openshift_get_resourcequotas(project_id)
@@ -238,14 +249,10 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         headers = {"Content-type": "application/json"}
         annotations = {"cf_project_id": str(self.allocation.project_id),
                        "cf_pi": self.allocation.project.pi.username}
-        labels = {
-            'opendatahub.io/dashboard': "true",
-            'modelmesh-enabled': "true",
-        }
 
         payload = {"displayName": project_name,
                    "annotations": annotations,
-                   "labels": labels}
+                   "labels": PROJECT_DEFAULT_LABELS}
         r = self.session.put(url, data=json.dumps(payload), headers=headers)
         self.check_response(r)
 
@@ -323,6 +330,15 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _openshift_get_project(self, project_name):
         api = self.get_resource_api(API_PROJECT, "Project")
         return clean_openshift_metadata(api.get(name=project_name).to_dict())
+    
+    def _openshift_get_namespace(self, namespace_name):
+        api = self.get_resource_api(API_CORE, "Namespace")
+        return clean_openshift_metadata(api.get(name=namespace_name).to_dict())
+
+    def _openshift_patch_namespace(self, project_name, new_project_spec):
+        # During testing, apparently we can't patch Projects, but we can do so with Namespaces
+        api = self.get_resource_api(API_CORE, "Namespace")
+        res = api.patch(name=project_name, body=new_project_spec)
 
     def _openshift_get_resourcequotas(self, project_id):
         """Returns a list of resourcequota objects in namespace with name `project_id`"""
