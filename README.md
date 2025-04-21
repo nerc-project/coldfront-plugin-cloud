@@ -8,6 +8,7 @@ API service.
 
 [openshift-acct-mgt]: https://github.com/cci-moc/openshift-acct-mgt
 
+
 ## Terminology
 Caution as OpenStack, OpenShift and ColdFront use the same term to mean different
 things!
@@ -153,3 +154,17 @@ following resource allocation attribute types.
 
 By submitting a Resource Allocation Change Request and editing those attributes
 a PI can request a change in their quota.
+
+## Pre-commit hooks
+```
+pip install pre-commit
+```
+Pre-commit runs tools like:
+- [Ruff](https://docs.astral.sh/ruff/) — fast linter and fixer
+- Basic checks like trailing whitespace removal, JSON validation, and more.
+
+To set up Git hook locally:
+```
+pre-commit install
+```
+After this, every time you make a commit, the hooks will run automatically!
