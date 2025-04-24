@@ -217,16 +217,12 @@ class Command(BaseCommand):
         if options['openstack_gb_rate']:
             openstack_storage_rate = options['openstack_gb_rate']
         else:
-            openstack_storage_rate = Decimal(
-                get_rates().get_value_at('Storage GB Rate', options["invoice_month"])
-            )
+            openstack_storage_rate = get_rates().get_value_at('Storage GB Rate', options["invoice_month"], Decimal)
 
         if options['openshift_gb_rate']:
             openshift_storage_rate = options['openshift_gb_rate']
         else:
-            openshift_storage_rate = Decimal(
-                get_rates().get_value_at('Storage GB Rate', options["invoice_month"])
-            )
+            openshift_storage_rate = get_rates().get_value_at('Storage GB Rate', options["invoice_month"], Decimal)
 
         logger.info(f'Using storage rate {openstack_storage_rate} (Openstack) and '
                     f'{openshift_storage_rate} (Openshift) for {options["invoice_month"]}')
