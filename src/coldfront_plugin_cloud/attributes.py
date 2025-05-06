@@ -19,6 +19,7 @@ class CloudAllocationAttribute:
 
 
 RESOURCE_AUTH_URL = 'Identity Endpoint URL'
+RESOURCE_API_URL = 'OpenShift API Endpoint URL'
 RESOURCE_IDENTITY_NAME = 'OpenShift Identity Provider Name'
 RESOURCE_ROLE = 'Role for User in Project'
 
@@ -33,6 +34,7 @@ RESOURCE_EULA_URL = "EULA URL"
 
 RESOURCE_ATTRIBUTES = [
     CloudResourceAttribute(name=RESOURCE_AUTH_URL),
+    CloudResourceAttribute(name=RESOURCE_API_URL),
     CloudResourceAttribute(name=RESOURCE_IDENTITY_NAME),
     CloudResourceAttribute(name=RESOURCE_FEDERATION_PROTOCOL),
     CloudResourceAttribute(name=RESOURCE_IDP),

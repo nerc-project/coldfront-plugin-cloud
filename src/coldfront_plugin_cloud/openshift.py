@@ -36,12 +36,12 @@ def clean_openshift_metadata(obj):
     return obj
 
 QUOTA_KEY_MAPPING = {
-    attributes.QUOTA_LIMITS_CPU: lambda x: {":limits.cpu": f"{x * 1000}m"},
-    attributes.QUOTA_LIMITS_MEMORY: lambda x: {":limits.memory": f"{x}Mi"},
-    attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {":limits.ephemeral-storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_STORAGE: lambda x: {":requests.storage": f"{x}Gi"},
-    attributes.QUOTA_REQUESTS_GPU: lambda x: {":requests.nvidia.com/gpu": f"{x}"},
-    attributes.QUOTA_PVC: lambda x: {":persistentvolumeclaims": f"{x}"},
+    attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
+    attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
+    attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {"limits.ephemeral-storage": f"{x}Gi"},
+    attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
+    attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
+    attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
 }
 
 
@@ -77,7 +77,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def k8_client(self):
         # Load Endpoint URL and Auth token for new k8 client
         openshift_token = os.getenv(f"OPENSHIFT_{self.safe_resource_name}_TOKEN")
-        openshift_url = self.resource.get_attribute(attributes.RESOURCE_AUTH_URL)
+        openshift_url = self.resource.get_attribute(attributes.RESOURCE_API_URL)
 
         k8_config = kubernetes.client.Configuration()
         k8_config.api_key["authorization"] = openshift_token
@@ -146,20 +146,41 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         project_name = project_id
         self._create_project(project_name, project_id)
         return self.Project(project_name, project_id)
+    
+    def delete_moc_quotas(self, project_id):
+        """deletes all resourcequotas from an openshift project"""
+        resourcequotas = self._openshift_get_resourcequotas(project_id)
+        for resourcequota in resourcequotas:
+            self._openshift_delete_resourcequota(project_id, resourcequota["metadata"]["name"])
+
+        logger.info(f"All quotas for {project_id} successfully deleted")
 
     def set_quota(self, project_id):
-        url = f"{self.auth_url}/projects/{project_id}/quota"
-        payload = dict()
+        """Sets the quota for a project, creating a minimal resourcequota
+        object in the project namespace with no extra scopes"""
+
+        quota_spec = {}
         for key, func in QUOTA_KEY_MAPPING.items():
             if (x := self.allocation.get_attribute(key)) is not None:
-                payload.update(func(x))
-        r = self.session.put(url, data=json.dumps({'Quota': payload}))
-        self.check_response(r)
+                quota_spec.update(func(x))
+
+        quota_def = {
+            "metadata": {"name": f"{project_id}-project"},
+            "spec": {"hard": quota_spec},
+        }
+
+        self.delete_moc_quotas(project_id)
+        self._openshift_create_resourcequota(project_id, quota_def)
+
+        logger.info(f"Quota for {project_id} successfully created")
 
     def get_quota(self, project_id):
-        url = f"{self.auth_url}/projects/{project_id}/quota"
-        r = self.session.get(url)
-        return self.check_response(r)
+        cloud_quotas = self._openshift_get_resourcequotas(project_id)
+        combined_quota = {}
+        for cloud_quota in cloud_quotas:
+            combined_quota.update(cloud_quota["spec"]["hard"])
+
+        return combined_quota
 
     def create_project_defaults(self, project_id):
         pass
@@ -181,7 +202,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def get_federated_user(self, username):
         if (
             self._openshift_user_exists(username)
-            and self._openshift_get_identity(username)
+            and self._openshift_identity_exists(username)
             and self._openshift_useridentitymapping_exists(username, username)
         ):
             return {'username': username}
@@ -264,25 +285,84 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _openshift_user_exists(self, user_name):
         try:
             self._openshift_get_user(user_name)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            # Ensures error raise because resource not found, 
+            # not because of other reasons, like incorrect url
+            e_info = json.loads(e.body)
+            if (
+                e_info["reason"] == "NotFound"
+                and e_info["details"]["name"] == user_name
+            ):
+                return False
+            raise e
         return True
     
     def _openshift_identity_exists(self, id_user):
         try:
             self._openshift_get_identity(id_user)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            e_info = json.loads(e.body)
+            if e_info.get("reason") == "NotFound":
+                return False
+            raise e
         return True
     
     def _openshift_useridentitymapping_exists(self, user_name, id_user):
         try:
             user = self._openshift_get_user(user_name)
-        except kexc.NotFoundError:
-            return False
+        except kexc.NotFoundError as e:
+            e_info = json.loads(e.body)
+            if e_info.get("reason") == "NotFound":
+                return False
+            raise e
 
         return any(
             identity == self.qualified_id_user(id_user)
             for identity in user.get("identities", [])
         )
+    
+    def _openshift_get_project(self, project_name):
+        api = self.get_resource_api(API_PROJECT, "Project")
+        return clean_openshift_metadata(api.get(name=project_name).to_dict())
+
+    def _openshift_get_resourcequotas(self, project_id):
+        """Returns a list of resourcequota objects in namespace with name `project_id`"""
+        # Raise a NotFound error if the project doesn't exist
+        self._openshift_get_project(project_id)
+        api = self.get_resource_api(API_CORE, "ResourceQuota")
+        res = clean_openshift_metadata(api.get(namespace=project_id).to_dict())
+
+        return res["items"]
+    
+    def _wait_for_quota_to_settle(self, project_id, resource_quota):
+        """Wait for quota on resourcequotas to settle.
+
+        When creating a new resourcequota that sets a quota on resourcequota objects, we need to
+        wait for OpenShift to calculate the quota usage before we attempt to create any new
+        resourcequota objects.
+        """
+
+        if "resourcequotas" in resource_quota["spec"]["hard"]:
+            logger.info("waiting for resourcequota quota")
+
+            api = self.get_resource_api(API_CORE, "ResourceQuota")
+            while True:
+                resp = clean_openshift_metadata(
+                    api.get(
+                        namespace=project_id, name=resource_quota["metadata"]["name"]
+                    ).to_dict()
+                )
+                if "resourcequotas" in resp["status"].get("used", {}):
+                    break
+                time.sleep(0.1)
+    
+    def _openshift_create_resourcequota(self, project_id, quota_def):
+        api = self.get_resource_api(API_CORE, "ResourceQuota")
+        res = api.create(namespace=project_id, body=quota_def).to_dict()
+        self._wait_for_quota_to_settle(project_id, res)
+    
+    def _openshift_delete_resourcequota(self, project_id, resourcequota_name):
+        """In an openshift namespace {project_id) delete a specified resourcequota"""
+        api = self.get_resource_api(API_CORE, "ResourceQuota")
+        return api.delete(namespace=project_id, name=resourcequota_name).to_dict()
     
