@@ -21,4 +21,5 @@ export OS_API_URL="https://onboarding-onboarding.cluster.local:6443"
 
 
 coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openshift
+coverage run --source="." -m django test coldfront_plugin_cloud.tests.functional.openshift_vm
 coverage report
