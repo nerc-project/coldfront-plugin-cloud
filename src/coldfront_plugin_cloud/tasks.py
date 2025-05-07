@@ -76,6 +76,11 @@ STATIC_QUOTA = {
     },
 }
 
+def get_expected_attributes(allocator: base.ResourceAllocator):
+    """Based on the allocator's resource type, return the expected quotas attributes the allocation should have"""
+    resource_name = allocator.resource_type
+    return list(UNIT_QUOTA_MULTIPLIERS[resource_name].keys())
+
 
 def find_allocator(allocation) -> base.ResourceAllocator:
     allocators = {
@@ -99,10 +104,10 @@ def activate_allocation(allocation_pk):
             allocation.quantity = 1
 
         # Calculate the quota for the project, and set the attribute for each element
-        uqm = UNIT_QUOTA_MULTIPLIERS[allocator.resource_type]
-        for coldfront_attr in uqm.keys():
+        expected_coldfront_attrs = get_expected_attributes(allocator)
+        for coldfront_attr in expected_coldfront_attrs:
             if not allocation.get_attribute(coldfront_attr):
-                value = allocation.quantity * uqm.get(coldfront_attr, 0)
+                value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS[allocator.resource_type].get(coldfront_attr, 0)
                 value += STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
                 utils.set_attribute_on_allocation(allocation,
                                                   coldfront_attr,
