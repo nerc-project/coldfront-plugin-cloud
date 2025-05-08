@@ -214,3 +214,35 @@ class TestAllocation(base.TestBase):
         })
 
         allocator._get_role(user.username, project_id)
+
+    def test_project_default_labels(self):
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource,
+                                                         allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        # Check project labels
+        namespace_dict_labels = allocator._openshift_get_namespace(project_id)["metadata"]["labels"]
+        self.assertTrue(namespace_dict_labels.items() > openshift.PROJECT_DEFAULT_LABELS.items())
+
+        # What if we have a new custom label, or changed value?
+        openshift.PROJECT_DEFAULT_LABELS["test"] = "test"
+        call_command('validate_allocations', apply=True)
+
+        namespace_dict_labels = allocator._openshift_get_namespace(project_id)["metadata"]["labels"]
+        self.assertTrue(namespace_dict_labels.items() > openshift.PROJECT_DEFAULT_LABELS.items())
+
+        # What if a deafult label is removed (or cloud label 
+        # already has other unrelated labels)? Cloud label should still remain
+        del openshift.PROJECT_DEFAULT_LABELS["test"]
+        call_command('validate_allocations', apply=True)
+        namespace_dict_labels = allocator._openshift_get_namespace(project_id)["metadata"]["labels"]
+        self.assertFalse(openshift.PROJECT_DEFAULT_LABELS.items() > {"test": "test"}.items())
+        self.assertTrue(namespace_dict_labels.items() > {"test": "test"}.items())
+        self.assertTrue(namespace_dict_labels.items() > openshift.PROJECT_DEFAULT_LABELS.items())
