@@ -4,3 +4,11 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff.lint.isort]
+known-first-party = ["coldfront-plugin-cloud"]
+force-single-line = false
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
