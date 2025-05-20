@@ -7,6 +7,7 @@ from coldfront_plugin_cloud import attributes, openshift, tasks, utils
 from coldfront_plugin_cloud.tests import base
 
 from django.core.management import call_command
+import kubernetes.dynamic.exceptions as kexc
 
 
 @unittest.skipUnless(os.getenv("FUNCTIONAL_TESTS"), "Functional tests not enabled.")
@@ -37,6 +38,13 @@ class TestAllocation(base.TestBase):
 
         allocator._get_project(project_id)
 
+        # Check default limit ranges
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            limit_ranges["items"][0]["metadata"]["name"], f"{project_id}-limits"
+        )
+
         # Check user and roles
         user_info = allocator.get_federated_user(user.username)
         self.assertEqual(user_info, {"username": user.username})
@@ -52,7 +60,7 @@ class TestAllocation(base.TestBase):
 
         # Deleting a project is not instantaneous on OpenShift
         time.sleep(10)
-        with self.assertRaises(openshift.NotFound):
+        with self.assertRaises(kexc.NotFoundError):
             allocator._get_project(project_id)
 
     def test_add_remove_user(self):
