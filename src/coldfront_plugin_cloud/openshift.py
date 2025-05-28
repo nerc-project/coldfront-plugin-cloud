@@ -29,9 +29,9 @@ IGNORED_ATTRIBUTES = [
 
 
 PROJECT_DEFAULT_LABELS = {
-    'opendatahub.io/dashboard': "true",
-    'modelmesh-enabled': "true",
-    'nerc.mghpcc.org/allow-unencrypted-routes': "true"
+    "opendatahub.io/dashboard": "true",
+    "modelmesh-enabled": "true",
+    "nerc.mghpcc.org/allow-unencrypted-routes": "true",
 }
 
 
@@ -61,13 +61,15 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     QUOTA_KEY_MAPPING = {
         attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
         attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
-        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {"limits.ephemeral-storage": f"{x}Gi"},
+        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {
+            "limits.ephemeral-storage": f"{x}Gi"
+        },
         attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
         attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
         attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
     }
 
-    resource_type = 'openshift'
+    resource_type = "openshift"
 
     project_name_max_length = 63
 
@@ -78,7 +80,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         self.apis = {}
 
         self.functional_tests = os.environ.get("FUNCTIONAL_TESTS", "").lower()
-        self.verify = os.getenv(f"OPENSHIFT_{self.safe_resource_name}_VERIFY", "").lower()
+        self.verify = os.getenv(
+            f"OPENSHIFT_{self.safe_resource_name}_VERIFY", ""
+        ).lower()
 
     @functools.cached_property
     def k8_client(self):
@@ -102,16 +106,16 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     @functools.cached_property
     def session(self):
         var_name = utils.env_safe_name(self.resource.name)
-        username = os.getenv(f'OPENSHIFT_{var_name}_USERNAME')
-        password = os.getenv(f'OPENSHIFT_{var_name}_PASSWORD')
+        username = os.getenv(f"OPENSHIFT_{var_name}_USERNAME")
+        password = os.getenv(f"OPENSHIFT_{var_name}_PASSWORD")
 
         session = requests.session()
         if username and password:
             session.auth = HTTPBasicAuth(username, password)
 
-        functional_tests = os.environ.get('FUNCTIONAL_TESTS', '').lower()
-        verify = os.getenv(f'OPENSHIFT_{var_name}_VERIFY', '').lower()
-        if functional_tests == 'true' or verify == 'false':
+        functional_tests = os.environ.get("FUNCTIONAL_TESTS", "").lower()
+        verify = os.getenv(f"OPENSHIFT_{var_name}_VERIFY", "").lower()
+        if functional_tests == "true" or verify == "false":
             session.verify = False
 
         return session
@@ -126,13 +130,13 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                 return response.text
         if response.status_code == 404:
             raise NotFound(f"{response.status_code}: {response.text}")
-        elif 'does not exist' in response.text or 'not found' in response.text:
+        elif "does not exist" in response.text or "not found" in response.text:
             raise NotFound(f"{response.status_code}: {response.text}")
-        elif 'already exists' in response.text:
+        elif "already exists" in response.text:
             raise Conflict(f"{response.status_code}: {response.text}")
         else:
             raise ApiException(f"{response.status_code}: {response.text}")
-        
+
     def qualified_id_user(self, id_user):
         return f"{self.id_provider}:{id_user}"
 
@@ -146,22 +150,26 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         return api
 
     def create_project(self, suggested_project_name):
-        sanitized_project_name = utils.get_sanitized_project_name(suggested_project_name)
+        sanitized_project_name = utils.get_sanitized_project_name(
+            suggested_project_name
+        )
         project_id = utils.get_unique_project_name(
-            sanitized_project_name,
-            max_length=self.project_name_max_length)
+            sanitized_project_name, max_length=self.project_name_max_length
+        )
         project_name = project_id
         self._create_project(project_name, project_id)
         return self.Project(project_name, project_id)
-    
+
     def patch_project(self, project_id, new_project_spec):
         self._openshift_patch_namespace(project_id, new_project_spec)
-    
+
     def delete_moc_quotas(self, project_id):
         """deletes all resourcequotas from an openshift project"""
         resourcequotas = self._openshift_get_resourcequotas(project_id)
         for resourcequota in resourcequotas:
-            self._openshift_delete_resourcequota(project_id, resourcequota["metadata"]["name"])
+            self._openshift_delete_resourcequota(
+                project_id, resourcequota["metadata"]["name"]
+            )
 
         logger.info(f"All quotas for {project_id} successfully deleted")
 
@@ -215,8 +223,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             and self._openshift_identity_exists(username)
             and self._openshift_useridentitymapping_exists(username, username)
         ):
-            return {'username': username}
-        
+            return {"username": username}
+
         logger.info(f"User ({username}) does not exist")
 
     def create_federated_user(self, unique_id):
@@ -229,8 +237,10 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
 
     def assign_role_on_user(self, username, project_id):
         # /users/<user_name>/projects/<project>/roles/<role>
-        url = (f"{self.auth_url}/users/{username}/projects/{project_id}"
-               f"/roles/{self.member_role_name}")
+        url = (
+            f"{self.auth_url}/users/{username}/projects/{project_id}"
+            f"/roles/{self.member_role_name}"
+        )
         try:
             r = self.session.put(url)
             self.check_response(r)
@@ -239,27 +249,35 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
 
     def remove_role_from_user(self, username, project_id):
         # /users/<user_name>/projects/<project>/roles/<role>
-        url = (f"{self.auth_url}/users/{username}/projects/{project_id}"
-               f"/roles/{self.member_role_name}")
+        url = (
+            f"{self.auth_url}/users/{username}/projects/{project_id}"
+            f"/roles/{self.member_role_name}"
+        )
         r = self.session.delete(url)
         self.check_response(r)
 
     def _create_project(self, project_name, project_id):
         url = f"{self.auth_url}/projects/{project_id}"
         headers = {"Content-type": "application/json"}
-        annotations = {"cf_project_id": str(self.allocation.project_id),
-                       "cf_pi": self.allocation.project.pi.username}
+        annotations = {
+            "cf_project_id": str(self.allocation.project_id),
+            "cf_pi": self.allocation.project.pi.username,
+        }
 
-        payload = {"displayName": project_name,
-                   "annotations": annotations,
-                   "labels": PROJECT_DEFAULT_LABELS}
+        payload = {
+            "displayName": project_name,
+            "annotations": annotations,
+            "labels": PROJECT_DEFAULT_LABELS,
+        }
         r = self.session.put(url, data=json.dumps(payload), headers=headers)
         self.check_response(r)
 
     def _get_role(self, username, project_id):
         # /users/<user_name>/projects/<project>/roles/<role>
-        url = (f"{self.auth_url}/users/{username}/projects/{project_id}"
-               f"/roles/{self.member_role_name}")
+        url = (
+            f"{self.auth_url}/users/{username}/projects/{project_id}"
+            f"/roles/{self.member_role_name}"
+        )
         r = self.session.get(url)
         return self.check_response(r)
 
@@ -277,22 +295,22 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         url = f"{self.auth_url}/projects/{project_id}/users"
         r = self.session.get(url)
         return set(self.check_response(r))
-    
+
     def _openshift_get_user(self, username):
         api = self.get_resource_api(API_USER, "User")
         return clean_openshift_metadata(api.get(name=username).to_dict())
-    
+
     def _openshift_get_identity(self, id_user):
         api = self.get_resource_api(API_USER, "Identity")
         return clean_openshift_metadata(
             api.get(name=self.qualified_id_user(id_user)).to_dict()
         )
-    
+
     def _openshift_user_exists(self, user_name):
         try:
             self._openshift_get_user(user_name)
         except kexc.NotFoundError as e:
-            # Ensures error raise because resource not found, 
+            # Ensures error raise because resource not found,
             # not because of other reasons, like incorrect url
             e_info = json.loads(e.body)
             if (
@@ -302,7 +320,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                 return False
             raise e
         return True
-    
+
     def _openshift_identity_exists(self, id_user):
         try:
             self._openshift_get_identity(id_user)
@@ -312,7 +330,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                 return False
             raise e
         return True
-    
+
     def _openshift_useridentitymapping_exists(self, user_name, id_user):
         try:
             user = self._openshift_get_user(user_name)
@@ -326,11 +344,11 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             identity == self.qualified_id_user(id_user)
             for identity in user.get("identities", [])
         )
-    
+
     def _openshift_get_project(self, project_name):
         api = self.get_resource_api(API_PROJECT, "Project")
         return clean_openshift_metadata(api.get(name=project_name).to_dict())
-    
+
     def _openshift_get_namespace(self, namespace_name):
         api = self.get_resource_api(API_CORE, "Namespace")
         return clean_openshift_metadata(api.get(name=namespace_name).to_dict())
@@ -338,7 +356,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _openshift_patch_namespace(self, project_name, new_project_spec):
         # During testing, apparently we can't patch Projects, but we can do so with Namespaces
         api = self.get_resource_api(API_CORE, "Namespace")
-        res = api.patch(name=project_name, body=new_project_spec)
+        api.patch(name=project_name, body=new_project_spec)
 
     def _openshift_get_resourcequotas(self, project_id):
         """Returns a list of resourcequota objects in namespace with name `project_id`"""
@@ -348,7 +366,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         res = clean_openshift_metadata(api.get(namespace=project_id).to_dict())
 
         return res["items"]
-    
+
     def _wait_for_quota_to_settle(self, project_id, resource_quota):
         """Wait for quota on resourcequotas to settle.
 
@@ -370,14 +388,13 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                 if "resourcequotas" in resp["status"].get("used", {}):
                     break
                 time.sleep(0.1)
-    
+
     def _openshift_create_resourcequota(self, project_id, quota_def):
         api = self.get_resource_api(API_CORE, "ResourceQuota")
         res = api.create(namespace=project_id, body=quota_def).to_dict()
         self._wait_for_quota_to_settle(project_id, res)
-    
+
     def _openshift_delete_resourcequota(self, project_id, resourcequota_name):
         """In an openshift namespace {project_id) delete a specified resourcequota"""
         api = self.get_resource_api(API_CORE, "ResourceQuota")
         return api.delete(namespace=project_id, name=resourcequota_name).to_dict()
-    

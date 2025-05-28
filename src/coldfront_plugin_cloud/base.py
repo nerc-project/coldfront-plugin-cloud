@@ -9,8 +9,7 @@ from coldfront_plugin_cloud import attributes
 
 
 class ResourceAllocator(abc.ABC):
-
-    resource_type = ''
+    resource_type = ""
 
     project_name_max_length = None
 
@@ -18,9 +17,11 @@ class ResourceAllocator(abc.ABC):
         name: str
         id: str
 
-    def __init__(self,
-                 resource: resource_models.Resource,
-                 allocation: allocation_models.Allocation):
+    def __init__(
+        self,
+        resource: resource_models.Resource,
+        allocation: allocation_models.Allocation,
+    ):
         self.resource = resource
         self.allocation = allocation
 
@@ -35,7 +36,7 @@ class ResourceAllocator(abc.ABC):
 
     @functools.cached_property
     def member_role_name(self):
-        return self.resource.get_attribute(attributes.RESOURCE_ROLE) or 'member'
+        return self.resource.get_attribute(attributes.RESOURCE_ROLE) or "member"
 
     @abc.abstractmethod
     def create_project(self, suggested_project_name) -> Project:

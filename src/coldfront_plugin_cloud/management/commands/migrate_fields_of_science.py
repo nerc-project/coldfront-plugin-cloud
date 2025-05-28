@@ -63,7 +63,7 @@ class Command(BaseCommand):
         for new_fos_name in new_fos_set:
             FieldOfScience.objects.get_or_create(
                 is_selectable=True,
-                description=new_fos_name, 
+                description=new_fos_name,
             )
 
     def _migrate_fos(self, mapping_dict):
