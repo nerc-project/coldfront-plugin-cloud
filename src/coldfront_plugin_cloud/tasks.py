@@ -1,18 +1,18 @@
 import datetime
 import logging
-import secrets
 import time
 
-from coldfront.core.allocation.models import (Allocation,
-                                              AllocationUser)
+from coldfront.core.allocation.models import Allocation, AllocationUser
 
-from coldfront_plugin_cloud import (attributes,
-                                    base,
-                                    openstack,
-                                    openshift,
-                                    esi,
-                                    openshift_vm,
-                                    utils)
+from coldfront_plugin_cloud import (
+    attributes,
+    base,
+    openstack,
+    openshift,
+    esi,
+    openshift_vm,
+    utils,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Map the amount of quota that 1 unit of `quantity` gets you
 # This is multiplied to the quantity of that resource allocation.
 UNIT_QUOTA_MULTIPLIERS = {
-    'openstack': {
+    "openstack": {
         attributes.QUOTA_INSTANCES: 1,
         attributes.QUOTA_VCPU: 1,
         attributes.QUOTA_RAM: 4096,
@@ -30,15 +30,15 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_OBJECT_GB: 1,
         attributes.QUOTA_GPU: 0,
     },
-    'openshift': {
+    "openshift": {
         attributes.QUOTA_LIMITS_CPU: 1,
         attributes.QUOTA_LIMITS_MEMORY: 4096,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
         attributes.QUOTA_REQUESTS_STORAGE: 20,
         attributes.QUOTA_REQUESTS_GPU: 0,
-        attributes.QUOTA_PVC: 2
+        attributes.QUOTA_PVC: 2,
     },
-    'openshift_vm': { 
+    "openshift_vm": {
         attributes.QUOTA_LIMITS_CPU: 1,
         attributes.QUOTA_LIMITS_MEMORY: 4096,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
@@ -46,35 +46,30 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
-        attributes.QUOTA_PVC: 2
+        attributes.QUOTA_PVC: 2,
     },
-    'esi': {
-        attributes.QUOTA_FLOATING_IPS: 0,
-        attributes.QUOTA_NETWORKS: 0
-    }
+    "esi": {attributes.QUOTA_FLOATING_IPS: 0, attributes.QUOTA_NETWORKS: 0},
 }
 
 # The amount of quota that every projects gets,
 # regardless of units of quantity. This is added
 # on top of the multiplication.
 STATIC_QUOTA = {
-    'openstack': {
+    "openstack": {
         attributes.QUOTA_FLOATING_IPS: 2,
         attributes.QUOTA_GPU: 0,
     },
-    'openshift': {
+    "openshift": {
         attributes.QUOTA_REQUESTS_GPU: 0,
     },
-    'esi': {
-        attributes.QUOTA_FLOATING_IPS: 1,
-        attributes.QUOTA_NETWORKS: 1
-    },
-    'openshift_vm': {
+    "esi": {attributes.QUOTA_FLOATING_IPS: 1, attributes.QUOTA_NETWORKS: 1},
+    "openshift_vm": {
         attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
     },
 }
+
 
 def get_expected_attributes(allocator: base.ResourceAllocator):
     """Based on the allocator's resource type, return the expected quotas attributes the allocation should have"""
@@ -84,10 +79,10 @@ def get_expected_attributes(allocator: base.ResourceAllocator):
 
 def find_allocator(allocation) -> base.ResourceAllocator:
     allocators = {
-        'openstack': openstack.OpenStackResourceAllocator,
-        'openshift': openshift.OpenShiftResourceAllocator,
-        'esi': esi.ESIResourceAllocator,
-        'openshift virtualization': openshift_vm.OpenShiftVMResourceAllocator
+        "openstack": openstack.OpenStackResourceAllocator,
+        "openshift": openshift.OpenShiftResourceAllocator,
+        "esi": esi.ESIResourceAllocator,
+        "openshift virtualization": openshift_vm.OpenShiftVMResourceAllocator,
     }
     # TODO(knikolla): It doesn't seem to be possible to select multiple resources
     # when requesting a new allocation, so why is this multivalued?
@@ -107,11 +102,11 @@ def activate_allocation(allocation_pk):
         expected_coldfront_attrs = get_expected_attributes(allocator)
         for coldfront_attr in expected_coldfront_attrs:
             if not allocation.get_attribute(coldfront_attr):
-                value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS[allocator.resource_type].get(coldfront_attr, 0)
+                value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS[
+                    allocator.resource_type
+                ].get(coldfront_attr, 0)
                 value += STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
-                utils.set_attribute_on_allocation(allocation,
-                                                  coldfront_attr,
-                                                  value)
+                utils.set_attribute_on_allocation(allocation, coldfront_attr, value)
 
     allocation = Allocation.objects.get(pk=allocation_pk)
 
@@ -124,15 +119,15 @@ def activate_allocation(allocation_pk):
             project_id = project.id
             project_name = project.name
 
-            utils.set_attribute_on_allocation(allocation,
-                                              attributes.ALLOCATION_PROJECT_NAME,
-                                              project_name)
-            utils.set_attribute_on_allocation(allocation,
-                                              attributes.ALLOCATION_PROJECT_ID,
-                                              project_id)
-            utils.set_attribute_on_allocation(allocation,
-                                              attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE,
-                                              'N/A')
+            utils.set_attribute_on_allocation(
+                allocation, attributes.ALLOCATION_PROJECT_NAME, project_name
+            )
+            utils.set_attribute_on_allocation(
+                allocation, attributes.ALLOCATION_PROJECT_ID, project_id
+            )
+            utils.set_attribute_on_allocation(
+                allocation, attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE, "N/A"
+            )
             set_quota_attributes()
 
             allocator.create_project_defaults(project_id)
@@ -151,7 +146,7 @@ def disable_allocation(allocation_pk):
         if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
             allocator.disable_project(project_id)
         else:
-            logger.warning('No project has been created. Nothing to disable.')
+            logger.warning("No project has been created. Nothing to disable.")
 
 
 def add_user_to_allocation(allocation_user_pk):
@@ -168,15 +163,17 @@ def add_user_to_allocation(allocation_user_pk):
         max_wait_seconds = 120
 
         while not (
-                project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+            project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         ):
             delta = datetime.datetime.utcnow() - time_start
             if delta.seconds >= max_wait_seconds:
-                raise Exception(f'Project not yet created after {delta.seconds} seconds.')
+                raise Exception(
+                    f"Project not yet created after {delta.seconds} seconds."
+                )
 
             logging.info(
-                f'Project not created yet, waiting. '
-                f'(Elapsed {delta.seconds}/{max_wait_seconds} seconds.)'
+                f"Project not created yet, waiting. "
+                f"(Elapsed {delta.seconds}/{max_wait_seconds} seconds.)"
             )
             time.sleep(2)
 
@@ -193,4 +190,4 @@ def remove_user_from_allocation(allocation_user_pk):
             username = allocation_user.user.username
             allocator.remove_role_from_user(username, project_id)
         else:
-            logger.warning('No project has been created. Nothing to disable.')
+            logger.warning("No project has been created. Nothing to disable.")

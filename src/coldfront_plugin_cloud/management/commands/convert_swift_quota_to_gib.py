@@ -1,20 +1,12 @@
 import logging
-import re
 
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import openstack
-from coldfront_plugin_cloud import openshift
-from coldfront_plugin_cloud import utils
-from coldfront_plugin_cloud import tasks
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db.models import Q
-from coldfront.core.resource.models import (Resource,
-                                            ResourceType)
-from coldfront.core.allocation.models import (Allocation,
-                                              AllocationStatusChoice,
-                                              AllocationUser)
-from keystoneauth1.exceptions import http
+from coldfront.core.resource.models import Resource, ResourceType
+from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 
 logger = logging.getLogger(__name__)
 
@@ -25,32 +17,31 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         openstack_resources = Resource.objects.filter(
-            resource_type=ResourceType.objects.get(
-                name='OpenStack'
-            )
+            resource_type=ResourceType.objects.get(name="OpenStack")
         )
         openstack_allocations = Allocation.objects.filter(
-            Q(status=AllocationStatusChoice.objects.get(name='Active')) | 
-            Q(status=AllocationStatusChoice.objects.get(name='Expired')),
+            Q(status=AllocationStatusChoice.objects.get(name="Active"))
+            | Q(status=AllocationStatusChoice.objects.get(name="Expired")),
             resources__in=openstack_resources,
         )
         for allocation in openstack_allocations:
-            if not (swift_quota := allocation.get_attribute(attributes.QUOTA_OBJECT_GB)):
+            if not (
+                swift_quota := allocation.get_attribute(attributes.QUOTA_OBJECT_GB)
+            ):
                 continue
 
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-            obj_key = openstack.QUOTA_KEY_MAPPING['object']['keys'][attributes.QUOTA_OBJECT_GB]
+            obj_key = openstack.QUOTA_KEY_MAPPING["object"]["keys"][
+                attributes.QUOTA_OBJECT_GB
+            ]
             allocator = openstack.OpenStackResourceAllocator(
-                allocation.resources.first(),
-                allocation
+                allocation.resources.first(), allocation
             )
 
             project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
             if not project_id:
-                logger.error(f'{allocation_str} is active but has no Project ID set.')
+                logger.error(f"{allocation_str} is active but has no Project ID set.")
                 continue
-            payload = {
-                obj_key : swift_quota
-            }
+            payload = {obj_key: swift_quota}
 
-            allocator._set_object_quota(project_id, payload) 
+            allocator._set_object_quota(project_id, payload)

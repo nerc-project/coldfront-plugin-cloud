@@ -6,7 +6,6 @@ from coldfront.core.resource.models import (
     Resource,
     ResourceAttribute,
     ResourceAttributeType,
-    ResourceType,
 )
 
 from coldfront_plugin_cloud import attributes
@@ -23,7 +22,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         try:
             resource_obj = Resource.objects.get(name=options["resource_name"])
         except Resource.DoesNotExist:

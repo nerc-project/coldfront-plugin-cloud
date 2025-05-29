@@ -47,9 +47,7 @@ class Command(BaseCommand):
             else:
                 flavor_names.append(flavor_arg[0])
                 flavor_values.append(1)
-                logger.debug(
-                    f'No GPU count specified for {flavor_arg[0]} - assuming 1'
-                )
+                logger.debug(f"No GPU count specified for {flavor_arg[0]} - assuming 1")
 
         # Search the flavors, and construct a list of (flavor_obj, amount used by 1 instance)
         flavors = []
@@ -58,7 +56,7 @@ class Command(BaseCommand):
                 if nova_flavor.name == name:
                     flavors.append((nova_flavor, flavor_values[index]))
         if len(flavors) != len(flavor_names):
-            logger.critical(f"Not all flavor names found!")
+            logger.critical("Not all flavor names found!")
             sys.exit(1)
 
         # Find all active OpenStack projects and create a

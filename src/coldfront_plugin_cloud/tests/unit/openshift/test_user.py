@@ -25,12 +25,14 @@ class TestOpenshiftUser(base.TestBase):
 
     def test_get_federated_user_not_exist(self):
         fake_error = kexc.NotFoundError(mock.Mock())
-        fake_error.body = json.dumps({
-            "reason": "NotFound",
-            "details": {
-                "name": "fake_user_2",
-            },
-        })
+        fake_error.body = json.dumps(
+            {
+                "reason": "NotFound",
+                "details": {
+                    "name": "fake_user_2",
+                },
+            }
+        )
         self.allocator.k8_client.resources.get.return_value.get.side_effect = fake_error
 
         output = self.allocator.get_federated_user("fake_user_2")
