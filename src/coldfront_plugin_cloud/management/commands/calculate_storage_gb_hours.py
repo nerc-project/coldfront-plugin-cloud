@@ -41,6 +41,7 @@ class InvoiceRow:
     Project_Name: str = ""
     Project_ID: str = ""
     PI: str = ""
+    Cluster_Name: str = ""
     Invoice_Email: str = ""
     Invoice_Address: str = ""
     Institution: str = ""
@@ -190,7 +191,7 @@ class Command(BaseCommand):
         logger.info(f"Uploaded to {secondary_location}.")
 
     def handle(self, *args, **options):
-        def process_invoice_row(allocation, attrs, su_name, rate):
+        def process_invoice_row(allocation, attrs, su_name, rate, cluster_name):
             """Calculate the value and write the bill using the writer."""
             time = 0
             for attribute in attrs:
@@ -211,6 +212,7 @@ class Command(BaseCommand):
                         attributes.ALLOCATION_PROJECT_ID
                     ),
                     PI=allocation.project.pi.email,
+                    Cluster_Name=cluster_name,
                     Institution_Specific_Code=allocation.get_attribute(
                         attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
                     )
@@ -284,6 +286,7 @@ class Command(BaseCommand):
                     [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
                     "OpenStack Storage",
                     openstack_storage_rate,
+                    "stack",
                 )
 
             for allocation in openshift_allocations:
@@ -301,6 +304,7 @@ class Command(BaseCommand):
                     ],
                     "OpenShift Storage",
                     openshift_storage_rate,
+                    "ocp-prod",
                 )
 
         if options["upload_to_s3"]:
