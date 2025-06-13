@@ -16,7 +16,7 @@ from coldfront_plugin_cloud import attributes
 
 
 def env_safe_name(name):
-    return name.replace(" ", "_").replace("-", "_").upper()
+    return re.sub(r"[^A-Za-z0-9]", "_", str(name)).upper()
 
 
 def set_attribute_on_allocation(allocation, attribute_type, attribute_value):

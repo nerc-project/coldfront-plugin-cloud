@@ -22,3 +22,10 @@ class TestGetSanitizedProjectName(base.TestBase):
         self.assertGreater(len(project_name), max_length)
         new_name = utils.get_unique_project_name(project_name, max_length=max_length)
         self.assertEqual(len(new_name), max_length)
+
+    def test_env_safe_name(self):
+        self.assertEqual(utils.env_safe_name("My Env-Var"), "MY_ENV_VAR")
+        self.assertEqual(utils.env_safe_name("foo@bar!baz"), "FOO_BAR_BAZ")
+        self.assertEqual(utils.env_safe_name(42), "42")
+        self.assertEqual(utils.env_safe_name(None), "NONE")
+        self.assertEqual(utils.env_safe_name("hello"), "HELLO")
