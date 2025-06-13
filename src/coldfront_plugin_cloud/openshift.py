@@ -71,7 +71,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
 
     resource_type = "openshift"
 
-    project_name_max_length = 63
+    project_name_max_length = 50
 
     def __init__(self, resource, allocation):
         super().__init__(resource, allocation)
