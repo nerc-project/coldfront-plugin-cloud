@@ -41,6 +41,7 @@ class InvoiceRow:
     Project_Name: str = ""
     Project_ID: str = ""
     PI: str = ""
+    Cluster_Name: str = ""
     Invoice_Email: str = ""
     Invoice_Address: str = ""
     Institution: str = ""
@@ -211,6 +212,7 @@ class Command(BaseCommand):
                         attributes.ALLOCATION_PROJECT_ID
                     ),
                     PI=allocation.project.pi.email,
+                    Cluster_Name=allocation.resources.first().resource_type.name.lower(),
                     Institution_Specific_Code=allocation.get_attribute(
                         attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
                     )
