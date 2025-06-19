@@ -43,7 +43,7 @@ class TestOpenshiftQuota(base.TestBase):
     )
     def test_delete_moc_quota(self, fake_get_resourcequotas):
         fake_get_resourcequotas.return_value = [{"metadata": {"name": "fake-quota"}}]
-        self.allocator.delete_moc_quotas("test-project")
+        self.allocator.delete_quotas("test-project")
         self.allocator.k8_client.resources.get.return_value.delete.assert_any_call(
             namespace="test-project", name="fake-quota"
         )

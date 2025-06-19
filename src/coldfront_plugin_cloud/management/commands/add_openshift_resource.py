@@ -21,13 +21,13 @@ class Command(BaseCommand):
             "--auth-url",
             type=str,
             required=True,
-            help="URL of the openshift-acct-mgt endpoint",
+            help="URL of the OpenShift-acct-mgt endpoint",
         )
         parser.add_argument(
             "--api-url",
             type=str,
             required=True,
-            help="API URL of the openshift cluster",
+            help="API URL of the OpenShift cluster",
         )
         parser.add_argument(
             "--idp", type=str, required=True, help="Name of Openshift identity provider"
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--for-virtualization",
             action="store_true",
-            help="Indicates this is an Openshift Virtualization resource (default: False)",
+            help="Indicates this is an OpenShift Virtualization resource (default: False)",
         )
 
     def handle(self, *args, **options):
