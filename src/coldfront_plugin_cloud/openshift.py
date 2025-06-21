@@ -137,6 +137,10 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         else:
             raise ApiException(f"{response.status_code}: {response.text}")
 
+    @staticmethod
+    def is_error_not_found(e_info):
+        return e_info["reason"] == "NotFound"
+
     def qualified_id_user(self, id_user):
         return f"{self.id_provider}:{id_user}"
 
@@ -163,7 +167,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def patch_project(self, project_id, new_project_spec):
         self._openshift_patch_namespace(project_id, new_project_spec)
 
-    def delete_moc_quotas(self, project_id):
+    def delete_quotas(self, project_id):
         """deletes all resourcequotas from an openshift project"""
         resourcequotas = self._openshift_get_resourcequotas(project_id)
         for resourcequota in resourcequotas:
@@ -187,7 +191,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             "spec": {"hard": quota_spec},
         }
 
-        self.delete_moc_quotas(project_id)
+        self.delete_quotas(project_id)
         self._openshift_create_resourcequota(project_id, quota_def)
 
         logger.info(f"Quota for {project_id} successfully created")
@@ -314,7 +318,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             # not because of other reasons, like incorrect url
             e_info = json.loads(e.body)
             if (
-                e_info["reason"] == "NotFound"
+                self.is_error_not_found(e_info)
                 and e_info["details"]["name"] == user_name
             ):
                 return False
@@ -326,7 +330,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             self._openshift_get_identity(id_user)
         except kexc.NotFoundError as e:
             e_info = json.loads(e.body)
-            if e_info.get("reason") == "NotFound":
+            if self.is_error_not_found(e_info):
                 return False
             raise e
         return True
@@ -336,7 +340,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             user = self._openshift_get_user(user_name)
         except kexc.NotFoundError as e:
             e_info = json.loads(e.body)
-            if e_info.get("reason") == "NotFound":
+            if self.is_error_not_found(e_info):
                 return False
             raise e
 
