@@ -32,7 +32,17 @@ PROJECT_DEFAULT_LABELS = {
     "opendatahub.io/dashboard": "true",
     "modelmesh-enabled": "true",
     "nerc.mghpcc.org/allow-unencrypted-routes": "true",
+    "nerc.mghpcc.org/project": "true",
 }
+
+LIMITRANGE_DEFAULTS = [
+    {
+        "type": "Container",
+        "default": {"cpu": "1", "memory": "4096Mi", "nvidia.com/gpu": "0"},
+        "defaultRequest": {"cpu": "500m", "memory": "2048Mi", "nvidia.com/gpu": "0"},
+        "min": {"cpu": "125m", "memory": "256Mi"},
+    }
+]
 
 
 def clean_openshift_metadata(obj):
@@ -208,15 +218,14 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         pass
 
     def disable_project(self, project_id):
-        url = f"{self.auth_url}/projects/{project_id}"
-        r = self.session.delete(url)
-        self.check_response(r)
+        self._openshift_delete_project(project_id)
+        logger.info(f"Project {project_id} successfully deleted")
 
     def reactivate_project(self, project_id):
         project_name = self.allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME)
         try:
             self._create_project(project_name, project_id)
-        except Conflict:
+        except kexc.ConflictError:
             # This is a reactivation of an already active project
             # most likely for a quota update
             pass
@@ -261,20 +270,27 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         self.check_response(r)
 
     def _create_project(self, project_name, project_id):
-        url = f"{self.auth_url}/projects/{project_id}"
-        headers = {"Content-type": "application/json"}
+        pi_username = self.allocation.project.pi.username
+
         annotations = {
             "cf_project_id": str(self.allocation.project_id),
-            "cf_pi": self.allocation.project.pi.username,
+            "cf_pi": pi_username,
+            "openshift.io/display-name": project_name,
+            "openshift.io/requester": pi_username,
         }
 
-        payload = {
-            "displayName": project_name,
-            "annotations": annotations,
-            "labels": PROJECT_DEFAULT_LABELS,
+        project_def = {
+            "metadata": {
+                "name": project_name,
+                "annotations": annotations,
+                "labels": PROJECT_DEFAULT_LABELS,
+            },
         }
-        r = self.session.put(url, data=json.dumps(payload), headers=headers)
-        self.check_response(r)
+
+        self._openshift_create_project(project_def)
+        self._openshift_create_limits(project_name)
+
+        logger.info(f"Project {project_id} and limit range successfully created")
 
     def _get_role(self, username, project_id):
         # /users/<user_name>/projects/<project>/roles/<role>
@@ -286,9 +302,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         return self.check_response(r)
 
     def _get_project(self, project_id):
-        url = f"{self.auth_url}/projects/{project_id}"
-        r = self.session.get(url)
-        return self.check_response(r)
+        return self._openshift_get_project(project_id)
 
     def _delete_user(self, username):
         url = f"{self.auth_url}/users/{username}"
@@ -352,6 +366,34 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     def _openshift_get_project(self, project_name):
         api = self.get_resource_api(API_PROJECT, "Project")
         return clean_openshift_metadata(api.get(name=project_name).to_dict())
+
+    def _openshift_create_project(self, project_def):
+        api = self.get_resource_api(API_PROJECT, "Project")
+        return api.create(body=project_def).to_dict()
+
+    def _openshift_delete_project(self, project_name):
+        api = self.get_resource_api(API_PROJECT, "Project")
+        return api.delete(name=project_name).to_dict()
+
+    def _openshift_get_limits(self, project_name):
+        """
+        project_name: project_name in which to get LimitRange
+        """
+        api = self.get_resource_api(API_CORE, "LimitRange")
+        return clean_openshift_metadata(api.get(namespace=project_name).to_dict())
+
+    def _openshift_create_limits(self, project_name, limits=None):
+        """
+        project_name: project_name in which to create LimitRange
+        limits: dictionary of limits to create, or None for default
+        """
+        api = self.get_resource_api(API_CORE, "LimitRange")
+
+        payload = {
+            "metadata": {"name": f"{project_name.lower()}-limits"},
+            "spec": {"limits": limits or LIMITRANGE_DEFAULTS},
+        }
+        return api.create(body=payload, namespace=project_name).to_dict()
 
     def _openshift_get_namespace(self, namespace_name):
         api = self.get_resource_api(API_CORE, "Namespace")
