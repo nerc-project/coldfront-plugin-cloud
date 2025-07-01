@@ -29,3 +29,51 @@ class TestGetSanitizedProjectName(base.TestBase):
         self.assertEqual(utils.env_safe_name(42), "42")
         self.assertEqual(utils.env_safe_name(None), "NONE")
         self.assertEqual(utils.env_safe_name("hello"), "HELLO")
+
+
+class TestCheckIfQuotaAttr(base.TestCase):
+    def test_valid_quota_attr(self):
+        self.assertTrue(utils.check_if_quota_attr("OpenShift Limit on CPU Quota"))
+
+    def test_invalid_quota_attr(self):
+        self.assertFalse(utils.check_if_quota_attr("Test"))
+        self.assertFalse(utils.check_if_quota_attr("Allocated Project ID"))
+
+
+class TestGetNewCloudQuota(base.TestCase):
+    def test_get_requested_quota(self):
+        data = [
+            {"name": "OpenShift Limit on CPU Quota", "new_value": "2"},
+            {"name": "OpenShift Limit on RAM Quota (MiB)", "new_value": ""},
+        ]
+
+        result = utils.get_new_cloud_quota(data)
+        self.assertEqual(result, {"OpenShift Limit on CPU Quota": "2"})
+
+
+class TestCheckChangeRequests(base.TestBase):
+    def test_check_usage(self):
+        # No error case, usage is lower
+        test_quota_usage = {
+            "OpenShift Limit on CPU Quota": 2.0,
+            "OpenShift Limit on RAM Quota (MiB)": 2048,
+            "OpenShift Limit on Ephemeral Storage Quota (GiB)": 10,  # Other quotas should be ignored
+        }
+        test_requested_quota = {"OpenShift Limit on CPU Quota": "2"}
+
+        self.assertEqual(
+            [], utils.check_cloud_usage_is_lower(test_requested_quota, test_quota_usage)
+        )
+
+        # Requested cpu (2) lower than current used, should return errors
+        test_quota_usage["OpenShift Limit on CPU Quota"] = 16
+        self.assertEqual(
+            [
+                (
+                    "Current quota usage for OpenShift Limit on CPU Quota "
+                    "(16) is higher than "
+                    "the requested amount (2)."
+                )
+            ],
+            utils.check_cloud_usage_is_lower(test_requested_quota, test_quota_usage),
+        )

@@ -191,3 +191,27 @@ def remove_user_from_allocation(allocation_user_pk):
             allocator.remove_role_from_user(username, project_id)
         else:
             logger.warning("No project has been created. Nothing to disable.")
+
+
+def get_allocation_cloud_usage(allocation_pk):
+    """
+    Obtains the current quota usage for the allocation.
+
+    For example, the output for an Openshift quota would be:
+
+    {
+        "limits.cpu": "1",
+        "limits.memory": "2Gi",
+        "limits.ephemeral-storage": "10Gi",
+    }
+    """
+    allocation = Allocation.objects.get(pk=allocation_pk)
+    if allocator := find_allocator(allocation):
+        if project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID):
+            try:
+                return allocator.get_usage(project_id)
+            except NotImplemented:
+                return
+        else:
+            logger.warning("No project has been created. No quota to check.")
+            return
