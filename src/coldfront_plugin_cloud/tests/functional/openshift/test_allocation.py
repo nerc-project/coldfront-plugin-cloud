@@ -294,3 +294,33 @@ class TestAllocation(base.TestBase):
         self.assertTrue(
             namespace_dict_labels.items() > openshift.PROJECT_DEFAULT_LABELS.items()
         )
+
+    def test_create_incomplete(self):
+        """Creating a user that only has user, but no identity or mapping should not raise an error."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+        user_def = {
+            "metadata": {"name": user.username},
+            "fullName": user.username,
+        }
+
+        allocator._openshift_create_user(user_def)
+        self.assertTrue(allocator._openshift_user_exists(user.username))
+        self.assertFalse(allocator._openshift_identity_exists(user.username))
+        self.assertFalse(
+            allocator._openshift_useridentitymapping_exists(
+                user.username, user.username
+            )
+        )
+
+        # Now create identity and mapping, no errors should be raised
+        allocator.get_or_create_federated_user(user.username)
+        self.assertTrue(allocator._openshift_user_exists(user.username))
+        self.assertTrue(allocator._openshift_identity_exists(user.username))
+        self.assertTrue(
+            allocator._openshift_useridentitymapping_exists(
+                user.username, user.username
+            )
+        )

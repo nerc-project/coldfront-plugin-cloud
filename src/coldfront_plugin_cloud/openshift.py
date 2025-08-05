@@ -241,12 +241,25 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         logger.info(f"User ({username}) does not exist")
 
     def create_federated_user(self, unique_id):
-        url = f"{self.auth_url}/users/{unique_id}"
-        try:
-            r = self.session.put(url)
-            self.check_response(r)
-        except Conflict:
-            pass
+        user_def = {
+            "metadata": {"name": unique_id},
+            "fullName": unique_id,
+        }
+
+        identity_def = {
+            "providerName": self.id_provider,
+            "providerUserName": unique_id,
+        }
+
+        identity_mapping_def = {
+            "user": {"name": unique_id},
+            "identity": {"name": self.qualified_id_user(unique_id)},
+        }
+
+        self._openshift_create_user(user_def)
+        self._openshift_create_identity(identity_def)
+        self._openshift_create_useridentitymapping(identity_mapping_def)
+        logger.info(f"User {unique_id} successfully created")
 
     def assign_role_on_user(self, username, project_id):
         # /users/<user_name>/projects/<project>/roles/<role>
@@ -305,9 +318,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         return self._openshift_get_project(project_id)
 
     def _delete_user(self, username):
-        url = f"{self.auth_url}/users/{username}"
-        r = self.session.delete(url)
-        return self.check_response(r)
+        self._openshift_delete_user(username)
+        self._openshift_delete_identity(username)
+        logger.info(f"User {username} successfully deleted")
 
     def get_users(self, project_id):
         url = f"{self.auth_url}/projects/{project_id}/users"
@@ -318,11 +331,42 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         api = self.get_resource_api(API_USER, "User")
         return clean_openshift_metadata(api.get(name=username).to_dict())
 
+    def _openshift_create_user(self, user_def):
+        api = self.get_resource_api(API_USER, "User")
+        try:
+            return clean_openshift_metadata(api.create(body=user_def).to_dict())
+        except kexc.ConflictError:
+            pass
+
+    def _openshift_delete_user(self, username):
+        api = self.get_resource_api(API_USER, "User")
+        return clean_openshift_metadata(api.delete(name=username).to_dict())
+
     def _openshift_get_identity(self, id_user):
         api = self.get_resource_api(API_USER, "Identity")
         return clean_openshift_metadata(
             api.get(name=self.qualified_id_user(id_user)).to_dict()
         )
+
+    def _openshift_create_identity(self, identity_def):
+        api = self.get_resource_api(API_USER, "Identity")
+        try:
+            return clean_openshift_metadata(api.create(body=identity_def).to_dict())
+        except kexc.ConflictError:
+            pass
+
+    def _openshift_delete_identity(self, username):
+        api = self.get_resource_api(API_USER, "Identity")
+        return api.delete(name=self.qualified_id_user(username)).to_dict()
+
+    def _openshift_create_useridentitymapping(self, identity_mapping_def):
+        api = self.get_resource_api(API_USER, "UserIdentityMapping")
+        try:
+            return clean_openshift_metadata(
+                api.create(body=identity_mapping_def).to_dict()
+            )
+        except kexc.ConflictError:
+            pass
 
     def _openshift_user_exists(self, user_name):
         try:
