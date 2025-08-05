@@ -7,11 +7,18 @@ from coldfront.core.resource.models import (
     ResourceType,
 )
 
-from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud import attributes, openshift
 
 
 class Command(BaseCommand):
     help = "Create OpenShift resource"
+
+    @staticmethod
+    def validate_role(role):
+        if role not in openshift.OPENSHIFT_ROLES:
+            raise ValueError(
+                f"Invalid role, {role} is not one of {', '.join(openshift.OPENSHIFT_ROLES)}"
+            )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -45,6 +52,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        self.validate_role(options["role"])
+
         if options["for_virtualization"]:
             resource_description = "OpenShift Virtualization environment"
             resource_type = "OpenShift Virtualization"
