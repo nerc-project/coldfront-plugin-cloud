@@ -244,3 +244,53 @@ def get_included_duration(
         total_interval_duration -= (e_interval_end - e_interval_start).total_seconds()
 
     return math.ceil(total_interval_duration)
+
+
+def check_if_quota_attr(attr_name: str):
+    for quota_attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
+        if attr_name == quota_attr.name:
+            return True
+    return False
+
+
+def get_new_cloud_quota(change_request_data: list[dict[str, str]]):
+    """
+    Converts change request data to a dictionary of requested quota changes.
+    Ignores attributes with empty `new_value` str, meaning no change requested for them
+    Input typically looks like:
+    [
+        {
+            "name": "OpenShift Limit on CPU Quota",
+            "new_value": "2",
+            ...
+        },
+        {
+            "name": "OpenShift Limit on RAM Quota (MiB)",
+            "new_value": "",
+            ...
+        }
+    ]
+    """
+    requested_quota = {}
+    for form in change_request_data:
+        if check_if_quota_attr(form["name"]) and form["new_value"]:
+            requested_quota[form["name"]] = form["new_value"]
+    return requested_quota
+
+
+def check_cloud_usage_is_lower(
+    requested_quota: dict[str, str], cloud_quota_usage: dict[str, str]
+):
+    usage_errors = []
+    for quota_name, requested_quota_value in requested_quota.items():
+        current_usage_value = cloud_quota_usage[quota_name]
+        if int(requested_quota_value) < current_usage_value:
+            usage_errors.append(
+                (
+                    f"Current quota usage for {quota_name} "
+                    f"({current_usage_value}) is higher than "
+                    f"the requested amount ({requested_quota_value})."
+                )
+            )
+
+    return usage_errors

@@ -470,3 +470,6 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             role_assignment.user["name"] for role_assignment in role_assignments
         )
         return user_names
+
+    def get_usage(self, project_id):
+        raise NotImplementedError
