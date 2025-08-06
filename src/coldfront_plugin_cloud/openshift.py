@@ -74,6 +74,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
     QUOTA_KEY_MAPPING = {
         attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
         attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
+        attributes.QUOTA_REQUESTS_IBM_STORAGE: lambda x: {
+            "requests.ibm.storage": f"{x}Gi"
+        },  # TODO: Confirm Openshift quota name for IBM storage
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {
             "limits.ephemeral-storage": f"{x}Gi"
         },
