@@ -300,9 +300,9 @@ class Command(BaseCommand):
                     allocation,
                     [
                         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
-                        attributes.QUOTA_REQUESTS_STORAGE,
+                        attributes.QUOTA_REQUESTS_NESE_STORAGE,
                     ],
-                    "OpenShift Storage",
+                    "OpenShift NESE Storage",
                     openshift_storage_rate,
                 )
 
