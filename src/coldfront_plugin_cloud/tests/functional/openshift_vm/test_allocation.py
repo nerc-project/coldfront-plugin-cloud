@@ -11,7 +11,7 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_openshift_resource(
             name="Microshift",
-            auth_url=os.getenv("OS_AUTH_URL"),
+            api_url=os.getenv("OS_API_URL"),
             for_virtualization=True,
         )
 

@@ -89,29 +89,25 @@ ESI resource allocations will only have quotas for network resources by default.
 
 ### Configuring for OpenShift
 
-Note: OpenShift support requires deploying the [openshift-acct-mgt][]
-API service.
-
-[openshift-acct-mgt]: https://github.com/cci-moc/openshift-acct-mgt
-
-Authentication for OpenShift is loaded as pairs of environment variables
-`OPENSHIFT_{resource_name}_USERNAME` and `OPENSHIFT_{resource_name}_PASSWORD`
+Authentication for OpenShift is loaded as a environment variable
+`OPENSHIFT_{resource_name}_TOKEN` which should be a access token with appropriate permissions
 where `{resource_name}` is the name of the coldfront resource as all uppercase
 (with spaces and `-` replaced by `_`).
 
 Each OpenShift resource must have the following attributes set in coldfront:
- * `OpenStack Auth URL` - the URL of the `openshift-acct-mgt` endpoint.
- * `OpenStack Role for User in Project` - the name of the `ClusterRole` to assign to users
+ * `OpenShift API URL` - the URL of the Openshift cluster API.
+ * `OpenShift Role for User in Project` - the name of the `ClusterRole` to assign to users
    on the namespace.
+ * `OpenShift Identity Provider Name` - the name of the IDP configured in Openshift
 
 Registration of OpenShift coldfront resources can be performed via the UI management
 dashboard or through the helper command:
 
 ```bash
 $ coldfront add_openshift_resource
-usage: coldfront add_openshift_resource [-h] --name NAME --auth-url AUTH_URL [--role ROLE] [--version] [-v {0,1,2,3}] [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback]
+usage: coldfront add_openshift_resource [-h] --name NAME --api-url API_URL --idp IDP [--role ROLE] [--for-virtualization] [--version] [-v {0,1,2,3}] [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback]
                                         [--no-color] [--force-color] [--skip-checks]
-coldfront add_openshift_resource: error: the following arguments are required: --name, --auth-url
+coldfront add_openshift_resource: error: the following arguments are required: --name, --api-url, --idp
 ```
 
 ### Quotas
