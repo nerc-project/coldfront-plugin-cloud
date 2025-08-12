@@ -146,15 +146,15 @@ class Command(BaseCommand):
 
     @staticmethod
     def default_start_argument():
-        d = (datetime.today() - timedelta(days=1)).replace(day=1)
+        d = (datetime.now() - timedelta(days=1)).replace(day=1)
         d = d.replace(hour=0, minute=0, second=0, microsecond=0)
-        return d
+        return pytz.utc.localize(d)
 
     @staticmethod
     def default_end_argument():
-        d = datetime.today()
+        d = datetime.now()
         d = d.replace(hour=0, minute=0, second=0, microsecond=0)
-        return d
+        return pytz.utc.localize(d)
 
     @staticmethod
     def upload_to_s3(s3_endpoint, s3_bucket, file_location, invoice_month):
@@ -310,7 +310,7 @@ class Command(BaseCommand):
             logger.info(f"Uploading to S3 endpoint {options['s3_endpoint_url']}.")
             self.upload_to_s3(
                 options["s3_endpoint_url"],
-                options["s3_bucket"],
+                options["s3_bucket_name"],
                 options["output"],
                 options["invoice_month"],
             )
