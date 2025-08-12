@@ -25,12 +25,6 @@ class Command(BaseCommand):
             "--name", type=str, required=True, help="Name of OpenShift resource"
         )
         parser.add_argument(
-            "--auth-url",
-            type=str,
-            required=True,
-            help="URL of the OpenShift-acct-mgt endpoint",
-        )
-        parser.add_argument(
             "--api-url",
             type=str,
             required=True,
@@ -71,13 +65,6 @@ class Command(BaseCommand):
             is_allocatable=True,
         )
 
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name=attributes.RESOURCE_AUTH_URL
-            ),
-            resource=openshift,
-            value=options["auth_url"],
-        )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name=attributes.RESOURCE_API_URL

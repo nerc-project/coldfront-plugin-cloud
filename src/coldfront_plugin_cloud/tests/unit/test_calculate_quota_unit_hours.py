@@ -19,7 +19,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
     def test_new_allocation_quota(self):
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
 
         with freezegun.freeze_time("2020-03-15 00:01:00"):
@@ -88,7 +87,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test that expiration doesn't affect invoicing."""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -122,7 +120,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test a simple case of invoicing until a status change."""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -153,7 +150,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test that we correctly distinguish the last transition to an unbilled state."""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -199,7 +195,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
     def test_new_allocation_quota_new(self):
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -218,7 +213,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
     def test_new_allocation_quota_never_approved(self):
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -241,7 +235,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test for when a change request decreases the quota"""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -288,7 +281,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test for when a change request increases the quota"""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -335,7 +327,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         """Test for when multiple different change request decreases the quota"""
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)
@@ -399,7 +390,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
     def test_new_allocation_quota_change_request(self):
         self.resource = self.new_openshift_resource(
             name="",
-            auth_url="",
         )
         user = self.new_user()
         project = self.new_project(pi=user)

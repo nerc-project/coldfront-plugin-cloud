@@ -5,8 +5,6 @@
 # Tests expect the resource to be name Devstack
 set -xe
 
-export OPENSHIFT_MICROSHIFT_USERNAME="admin"
-export OPENSHIFT_MICROSHIFT_PASSWORD="pass"
 export OPENSHIFT_MICROSHIFT_TOKEN="$(oc create token -n onboarding onboarding-serviceaccount)"
 export OPENSHIFT_MICROSHIFT_VERIFY="false"
 
@@ -16,7 +14,6 @@ fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
 export FUNCTIONAL_TESTS="True"
-export OS_AUTH_URL="https://onboarding-onboarding.cluster.local"
 export OS_API_URL="https://onboarding-onboarding.cluster.local:6443"
 
 
