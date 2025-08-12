@@ -77,3 +77,7 @@ class ResourceAllocator(abc.ABC):
     @abc.abstractmethod
     def remove_role_from_user(self, username, project_id):
         pass
+
+    @abc.abstractmethod
+    def get_usage(self, project_id):
+        pass

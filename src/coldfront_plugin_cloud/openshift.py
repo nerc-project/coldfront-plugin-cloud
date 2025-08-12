@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 import os
+import re
 import requests
 from requests.auth import HTTPBasicAuth
 import time
@@ -57,6 +58,54 @@ def clean_openshift_metadata(obj):
     return obj
 
 
+def parse_openshift_quota_value(attr_name, quota_value):
+    PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+
+    suffix = {
+        "Ki": 2**10,
+        "Mi": 2**20,
+        "Gi": 2**30,
+        "Ti": 2**40,
+        "Pi": 2**50,
+        "Ei": 2**60,
+        "m": 10**-3,
+        "K": 10**3,
+        "M": 10**6,
+        "G": 10**9,
+        "T": 10**12,
+        "P": 10**15,
+        "E": 10**18,
+    }
+
+    if quota_value and quota_value != "0":
+        result = re.search(PATTERN, quota_value)
+
+        if result is None:
+            raise ValueError(
+                f"Unable to parse quota_value = '{quota_value}' for {attr_name}"
+            )
+
+        value = int(result.groups()[0])
+        unit = result.groups()[1]
+
+        # Convert to number i.e. without any unit suffix
+
+        if unit is not None:
+            quota_value = value * suffix[unit]
+        else:
+            quota_value = value
+
+        # Convert some attributes to units that coldfront uses
+
+        if "RAM" in attr_name:
+            return round(quota_value / suffix["Mi"])
+        elif "Storage" in attr_name:
+            return round(quota_value / suffix["Gi"])
+        return quota_value
+    elif quota_value and quota_value == "0":
+        return 0
+
+
 class ApiException(Exception):
     def __init__(self, message):
         self.message = message
@@ -80,6 +129,11 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
         attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
         attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
+    }
+
+    CF_QUOTA_KEY_MAPPING = {
+        list(quota_lambda_func(0).keys())[0]: cf_attr
+        for cf_attr, quota_lambda_func in QUOTA_KEY_MAPPING.items()
     }
 
     resource_type = "openshift"
@@ -216,6 +270,21 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             combined_quota.update(cloud_quota["spec"]["hard"])
 
         return combined_quota
+
+    def get_usage(self, project_id):
+        cloud_quotas = self._openshift_get_resourcequotas(project_id)
+        combined_quota_used = {}
+        for cloud_quota in cloud_quotas:
+            combined_quota_used.update(
+                {
+                    self.CF_QUOTA_KEY_MAPPING[quota_key]: parse_openshift_quota_value(
+                        self.CF_QUOTA_KEY_MAPPING[quota_key], value
+                    )
+                    for quota_key, value in cloud_quota["status"]["used"].items()
+                }
+            )
+
+        return combined_quota_used
 
     def create_project_defaults(self, project_id):
         pass
