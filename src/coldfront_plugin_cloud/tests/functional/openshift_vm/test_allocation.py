@@ -36,7 +36,7 @@ class TestAllocation(base.TestBase):
             2 * 5,
         )
         self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20
+            allocation.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE), 2 * 20
         )
         self.assertEqual(
             allocation.get_attribute(attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4), 2 * 0
@@ -58,7 +58,7 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
                 "requests.nvidia.com/A100_SXM4_40GB": "0",
                 "requests.nvidia.com/GV100GL_Tesla_V100": "0",
                 "requests.nvidia.com/H100_SXM5_80GB": "0",
