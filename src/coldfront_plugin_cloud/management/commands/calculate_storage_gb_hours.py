@@ -113,16 +113,22 @@ class Command(BaseCommand):
             help="CSV file to write invoices to.",
         )
         parser.add_argument(
-            "--openstack-gb-rate",
+            "--openstack-nese-gb-rate",
             type=Decimal,
             required=False,
-            help="Rate for OpenStack Volume and Object GB/hour.",
+            help="Rate for OpenStack NESE Volume and Object GB/hour.",
         )
         parser.add_argument(
-            "--openshift-gb-rate",
+            "--openshift-nese-gb-rate",
             type=Decimal,
             required=False,
-            help="Rate for OpenShift GB/hour.",
+            help="Rate for OpenShift NESE Storage GB/hour.",
+        )
+        parser.add_argument(
+            "--openshift-ibm-gb-rate",
+            type=Decimal,
+            required=False,
+            help="Rate for OpenShift IBM Storage Scale GB/hour.",
         )
         parser.add_argument(
             "--s3-endpoint-url",
@@ -248,23 +254,30 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
-        if options["openstack_gb_rate"]:
-            openstack_storage_rate = options["openstack_gb_rate"]
+        if options["openstack_nese_gb_rate"]:
+            openstack_nese_storage_rate = options["openstack_nese_gb_rate"]
         else:
-            openstack_storage_rate = get_rates().get_value_at(
+            openstack_nese_storage_rate = get_rates().get_value_at(
                 "NESE Storage GB Rate", options["invoice_month"], Decimal
             )
 
-        if options["openshift_gb_rate"]:
-            openshift_storage_rate = options["openshift_gb_rate"]
+        if options["openshift_nese_gb_rate"]:
+            openshift_nese_storage_rate = options["openshift_nese_gb_rate"]
         else:
-            openshift_storage_rate = get_rates().get_value_at(
+            openshift_nese_storage_rate = get_rates().get_value_at(
                 "NESE Storage GB Rate", options["invoice_month"], Decimal
+            )
+
+        if options["openshift_ibm_gb_rate"]:
+            openshift_ibm_storage_rate = options["openshift_ibm_gb_rate"]
+        else:
+            openshift_ibm_storage_rate = get_rates().get_value_at(
+                "IBM Spectrum Scale Storage GB Rate", options["invoice_month"], Decimal
             )
 
         logger.info(
-            f"Using storage rate {openstack_storage_rate} (Openstack) and "
-            f"{openshift_storage_rate} (Openshift) for {options['invoice_month']}"
+            f"Using storage rate {openstack_nese_storage_rate} (Openstack NESE), {openshift_nese_storage_rate} (Openshift NESE), and "
+            f"{openshift_ibm_storage_rate} (Openshift IBM Scale) for {options['invoice_month']}"
         )
 
         logger.info(f"Writing to {options['output']}.")
@@ -286,7 +299,7 @@ class Command(BaseCommand):
                     allocation,
                     [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
                     "OpenStack Storage",
-                    openstack_storage_rate,
+                    openstack_nese_storage_rate,
                 )
 
             for allocation in openshift_allocations:
@@ -303,7 +316,14 @@ class Command(BaseCommand):
                         attributes.QUOTA_REQUESTS_NESE_STORAGE,
                     ],
                     "OpenShift NESE Storage",
-                    openshift_storage_rate,
+                    openshift_nese_storage_rate,
+                )
+
+                process_invoice_row(
+                    allocation,
+                    [attributes.QUOTA_REQUESTS_IBM_STORAGE],
+                    "OpenShift IBM Scale Storage",
+                    openshift_ibm_storage_rate,
                 )
 
         if options["upload_to_s3"]:
