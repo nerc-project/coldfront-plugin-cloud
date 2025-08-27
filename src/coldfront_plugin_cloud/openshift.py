@@ -2,10 +2,7 @@ import functools
 import json
 import logging
 import os
-import requests
-from requests.auth import HTTPBasicAuth
 import time
-from simplejson.errors import JSONDecodeError
 
 import kubernetes
 import kubernetes.dynamic.exceptions as kexc
@@ -66,10 +63,6 @@ class NotFound(ApiException):
     pass
 
 
-class Conflict(ApiException):
-    pass
-
-
 class OpenShiftResourceAllocator(base.ResourceAllocator):
     QUOTA_KEY_MAPPING = {
         attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
@@ -115,40 +108,6 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
 
         k8s_client = kubernetes.client.ApiClient(configuration=k8_config)
         return DynamicClient(k8s_client)
-
-    @functools.cached_property
-    def session(self):
-        var_name = utils.env_safe_name(self.resource.name)
-        username = os.getenv(f"OPENSHIFT_{var_name}_USERNAME")
-        password = os.getenv(f"OPENSHIFT_{var_name}_PASSWORD")
-
-        session = requests.session()
-        if username and password:
-            session.auth = HTTPBasicAuth(username, password)
-
-        functional_tests = os.environ.get("FUNCTIONAL_TESTS", "").lower()
-        verify = os.getenv(f"OPENSHIFT_{var_name}_VERIFY", "").lower()
-        if functional_tests == "true" or verify == "false":
-            session.verify = False
-
-        return session
-
-    @staticmethod
-    def check_response(response: requests.Response):
-        if 200 <= response.status_code < 300:
-            try:
-                return response.json()
-            except JSONDecodeError:
-                # https://github.com/CCI-MOC/openshift-acct-mgt/issues/54
-                return response.text
-        if response.status_code == 404:
-            raise NotFound(f"{response.status_code}: {response.text}")
-        elif "does not exist" in response.text or "not found" in response.text:
-            raise NotFound(f"{response.status_code}: {response.text}")
-        elif "already exists" in response.text:
-            raise Conflict(f"{response.status_code}: {response.text}")
-        else:
-            raise ApiException(f"{response.status_code}: {response.text}")
 
     @staticmethod
     def is_error_not_found(e_info):
