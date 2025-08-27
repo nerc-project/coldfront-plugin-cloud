@@ -82,6 +82,14 @@ class Command(BaseCommand):
                     f"Labels updated for Openshift project {project_id}: {', '.join(missing_or_incorrect_labels)}"
                 )
 
+    @staticmethod
+    def set_default_quota_on_allocation(allocation, allocator, coldfront_attr):
+        uqm = tasks.UNIT_QUOTA_MULTIPLIERS[allocator.resource_type]
+        value = allocation.quantity * uqm.get(coldfront_attr, 0)
+        value += tasks.STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
+        utils.set_attribute_on_allocation(allocation, coldfront_attr, value)
+        return value
+
     def check_institution_specific_code(self, allocation, apply):
         attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
         isc = allocation.get_attribute(attr)
@@ -299,19 +307,41 @@ class Command(BaseCommand):
                         )
                         msg = f"{msg} Attribute set to match current quota."
                     logger.warning(msg)
-                elif not (current_value == expected_value):
-                    msg = (
-                        f"Value for quota for {attr} = {current_value} does not match expected"
-                        f" value of {expected_value} on allocation {allocation_str}"
-                    )
-                    logger.warning(msg)
+                else:
+                    # We just checked the case where the quota value is set in the cluster
+                    # but not in coldfront. This is the only case the cluster value is the
+                    # "source of truth" for the quota value
+                    # If the coldfront value is set, it is always the source of truth.
+                    # But first, we need to check if the quota value is set anywhere at all.
+                    # TODO (Quan): Refactor these if statements so that we can remove this comment block
+                    if current_value is None and expected_value is None:
+                        msg = (
+                            f"Value for quota for {attr} is not set anywhere"
+                            f" on allocation {allocation_str}"
+                        )
+                        logger.warning(msg)
 
-                    if options["apply"]:
-                        try:
-                            allocator.set_quota(project_id)
-                            logger.warning(
-                                f"Quota for allocation {project_id} was out of date. Reapplied!"
+                        if options["apply"]:
+                            expected_value = self.set_default_quota_on_allocation(
+                                allocation, allocator, attr
                             )
-                        except Exception as e:
-                            logger.error(f"setting openshift quota failed: {e}")
-                            continue
+                            logger.warning(
+                                f"Added default quota for {attr} to allocation {allocation_str} to {expected_value}"
+                            )
+
+                    if not (current_value == expected_value):
+                        msg = (
+                            f"Value for quota for {attr} = {current_value} does not match expected"
+                            f" value of {expected_value} on allocation {allocation_str}"
+                        )
+                        logger.warning(msg)
+
+                        if options["apply"]:
+                            try:
+                                allocator.set_quota(project_id)
+                                logger.warning(
+                                    f"Quota for allocation {project_id} was out of date. Reapplied!"
+                                )
+                            except Exception as e:
+                                logger.error(f"setting openshift quota failed: {e}")
+                                continue
