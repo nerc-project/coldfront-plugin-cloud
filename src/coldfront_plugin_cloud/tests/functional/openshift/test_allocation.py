@@ -18,6 +18,7 @@ class TestAllocation(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
+            ibm_storage_available=True,
         )
 
     def test_new_allocation(self):
@@ -135,7 +136,7 @@ class TestAllocation(base.TestBase):
             2 * 5,
         )
         self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20
+            allocation.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE), 2 * 20
         )
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 2 * 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
@@ -149,7 +150,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -164,7 +166,7 @@ class TestAllocation(base.TestBase):
             allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 50
         )
         utils.set_attribute_on_allocation(
-            allocation, attributes.QUOTA_REQUESTS_STORAGE, 100
+            allocation, attributes.QUOTA_REQUESTS_NESE_STORAGE, 100
         )
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_REQUESTS_GPU, 1)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_PVC, 10)
@@ -175,7 +177,7 @@ class TestAllocation(base.TestBase):
             allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 50
         )
         self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 100
+            allocation.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE), 100
         )
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 1)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 10)
@@ -192,7 +194,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "6",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "50Gi",
-                "requests.storage": "100Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "100Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "1",
                 "persistentvolumeclaims": "10",
             },
@@ -221,7 +224,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -242,7 +246,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "3",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -373,5 +378,108 @@ class TestAllocation(base.TestBase):
             {
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
+            },
+        )
+
+    def test_migrate_quota_field_names(self):
+        """When a quota key in QUOTA_KEY_MAPPING changes to a new value, validate_allocations should update the quota."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+        # Now migrate NESE Storage quota field (ocs-external...) to fake storage quota
+        with unittest.mock.patch.dict(
+            openshift.OpenShiftResourceAllocator.QUOTA_KEY_MAPPING,
+            {
+                attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
+                    "fake-storage.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
+                }
+            },
+        ):
+            call_command("validate_allocations", apply=True)
+
+        # Check the quota after migration
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "fake-storage.storageclass.storage.k8s.io/requests.storage": "20Gi",  # Migrated key
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+    def test_ibm_storage_not_available(self):
+        """If IBM Scale storage is not available, the corresponding quotas should not be set."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+
+        # Set ibm storage as not available
+        self.resource.resourceattribute_set.filter(
+            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
+        ).update(value="false")
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+        # Now set IBM Scale storage as available
+        self.resource.resourceattribute_set.filter(
+            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
+        ).update(value="true")
+
+        call_command("validate_allocations", apply=True)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",  # Newly added IBM key
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
             },
         )
