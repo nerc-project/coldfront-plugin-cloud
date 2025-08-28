@@ -252,14 +252,14 @@ class Command(BaseCommand):
             openstack_storage_rate = options["openstack_gb_rate"]
         else:
             openstack_storage_rate = get_rates().get_value_at(
-                "Storage GB Rate", options["invoice_month"], Decimal
+                "NESE Storage GB Rate", options["invoice_month"], Decimal
             )
 
         if options["openshift_gb_rate"]:
             openshift_storage_rate = options["openshift_gb_rate"]
         else:
             openshift_storage_rate = get_rates().get_value_at(
-                "Storage GB Rate", options["invoice_month"], Decimal
+                "NESE Storage GB Rate", options["invoice_month"], Decimal
             )
 
         logger.info(
