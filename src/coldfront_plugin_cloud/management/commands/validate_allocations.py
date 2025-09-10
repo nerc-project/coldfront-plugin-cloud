@@ -90,6 +90,56 @@ class Command(BaseCommand):
         utils.set_attribute_on_allocation(allocation, coldfront_attr, value)
         return value
 
+    @staticmethod
+    def parse_quota_value(quota_str: str | None, attr: str) -> int | None:
+        PATTERN = r"([0-9]+)(m|k|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+
+        suffix = {
+            "Ki": 2**10,
+            "Mi": 2**20,
+            "Gi": 2**30,
+            "Ti": 2**40,
+            "Pi": 2**50,
+            "Ei": 2**60,
+            "m": 10**-3,
+            "k": 10**3,
+            "K": 10**3,
+            "M": 10**6,
+            "G": 10**9,
+            "T": 10**12,
+            "P": 10**15,
+            "E": 10**18,
+        }
+
+        if quota_str and quota_str != "0":
+            result = re.search(PATTERN, quota_str)
+
+            if result is None:
+                raise CommandError(
+                    f"Unable to parse quota_str = '{quota_str}' for {attr}"
+                )
+
+            value = int(result.groups()[0])
+            unit = result.groups()[1]
+
+            # Convert to number i.e. without any unit suffix
+
+            if unit is not None:
+                quota_str = value * suffix[unit]
+            else:
+                quota_str = value
+
+            # Convert some attributes to units that coldfront uses
+
+            if "RAM" in attr:
+                quota_str = round(quota_str / suffix["Mi"])
+            elif "Storage" in attr:
+                quota_str = round(quota_str / suffix["Gi"])
+        elif quota_str and quota_str == "0":
+            quota_str = 0
+
+        return quota_str
+
     def check_institution_specific_code(self, allocation, apply):
         attr = attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
         isc = allocation.get_attribute(attr)
@@ -250,51 +300,7 @@ class Command(BaseCommand):
 
                 expected_value = allocation.get_attribute(attr)
                 current_value = quota.get(key, None)
-
-                PATTERN = r"([0-9]+)(m|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
-
-                suffix = {
-                    "Ki": 2**10,
-                    "Mi": 2**20,
-                    "Gi": 2**30,
-                    "Ti": 2**40,
-                    "Pi": 2**50,
-                    "Ei": 2**60,
-                    "m": 10**-3,
-                    "K": 10**3,
-                    "M": 10**6,
-                    "G": 10**9,
-                    "T": 10**12,
-                    "P": 10**15,
-                    "E": 10**18,
-                }
-
-                if current_value and current_value != "0":
-                    result = re.search(PATTERN, current_value)
-
-                    if result is None:
-                        raise CommandError(
-                            f"Unable to parse current_value = '{current_value}' for {attr}"
-                        )
-
-                    value = int(result.groups()[0])
-                    unit = result.groups()[1]
-
-                    # Convert to number i.e. without any unit suffix
-
-                    if unit is not None:
-                        current_value = value * suffix[unit]
-                    else:
-                        current_value = value
-
-                    # Convert some attributes to units that coldfront uses
-
-                    if "RAM" in attr:
-                        current_value = round(current_value / suffix["Mi"])
-                    elif "Storage" in attr:
-                        current_value = round(current_value / suffix["Gi"])
-                elif current_value and current_value == "0":
-                    current_value = 0
+                current_value = self.parse_quota_value(current_value, attr)
 
                 if expected_value is None and current_value is not None:
                     msg = (
