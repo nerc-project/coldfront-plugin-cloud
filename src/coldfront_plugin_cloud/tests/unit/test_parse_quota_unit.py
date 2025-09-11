@@ -6,7 +6,7 @@ from coldfront_plugin_cloud.tests import base
 
 class TestParseQuotaUnit(base.TestBase):
     def test_parse_quota_unit(self):
-        parse_quota_unit = Command().parse_quota_value
+        parse_quota_unit = Command().parse_openshift_quota_value
         answer_dict = [
             (("5m", "cpu"), 5 * 10**-3),
             (("10", "cpu"), 10),
