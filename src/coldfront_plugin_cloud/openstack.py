@@ -22,6 +22,8 @@ GB_IN_BYTES = 2**30
 
 COLDFRONT_RGW_SWIFT_INIT_USER = "coldfront-swift-init"
 
+OPENSTACK_OBJ_KEY = "x-account-meta-quota-bytes"
+
 
 def get_session_for_resource_via_password(resource, username, password, project_id):
     auth_url = resource.get_attribute(attributes.RESOURCE_AUTH_URL)
@@ -123,8 +125,34 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
                 quota_labels.append(quota_label)
         return quota_labels
 
-    def set_project_configuration(self, project_id, dry_run=False):
-        pass
+    def set_project_configuration(self, project_id, apply=True):
+        self.set_users(project_id, apply)
+        self.set_quota_config(project_id, apply)
+
+    def set_quota_config(self, project_id, apply=True):
+        quota = self.get_quota(project_id)
+        for attr, quotaspec in self.resource_quotaspecs.root.items():
+            _, key = self._extract_quota_label(quotaspec)
+            if not key:
+                # Note(knikolla): Some attributes are only maintained
+                # for bookkeeping purposes and do not have a
+                # corresponding quota set on the service.
+                continue
+
+            expected_value = self.allocation.get_attribute(attr)
+            current_value = quota.get(key, None)
+            if key == OPENSTACK_OBJ_KEY and expected_value <= 0:
+                expected_value = 1
+                current_value = int(
+                    self.object(project_id).head_account().get(OPENSTACK_OBJ_KEY)
+                )
+
+            self.check_and_apply_quota_attr(
+                project_id, attr, expected_value, current_value, apply
+            )
+
+    def get_project(self, project_id):
+        return self.identity.projects.get(project_id)
 
     def create_project(self, suggested_project_name) -> base.ResourceAllocator.Project:
         project_name = utils.get_unique_project_name(
@@ -247,23 +275,25 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
 
         quotas = self._get_network_quota(quotas, project_id)
 
-        _, key = self._extract_quota_label(
-            self.resource_quotaspecs.root[attributes.QUOTA_OBJECT_GB]
-        )
-        try:
-            swift = self.object(project_id).head_account()
-            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
-        except ksa_exceptions.catalog.EndpointNotFound:
-            logger.debug("No swift available, skipping its quota.")
-        except swiftclient.exceptions.ClientException as e:
-            if e.http_status == 403:
-                self._init_rgw_for_project(project_id)
+        if object_quotaspec := self.resource_quotaspecs.root.get(
+            attributes.QUOTA_OBJECT_GB
+        ):
+            _, key = self._extract_quota_label(object_quotaspec)
+            try:
+                swift = self.object(project_id).head_account()
+            except ksa_exceptions.catalog.EndpointNotFound:
+                logger.debug("No swift available, skipping its quota.")
+            except swiftclient.exceptions.ClientException as e:
+                if e.http_status == 403:
+                    self._init_rgw_for_project(project_id)
+                else:
+                    raise
+
+            try:
                 swift = self.object(project_id).head_account()
                 quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
-            else:
-                raise
-        except (ValueError, TypeError):
-            logger.info("No swift quota set.")
+            except (ValueError, TypeError):
+                logger.info("No swift quota set.")
 
         return quotas
 
