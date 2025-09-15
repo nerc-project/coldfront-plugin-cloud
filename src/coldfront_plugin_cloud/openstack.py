@@ -263,16 +263,17 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         key = self.QUOTA_KEY_MAPPING["object"]["keys"][attributes.QUOTA_OBJECT_GB]
         try:
             swift = self.object(project_id).head_account()
-            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug("No swift available, skipping its quota.")
         except swiftclient.exceptions.ClientException as e:
             if e.http_status == 403:
                 self._init_rgw_for_project(project_id)
-                swift = self.object(project_id).head_account()
-                quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
             else:
                 raise
+
+        try:
+            swift = self.object(project_id).head_account()
+            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except (ValueError, TypeError):
             logger.info("No swift quota set.")
 
