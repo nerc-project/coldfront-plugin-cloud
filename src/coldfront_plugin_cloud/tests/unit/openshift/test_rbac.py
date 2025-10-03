@@ -13,6 +13,7 @@ class TestMocOpenShiftRBAC(base.TestBase):
         self.allocator = OpenShiftResourceAllocator(mock_resource, mock_allocation)
         self.allocator.id_provider = "fake_idp"
         self.allocator.k8_client = mock.Mock()
+        self.allocator.kc_admin_client = mock.Mock()
         self.allocator.member_role_name = "admin"
 
     def test_user_in_rolebindings_false(self):

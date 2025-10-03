@@ -344,12 +344,14 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
 
         user = self.get_federated_user(username)
         self.identity.roles.grant(user=user["id"], project=project_id, role=role)
+        super().assign_role_on_user(username, project_id)
 
     def remove_role_from_user(self, username, project_id):
         role = self.identity.roles.find(name=self.member_role_name)
 
         if user := self.get_federated_user(username):
             self.identity.roles.revoke(user=user["id"], project=project_id, role=role)
+        super().remove_role_from_user(username, project_id)
 
     def create_default_network(self, project_id):
         neutron = neutronclient.Client(session=get_session_for_resource(self.resource))

@@ -50,7 +50,7 @@ class Command(BaseCommand):
                 if apply:
                     tasks.add_user_to_allocation(coldfront_user.pk)
 
-        # remove users that are in the resource but not in coldfront
+        # remove users that are in the resource but not in coldfront allocation
         users = set(
             [coldfront_user.user.username for coldfront_user in coldfront_users]
         )
@@ -58,7 +58,7 @@ class Command(BaseCommand):
             if allocation_user not in users:
                 failed_validation = True
                 logger.warn(
-                    f"{allocation_user} exists in the resource {project_id} but not in coldfront"
+                    f"{allocation_user} exists in the resource {project_id} but not in coldfront allocation"
                 )
                 if apply:
                     allocator.remove_role_from_user(allocation_user, project_id)
