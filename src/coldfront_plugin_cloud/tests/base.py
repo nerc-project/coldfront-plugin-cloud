@@ -24,6 +24,8 @@ from coldfront.core.resource.models import Resource
 from coldfront.core.field_of_science.models import FieldOfScience
 from django.core.management import call_command
 
+from coldfront_plugin_cloud import kc_client
+
 
 class TestBase(TestCase):
     def setUp(self) -> None:
@@ -37,11 +39,7 @@ class TestBase(TestCase):
         # For testing we can validate allocations with this status
         AllocationStatusChoice.objects.get_or_create(name="Active (Needs Renewal)")
 
-    @staticmethod
-    def new_user(username=None) -> User:
-        username = username or f"{uuid.uuid4().hex}@example.com"
-        User.objects.create(username=username, email=username)
-        return User.objects.get(username=username)
+        self.kc_admin_client = kc_client.KeyCloakAPIClient()
 
     @staticmethod
     def new_esi_resource(name=None, auth_url=None) -> Resource:
@@ -100,6 +98,15 @@ class TestBase(TestCase):
             ibm_storage_available=ibm_storage_available,
         )
         return Resource.objects.get(name=resource_name)
+
+    def new_user(self, username=None, add_to_keycloak=True) -> User:
+        username = username or f"{uuid.uuid4().hex}@example.com"
+        User.objects.create(username=username, email=username)
+
+        if add_to_keycloak:
+            self.kc_admin_client.create_user(username)
+
+        return User.objects.get(username=username)
 
     def new_project(self, title=None, pi=None) -> Project:
         title = title or uuid.uuid4().hex

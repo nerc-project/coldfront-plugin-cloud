@@ -18,6 +18,10 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Install Keycloak
+        run: |
+          bash ./ci/setup-keycloak.sh
+
       - name: Install ColdFront and plugin
         run: |
           python -m pip install --upgrade pip

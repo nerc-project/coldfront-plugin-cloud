@@ -22,7 +22,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         )
 
         with freezegun.freeze_time("2020-03-15 00:01:00"):
-            user = self.new_user()
+            user = self.new_user(add_to_keycloak=False)
             project = self.new_project(pi=user)
             allocation = self.new_allocation(project, self.resource, 2)
             utils.set_attribute_on_allocation(
@@ -92,7 +92,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
         allocation.status = allocation_models.AllocationStatusChoice.objects.get(
@@ -125,7 +125,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -155,7 +155,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -200,7 +200,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -218,7 +218,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -240,7 +240,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -286,7 +286,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -332,7 +332,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -395,7 +395,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="",
         )
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 

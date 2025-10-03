@@ -5,6 +5,12 @@
 # Tests expect the resource to be name Devstack
 set -xe
 
+export KEYCLOAK_BASE_URL="http://localhost:8080"
+export KEYCLOAK_REALM="master"
+export KEYCLOAK_CLIENT_ID="admin-cli"
+export KEYCLOAK_ADMIN_USER="admin"
+export KEYCLOAK_ADMIN_PASSWORD="nomoresecret"
+
 export CREDENTIAL_NAME=$(openssl rand -base64 12)
 
 export OPENSTACK_DEVSTACK_APPLICATION_CREDENTIAL_SECRET=$(
