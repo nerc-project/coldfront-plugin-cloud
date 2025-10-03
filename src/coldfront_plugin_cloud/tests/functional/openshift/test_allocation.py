@@ -52,6 +52,12 @@ class TestAllocation(base.TestBase):
 
         allocator._get_role(user.username, project_id)
 
+        # Check Keycloak group and user membership
+        self.kc_admin_client.get_group_id(project_id)
+        user_id = self.kc_admin_client.get_user_id(user.username)
+        assert project_id in self.kc_admin_client.get_user_groups(user_id)
+
+        # TODO (Quan): Confirm that user should also be removed from group on role removal
         allocator.remove_role_from_user(user.username, project_id)
 
         with self.assertRaises(openshift.NotFound):
