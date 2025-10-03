@@ -364,6 +364,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             # Role already exists, ignore
             pass
 
+        super().assign_role_on_user(username, project_id)
+
     def remove_role_from_user(self, username, project_id):
         """Remove a role from a user in a project using direct OpenShift API calls"""
         try:
@@ -385,6 +387,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         except kexc.NotFoundError:
             # Rolebinding doesn't exist, nothing to remove
             pass
+
+        super().remove_role_from_user(username, project_id)
 
     def _create_project(self, project_name, project_id):
         pi_username = self.allocation.project.pi.username

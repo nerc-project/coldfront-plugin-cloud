@@ -17,6 +17,8 @@ class TestOpenshiftResourceAllocator(OpenShiftResourceAllocator):
         self.apis = {}
         self.member_role_name = "admin"
 
+        self.kc_admin_client = mock.Mock()
+
 
 class TestUnitOpenshiftBase(base.TestBase):
     def setUp(self) -> None:

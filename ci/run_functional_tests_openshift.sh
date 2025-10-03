@@ -5,6 +5,11 @@
 # Tests expect the resource to be name Devstack
 set -xe
 
+export KEYCLOAK_BASE_URL="http://localhost:8080"
+export KEYCLOAK_REALM="master"
+export KEYCLOAK_CLIENT_ID="coldfront"
+export KEYCLOAK_CLIENT_SECRET="nomoresecret"
+
 export OPENSHIFT_MICROSHIFT_TOKEN="$(oc create token -n onboarding onboarding-serviceaccount)"
 export OPENSHIFT_MICROSHIFT_VERIFY="false"
 
