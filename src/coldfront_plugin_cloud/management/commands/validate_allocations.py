@@ -19,6 +19,8 @@ from keystoneauth1.exceptions import http
 
 logger = logging.getLogger(__name__)
 
+STATES_TO_VALIDATE = ["Active", "Active (Needs Renewal)"]
+
 
 class Command(BaseCommand):
     help = "Validates quotas and users in resource allocations."
@@ -108,7 +110,9 @@ class Command(BaseCommand):
         )
         openstack_allocations = Allocation.objects.filter(
             resources__in=openstack_resources,
-            status=AllocationStatusChoice.objects.get(name="Active"),
+            status__in=AllocationStatusChoice.objects.filter(
+                name__in=STATES_TO_VALIDATE
+            ),
         )
         for allocation in openstack_allocations:
             self.check_institution_specific_code(allocation, options["apply"])
@@ -206,7 +210,9 @@ class Command(BaseCommand):
         )
         openshift_allocations = Allocation.objects.filter(
             resources__in=openshift_resources,
-            status=AllocationStatusChoice.objects.get(name="Active"),
+            status__in=AllocationStatusChoice.objects.filter(
+                name__in=STATES_TO_VALIDATE
+            ),
         )
 
         for allocation in openshift_allocations:

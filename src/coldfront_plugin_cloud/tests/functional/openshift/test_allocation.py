@@ -483,3 +483,23 @@ class TestAllocation(base.TestBase):
                 "persistentvolumeclaims": "2",
             },
         )
+
+    def test_needs_renewal_allocation(self):
+        """Simple test to validate allocations in `Active (Needs Renewal)` status."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(
+            project, self.resource, 1, "Active (Needs Renewal)"
+        )
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        user2 = self.new_user()
+        self.new_allocation_user(allocation, user2)
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        assert user2.username not in allocator.get_users(project_id)
+        call_command("validate_allocations", apply=True)
+        assert user2.username in allocator.get_users(project_id)
