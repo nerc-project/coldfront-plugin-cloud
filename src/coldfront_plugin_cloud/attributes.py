@@ -89,9 +89,7 @@ QUOTA_LIMITS_CPU = "OpenShift Limit on CPU Quota"
 QUOTA_LIMITS_MEMORY = "OpenShift Limit on RAM Quota (MiB)"
 QUOTA_LIMITS_EPHEMERAL_STORAGE_GB = "OpenShift Limit on Ephemeral Storage Quota (GiB)"
 QUOTA_REQUESTS_NESE_STORAGE = "OpenShift Request on NESE Storage Quota (GiB)"
-QUOTA_REQUESTS_IBM_STORAGE = (
-    "OpenShift Request on IBM Spectrum Scale Storage Quota (GiB)"
-)
+QUOTA_REQUESTS_IBM_STORAGE = "OpenShift Request on IBM Storage Quota (GiB)"
 QUOTA_REQUESTS_GPU = "OpenShift Request on GPU Quota"
 QUOTA_REQUESTS_VM_GPU_A100_SXM4 = "OpenShift Request on GPU A100 SXM4"
 QUOTA_REQUESTS_VM_GPU_V100 = "OpenShift Request on GPU V100"
