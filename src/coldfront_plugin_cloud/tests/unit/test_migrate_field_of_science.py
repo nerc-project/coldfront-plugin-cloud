@@ -18,9 +18,12 @@ class TestFixAllocation(base.TestBase):
         new_fos_1_des = uuid.uuid4().hex  # Migrate to new fos
         new_fos_2_des = old_fos_4.description  # Migrate to existing fos
 
-        fake_project_1 = self.new_project()
-        fake_project_2 = self.new_project()
-        fake_project_3 = self.new_project()
+        fake_user = self.new_user(
+            add_to_keycloak=False
+        )  # To avoid Keycloak dependency in unit test
+        fake_project_1 = self.new_project(pi=fake_user)
+        fake_project_2 = self.new_project(pi=fake_user)
+        fake_project_3 = self.new_project(pi=fake_user)
         fake_project_1.field_of_science = old_fos_1
         fake_project_2.field_of_science = old_fos_2
         fake_project_3.field_of_science = old_fos_3
