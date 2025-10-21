@@ -12,6 +12,7 @@ from coldfront_plugin_cloud import (
     esi,
     openshift_vm,
     utils,
+    kc_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,17 @@ def activate_allocation(allocation_pk):
         allocator.assign_role_on_user(pi_username, project_id)
 
         allocator.set_quota(project_id)
+
+        # After setting everything on cluster, add user to Keycloak group
+        kc_admin_client = kc_client.KeyCloakAPIClient()
+        kc_admin_client.create_group(project_id)
+        if user_id := kc_admin_client.get_user_id(pi_username):
+            group_id = kc_admin_client.get_group_id(project_id)
+            kc_admin_client.add_user_to_group(user_id, group_id)
+        else:
+            logger.warning(
+                f"User {pi_username} not found in Keycloak, cannot add to group."
+            )
 
 
 def disable_allocation(allocation_pk):

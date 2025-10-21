@@ -35,6 +35,10 @@ jobs:
         run: |
           bash ./ci/setup-oc-client.sh
 
+      - name: Install Keycloak
+        run: |
+          bash ./ci/setup-keycloak.sh
+
       - name: Install Microshift
         run: |
           ./ci/microshift.sh
