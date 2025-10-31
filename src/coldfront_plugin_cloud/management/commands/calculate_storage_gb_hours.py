@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 _RATES = None
 
+RESOURCE_NAME_TO_NERC_SERVICE = {
+    "NERC": "stack",
+    "NERC-OCP": "ocp-prod",
+    "NERC-OCP-EDU": "academic",
+}
+
 
 def get_rates():
     # nerc-rates doesn't work with Python 3.9, which is what ColdFront is currently
@@ -142,13 +148,6 @@ class Command(BaseCommand):
             action="store_true",
             help="Upload generated CSV invoice to S3 storage.",
         )
-        parser.add_argument(
-            "--excluded-time-ranges",
-            type=str,
-            default=None,
-            nargs="+",
-            help="List of time ranges excluded from billing, in ISO format.",
-        )
 
     @staticmethod
     def default_start_argument():
@@ -198,8 +197,24 @@ class Command(BaseCommand):
         logger.info(f"Uploaded to {secondary_location}.")
 
     def handle(self, *args, **options):
+        def get_outages_for_service(resource_name: str):
+            """Get outages for a service from nerc-rates.
+
+            :param resource_name: Name of the resource to get outages for.
+            :return: List of excluded intervals or None.
+            """
+            service_name = RESOURCE_NAME_TO_NERC_SERVICE.get(resource_name)
+            if service_name:
+                return utils.load_outages_from_nerc_rates(
+                    options["start"], options["end"], service_name
+                )
+            return None
+
         def process_invoice_row(allocation, attrs, su_name, rate):
             """Calculate the value and write the bill using the writer."""
+            resource_name = allocation.resources.first().name
+            excluded_intervals_list = get_outages_for_service(resource_name)
+
             time = 0
             for attribute in attrs:
                 time += utils.calculate_quota_unit_hours(
@@ -233,13 +248,6 @@ class Command(BaseCommand):
 
         logger.info(f"Processing invoices for {options['invoice_month']}.")
         logger.info(f"Interval {options['start'] - options['end']}.")
-
-        if options["excluded_time_ranges"]:
-            excluded_intervals_list = utils.load_excluded_intervals(
-                options["excluded_time_ranges"]
-            )
-        else:
-            excluded_intervals_list = None
 
         openstack_resources = Resource.objects.filter(
             resource_type=ResourceType.objects.get(name="OpenStack")
@@ -285,15 +293,13 @@ class Command(BaseCommand):
             csv_invoice_writer = csv.writer(
                 f, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
             )
-            # Write Headers
             csv_invoice_writer.writerow(InvoiceRow.get_headers())
 
             for allocation in openstack_allocations:
                 allocation_str = (
                     f'{allocation.pk} of project "{allocation.project.title}"'
                 )
-                msg = f"Starting billing for allocation {allocation_str}."
-                logger.debug(msg)
+                logger.debug(f"Starting billing for allocation {allocation_str}.")
 
                 process_invoice_row(
                     allocation,
@@ -306,8 +312,7 @@ class Command(BaseCommand):
                 allocation_str = (
                     f'{allocation.pk} of project "{allocation.project.title}"'
                 )
-                msg = f"Starting billing for allocation {allocation_str}."
-                logger.debug(msg)
+                logger.debug(f"Starting billing for allocation {allocation_str}.")
 
                 process_invoice_row(
                     allocation,
