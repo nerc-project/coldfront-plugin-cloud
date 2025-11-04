@@ -566,3 +566,39 @@ class TestAllocation(base.TestBase):
             ),
             [],
         )
+
+    def test_preexisting_project(self):
+        """Test allocation activation and validation when the project already exists on OpenShift."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        self.new_allocation_user(allocation, user)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        project_id = allocator.create_project(project.title).id
+
+        self.assertEqual(allocator.get_quota(project_id), {})
+        self.assertEqual(allocator.get_users(project_id), set())
+
+        utils.set_attribute_on_allocation(
+            allocation, attributes.ALLOCATION_PROJECT_ID, project_id
+        )
+        utils.set_attribute_on_allocation(
+            allocation, attributes.ALLOCATION_PROJECT_NAME, project_id
+        )
+        tasks.activate_allocation(allocation.pk)
+        call_command("validate_allocations", apply=True)
+
+        self.assertEqual(
+            allocator.get_quota(project_id),
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+        assert set([user.username]) == allocator.get_users(project_id)

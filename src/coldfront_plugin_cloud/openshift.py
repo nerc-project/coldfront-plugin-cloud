@@ -304,7 +304,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         cloud_quotas = self._openshift_get_resourcequotas(project_id)
         combined_quota = {}
         for cloud_quota in cloud_quotas:
-            combined_quota.update(cloud_quota["spec"]["hard"])
+            if quota_spec := cloud_quota["spec"].get("hard"):
+                combined_quota.update(quota_spec)
 
         return combined_quota
 
@@ -606,7 +607,10 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         resourcequota objects.
         """
 
-        if "resourcequotas" in resource_quota["spec"]["hard"]:
+        if (
+            resource_quota["spec"].get("hard")
+            and "resourcequotas" in resource_quota["spec"]["hard"]
+        ):
             logger.info("waiting for resourcequota quota")
 
             api = self.get_resource_api(API_CORE, "ResourceQuota")
