@@ -1,6 +1,5 @@
 import os
 import unittest
-import uuid
 import time
 
 from coldfront_plugin_cloud import attributes, openstack, tasks, utils
@@ -56,6 +55,11 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role["id"], self.role_member.id)
+
+        # Check Keycloak group and user membership
+        self.kc_admin_client.get_group_id(project_id)
+        user_id = self.kc_admin_client.get_user_id(user.username)
+        assert project_id in self.kc_admin_client.get_user_groups(user_id)
 
         # Check default network
         # Port build-up time is not instant
@@ -297,6 +301,11 @@ class TestAllocation(base.TestBase):
 
         tasks.add_user_to_allocation(allocation_user2.pk)
 
+        # Check Keycloak group and user membership
+        self.kc_admin_client.get_group_id(project_id)
+        user2_id = self.kc_admin_client.get_user_id(user2.username)
+        assert project_id in self.kc_admin_client.get_user_groups(user2_id)
+
         openstack_user = allocator.get_federated_user(user2.username)
         openstack_user = self.identity.users.get(openstack_user["id"])
 
@@ -309,6 +318,8 @@ class TestAllocation(base.TestBase):
         assert set([user.username, user2.username]) == allocator.get_users(project_id)
 
         tasks.remove_user_from_allocation(allocation_user2.pk)
+
+        assert project_id not in self.kc_admin_client.get_user_groups(user2_id)
 
         roles = self.identity.role_assignments.list(
             user=openstack_user.id, project=openstack_project.id
@@ -326,7 +337,7 @@ class TestAllocation(base.TestBase):
 
         # directly add a user to openstack which should then be
         # deleted when validate_allocations is called
-        non_coldfront_user = uuid.uuid4().hex
+        non_coldfront_user = self.new_user(add_to_keycloak=True).username
         allocator.get_or_create_federated_user(non_coldfront_user)
         allocator.assign_role_on_user(non_coldfront_user, project_id)
         assert non_coldfront_user in allocator.get_users(project_id)
