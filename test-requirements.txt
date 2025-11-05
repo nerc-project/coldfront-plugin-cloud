@@ -1,5 +1,5 @@
 coverage
-git+https://github.com/ubccr/coldfront@2e60db247fd9a9b0d1299f1e98f1e4ef5f5c259b#egg=coldfront
+git+https://github.com/ubccr/coldfront@v1.1.7#egg=coldfront
 freezegun
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
