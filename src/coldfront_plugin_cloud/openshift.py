@@ -3,6 +3,9 @@ import json
 import logging
 import os
 import time
+import re
+import copy
+from collections import namedtuple
 
 import kubernetes
 import kubernetes.dynamic.exceptions as kexc
@@ -52,6 +55,96 @@ def clean_openshift_metadata(obj):
                 del obj["metadata"][attr]
 
     return obj
+
+
+def parse_quota_value(quota_str: str | None, attr: str) -> int | None:
+    PATTERN = r"([0-9]+)(m|k|Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?"
+
+    suffix = {
+        "Ki": 2**10,
+        "Mi": 2**20,
+        "Gi": 2**30,
+        "Ti": 2**40,
+        "Pi": 2**50,
+        "Ei": 2**60,
+        "m": 10**-3,
+        "k": 10**3,
+        "K": 10**3,
+        "M": 10**6,
+        "G": 10**9,
+        "T": 10**12,
+        "P": 10**15,
+        "E": 10**18,
+    }
+
+    if quota_str and quota_str != "0":
+        result = re.search(PATTERN, quota_str)
+
+        if result is None:
+            raise ValueError(f"Unable to parse quota_str = '{quota_str}' for {attr}")
+
+        value = int(result.groups()[0])
+        unit = result.groups()[1]
+
+        # Convert to number i.e. without any unit suffix
+
+        if unit is not None:
+            quota_str = value * suffix[unit]
+        else:
+            quota_str = value
+
+        # Convert some attributes to units that coldfront uses
+
+        if "RAM" in attr:
+            quota_str = round(quota_str / suffix["Mi"])
+        elif "Storage" in attr:
+            quota_str = round(quota_str / suffix["Gi"])
+    elif quota_str and quota_str == "0":
+        quota_str = 0
+
+    return quota_str
+
+
+LimitRangeDifference = namedtuple("LimitRangeDifference", ["key", "expected", "actual"])
+
+
+def limit_ranges_diff(
+    expected_lr_list: list[dict], actual_lr_list: list[dict]
+) -> list[LimitRangeDifference]:
+    expected_lr = copy.deepcopy(expected_lr_list[0])
+    actual_lr = copy.deepcopy(actual_lr_list[0])
+    differences = []
+
+    for key in expected_lr | actual_lr:
+        if key == "type":
+            if actual_lr.get(key) != expected_lr.get(key):
+                differences.append(
+                    LimitRangeDifference(
+                        key, expected_lr.get(key), actual_lr.get("type")
+                    )
+                )
+                break
+            continue
+
+        # Extra fields in actual limit range, so else statement should only be expected fields
+        if key not in expected_lr:
+            differences.append(LimitRangeDifference(key, None, actual_lr[key]))
+        else:
+            for resource in expected_lr.setdefault(key, {}) | actual_lr.setdefault(
+                key, {}
+            ):
+                expected_value = parse_quota_value(
+                    expected_lr[key].get(resource), resource
+                )
+                actual_value = parse_quota_value(actual_lr[key].get(resource), resource)
+                if expected_value != actual_value:
+                    differences.append(
+                        LimitRangeDifference(
+                            f"{key},{resource}", expected_value, actual_value
+                        )
+                    )
+
+    return differences
 
 
 class ApiException(Exception):
@@ -129,6 +222,40 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             k, self.k8_client.resources.get(api_version=api_version, kind=kind)
         )
         return api
+
+    def set_project_configuration(self, project_id, dry_run=False):
+        def _recreate_limitrange():
+            if not dry_run:
+                self._openshift_delete_limits(project_id)
+                self._openshift_create_limits(project_id)
+            logger.info(f"Recreated LimitRanges for namespace {project_id}.")
+
+        limits = self._openshift_get_limits(project_id).get("items", [])
+
+        if not limits:
+            if not dry_run:
+                self._openshift_create_limits(project_id)
+            logger.info(f"Created default LimitRange for namespace {project_id}.")
+
+        elif len(limits) > 1:
+            logger.warning(
+                f"More than one LimitRange found for namespace {project_id}."
+            )
+            _recreate_limitrange()
+
+        if len(limits) == 1:
+            actual_limits = limits[0]["spec"]["limits"]
+            if len(actual_limits) != 1:
+                logger.info(
+                    f"LimitRange for more than one object type found for namespace {project_id}."
+                )
+                _recreate_limitrange()
+            elif differences := limit_ranges_diff(LIMITRANGE_DEFAULTS, actual_limits):
+                for difference in differences:
+                    logger.info(
+                        f"LimitRange for {project_id} differs {difference.key}: expected {difference.expected} but found {difference.actual}"
+                    )
+                _recreate_limitrange()
 
     def create_project(self, suggested_project_name):
         sanitized_project_name = utils.get_sanitized_project_name(
@@ -445,6 +572,13 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
             "spec": {"limits": limits or LIMITRANGE_DEFAULTS},
         }
         return api.create(body=payload, namespace=project_name).to_dict()
+
+    def _openshift_delete_limits(self, project_name):
+        api = self.get_resource_api(API_CORE, "LimitRange")
+
+        limit_ranges = self._openshift_get_limits(project_name)
+        for lr in limit_ranges["items"]:
+            api.delete(namespace=project_name, name=lr["metadata"]["name"])
 
     def _openshift_get_namespace(self, namespace_name):
         api = self.get_resource_api(API_CORE, "Namespace")

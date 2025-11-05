@@ -503,3 +503,66 @@ class TestAllocation(base.TestBase):
         assert user2.username not in allocator.get_users(project_id)
         call_command("validate_allocations", apply=True)
         assert user2.username in allocator.get_users(project_id)
+
+    def test_limitrange_defaults_update(self):
+        """Test validation if default LimitRange changes, or actual LimitRange is deleted."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        # Check initial limit ranges
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"],
+                openshift.LIMITRANGE_DEFAULTS,
+            ),
+            [],
+        )
+
+        # Change LimitRange defaults
+        new_defaults = [
+            {
+                "type": "Container",
+                "default": {"cpu": "2", "memory": "8192Mi", "nvidia.com/gpu": "1"},
+                "defaultRequest": {
+                    "cpu": "1",
+                    "memory": "4096Mi",
+                    "nvidia.com/gpu": "1",
+                },
+                "min": {"cpu": "100m", "memory": "64Mi"},
+            }
+        ]
+        openshift.LIMITRANGE_DEFAULTS = new_defaults
+
+        call_command("validate_allocations", apply=True)
+
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"], new_defaults
+            ),
+            [],
+        )
+
+        # Delete and re-create limit range using validate_allocations
+        allocator._openshift_delete_limits(project_id)
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 0)
+        call_command("validate_allocations", apply=True)
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"], new_defaults
+            ),
+            [],
+        )
