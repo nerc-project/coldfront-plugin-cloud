@@ -1,6 +1,9 @@
+import csv
 import datetime
 import pytz
 import tempfile
+from decimal import Decimal
+from unittest.mock import Mock, patch
 
 import freezegun
 
@@ -16,7 +19,11 @@ SECONDS_IN_DAY = 3600 * 24
 
 
 class TestCalculateAllocationQuotaHours(base.TestBase):
-    def test_new_allocation_quota(self):
+    @patch("coldfront_plugin_cloud.utils.load_outages_from_nerc_rates")
+    def test_new_allocation_quota(self, mock_load_outages):
+        """Test quota calculation with nerc-rates outages mocked."""
+        mock_load_outages.return_value = []
+
         self.resource = self.new_openshift_resource(
             name="",
         )
@@ -63,7 +70,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
                 "2020-03",
             )
 
-        # Let's test a complete CLI call including excluded time, while we're at it. This is not for testing
+        # Let's test a complete CLI call. This is not for testing
         # the validity but just the unerrored execution of the complete pipeline.
         # Tests that verify the correct output are further down in the test file.
         with tempfile.NamedTemporaryFile() as fp:
@@ -83,9 +90,11 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
                 "0.00001",
                 "--invoice-month",
                 "2020-03",
-                "--excluded-time-ranges",
-                "2020-03-02 00:00:00,2020-03-03 05:00:00",
             )
+
+        # Verify that load_outages_from_nerc_rates is not called when resource name
+        # doesn't match NERC service mapping
+        mock_load_outages.assert_not_called()
 
     def test_new_allocation_quota_expired(self):
         """Test that expiration doesn't affect invoicing."""
@@ -597,3 +606,65 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         ]
         with self.assertRaises(AssertionError):
             utils.load_excluded_intervals(invalid_interval)
+
+    @patch(
+        "coldfront_plugin_cloud.management.commands.calculate_storage_gb_hours.RESOURCE_NAME_TO_NERC_SERVICE",
+        {"TEST-RESOURCE": "test-service"},
+    )
+    @patch(
+        "coldfront_plugin_cloud.management.commands.calculate_storage_gb_hours.get_rates"
+    )
+    def test_nerc_outages_integration(self, mock_rates_loader):
+        """Test nerc-rates integration: get_outages_during called correctly and outages reduce billing."""
+        start = pytz.utc.localize(datetime.datetime(2020, 3, 1, 0, 0, 0))
+        end = pytz.utc.localize(datetime.datetime(2020, 3, 31, 0, 0, 0))
+        mock_outages = [
+            (
+                pytz.utc.localize(datetime.datetime(2020, 3, 10, 0, 0, 0)),
+                pytz.utc.localize(datetime.datetime(2020, 3, 12, 0, 0, 0)),
+            )
+        ]
+
+        mock_outages_data = Mock()
+        mock_outages_data.get_outages_during.return_value = mock_outages
+        mock_rates_loader.return_value.get_value_at.return_value = Decimal("0.001")
+
+        with patch.object(utils, "_OUTAGES_DATA", mock_outages_data):
+            with freezegun.freeze_time("2020-03-01"):
+                user = self.new_user()
+                project = self.new_project(pi=user)
+                resource = self.new_openstack_resource(name="TEST-RESOURCE")
+                allocation = self.new_allocation(project, resource, 100)
+                for attr, val in [
+                    (attributes.ALLOCATION_PROJECT_NAME, "test"),
+                    (attributes.ALLOCATION_PROJECT_ID, "123"),
+                    (attributes.QUOTA_VOLUMES_GB, 10),
+                ]:
+                    utils.set_attribute_on_allocation(allocation, attr, val)
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, suffix=".csv"
+            ) as fp:
+                output_file = fp.name
+
+            call_command(
+                "calculate_storage_gb_hours",
+                "--output",
+                output_file,
+                "--start",
+                "2020-03-01",
+                "--end",
+                "2020-03-31",
+                "--invoice-month",
+                "2020-03",
+            )
+
+            mock_outages_data.get_outages_during.assert_called_once_with(
+                start.isoformat(), end.isoformat(), "test-service"
+            )
+
+            with open(output_file, "r") as f:
+                rows = list(csv.DictReader(f))
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(int(rows[0]["SU Hours (GBhr or SUhr)"]), 6720)
