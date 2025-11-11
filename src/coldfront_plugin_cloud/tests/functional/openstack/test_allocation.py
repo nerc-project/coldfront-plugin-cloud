@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest import mock
 import uuid
 import time
 
@@ -398,3 +399,52 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role["id"], self.role_member.id)
+
+    @mock.patch.object(
+        tasks,
+        "UNIT_QUOTA_MULTIPLIERS",
+        {
+            "openstack": {
+                attributes.QUOTA_VCPU: 1,
+            }
+        },
+    )
+    def test_allocation_new_attribute(self):
+        """When a new attribute is introduced, but pre-existing allocations don't have it"""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 1)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_RAM), None)
+
+        # Check Openstack does have a non-zero default ram quota
+        actual_nova_quota = self.compute.quotas.get(project_id)
+        default_ram_quota = actual_nova_quota.ram
+        self.assertEqual(actual_nova_quota.cores, 2)
+        self.assertTrue(default_ram_quota > 0)
+
+        # Add a new attribute for Openshift
+        # Since Openstack already provided defaults, Coldfront should use those
+        tasks.UNIT_QUOTA_MULTIPLIERS["openstack"][attributes.QUOTA_RAM] = 4096
+
+        call_command("validate_allocations", apply=True)
+        allocation.refresh_from_db()
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 1)
+        self.assertEqual(
+            allocation.get_attribute(attributes.QUOTA_RAM), default_ram_quota
+        )
+
+        expected_nova_quota = {
+            "cores": 2,
+            "ram": default_ram_quota,
+        }
+        actual_nova_quota = self.compute.quotas.get(project_id)
+        for k, v in expected_nova_quota.items():
+            self.assertEqual(actual_nova_quota.__getattr__(k), v)

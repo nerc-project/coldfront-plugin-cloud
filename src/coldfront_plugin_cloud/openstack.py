@@ -13,7 +13,7 @@ from cinderclient import client as cinderclient
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 
-from coldfront_plugin_cloud import attributes, base, utils
+from coldfront_plugin_cloud import attributes, base, utils, tasks
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +141,36 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             preauthurl=preauth_url,
         )
 
-    def set_project_configuration(self, project_id, dry_run=False):
-        pass
+    def set_project_configuration(self, project_id, apply=True):
+        self.set_users(project_id, apply)
+        self.set_quota_config(project_id, apply)
+
+    def set_quota_config(self, project_id, apply=True):
+        quota = self.get_quota(project_id)
+        for attr in tasks.get_expected_attributes(self):
+            quota_key = self.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
+            if not quota_key:
+                # Note(knikolla): Some attributes are only maintained
+                # for bookkeeping purposes and do not have a
+                # corresponding quota set on the service.
+                continue
+
+            expected_value = self.allocation.get_attribute(attr)
+            current_value = quota.get(quota_key, None)
+
+            obj_key = OpenStackResourceAllocator.QUOTA_KEY_MAPPING["object"]["keys"][
+                attributes.QUOTA_OBJECT_GB
+            ]
+            if quota_key == obj_key and expected_value <= 0:
+                expected_value = 1
+                current_value = int(self.object(project_id).head_account().get(obj_key))
+
+            self.check_and_apply_quota_attr(
+                project_id, attr, expected_value, current_value, apply
+            )
+
+    def get_project(self, project_id):
+        return self.identity.projects.get(project_id)
 
     def create_project(self, suggested_project_name) -> base.ResourceAllocator.Project:
         project_name = utils.get_unique_project_name(
@@ -266,16 +294,17 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         key = self.QUOTA_KEY_MAPPING["object"]["keys"][attributes.QUOTA_OBJECT_GB]
         try:
             swift = self.object(project_id).head_account()
-            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except ksa_exceptions.catalog.EndpointNotFound:
             logger.debug("No swift available, skipping its quota.")
         except swiftclient.exceptions.ClientException as e:
             if e.http_status == 403:
                 self._init_rgw_for_project(project_id)
-                swift = self.object(project_id).head_account()
-                quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
             else:
                 raise
+
+        try:
+            swift = self.object(project_id).head_account()
+            quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
         except (ValueError, TypeError):
             logger.info("No swift quota set.")
 

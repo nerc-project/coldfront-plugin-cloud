@@ -11,7 +11,7 @@ class TestOpenshiftQuota(base.TestUnitOpenshiftBase):
         self.allocator.k8_client.resources.get.return_value.get.return_value = (
             fake_project
         )
-        res = self.allocator._get_project("fake-project")
+        res = self.allocator.get_project("fake-project")
         assert res == {"project": "fake-project"}
 
     @mock.patch(
