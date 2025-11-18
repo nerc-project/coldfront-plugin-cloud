@@ -7,6 +7,7 @@ from coldfront.core.resource import models as resource_models
 
 from coldfront_plugin_cloud import attributes
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

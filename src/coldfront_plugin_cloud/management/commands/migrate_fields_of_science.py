@@ -6,7 +6,7 @@ from coldfront.core.field_of_science.models import FieldOfScience
 
 import logging
 
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +56,7 @@ class Command(BaseCommand):
     def _validate_old_fos(mapping_dict):
         for old_fos_name in list(mapping_dict.keys()):
             if not FieldOfScience.objects.filter(description=old_fos_name):
-                logger.warn(f"Old field of science {old_fos_name} does not exist")
+                logger.warning(f"Old field of science {old_fos_name} does not exist")
 
     @staticmethod
     def _create_new_fos(new_fos_set):
