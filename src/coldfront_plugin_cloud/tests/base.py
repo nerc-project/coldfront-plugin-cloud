@@ -63,12 +63,15 @@ class TestBase(TestCase):
         return Resource.objects.get(name=resource_name)
 
     @staticmethod
-    def new_openstack_resource(name=None, auth_url=None) -> Resource:
+    def new_openstack_resource(
+        name=None, internal_name=None, auth_url=None
+    ) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             "add_openstack_resource",
             name=resource_name,
+            internal_name=internal_name,
             auth_url=auth_url or f"https://{resource_name}/identity/v3",
             projects_domain="default",
             users_domain="default",
