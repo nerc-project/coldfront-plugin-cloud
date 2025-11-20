@@ -92,10 +92,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
                 "2020-03",
             )
 
-        # Verify that load_outages_from_nerc_rates is not called when resource name
-        # doesn't match NERC service mapping
-        mock_load_outages.assert_not_called()
-
     def test_new_allocation_quota_expired(self):
         """Test that expiration doesn't affect invoicing."""
         self.resource = self.new_openshift_resource(
@@ -608,10 +604,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             utils.load_excluded_intervals(invalid_interval)
 
     @patch(
-        "coldfront_plugin_cloud.management.commands.calculate_storage_gb_hours.RESOURCE_NAME_TO_NERC_SERVICE",
-        {"TEST-RESOURCE": "test-service"},
-    )
-    @patch(
         "coldfront_plugin_cloud.management.commands.calculate_storage_gb_hours.get_rates"
     )
     def test_nerc_outages_integration(self, mock_rates_loader):
@@ -633,7 +625,9 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             with freezegun.freeze_time("2020-03-01"):
                 user = self.new_user()
                 project = self.new_project(pi=user)
-                resource = self.new_openstack_resource(name="TEST-RESOURCE")
+                resource = self.new_openstack_resource(
+                    name="TEST-RESOURCE", internal_name="test-service"
+                )
                 allocation = self.new_allocation(project, resource, 100)
                 for attr, val in [
                     (attributes.ALLOCATION_PROJECT_NAME, "test"),

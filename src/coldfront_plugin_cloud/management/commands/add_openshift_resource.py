@@ -25,6 +25,12 @@ class Command(BaseCommand):
             "--name", type=str, required=True, help="Name of OpenShift resource"
         )
         parser.add_argument(
+            "--internal-name",
+            type=str,
+            required=False,
+            help="Internal name of cluster used for invoicing. Defaults to public name",
+        )
+        parser.add_argument(
             "--api-url",
             type=str,
             required=True,
@@ -98,4 +104,13 @@ class Command(BaseCommand):
             ),
             resource=openshift,
             value="true" if options["ibm_storage_available"] else "false",
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_CLUSTER_NAME
+            ),
+            resource=openshift,
+            value=options["internal_name"]
+            if options["internal_name"]
+            else options["name"],
         )

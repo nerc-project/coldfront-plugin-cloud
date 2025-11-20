@@ -34,6 +34,7 @@ RESOURCE_DEFAULT_PUBLIC_NETWORK = "OpenStack Public Network ID"
 RESOURCE_DEFAULT_NETWORK_CIDR = "OpenStack Default Network CIDR"
 
 RESOURCE_EULA_URL = "EULA URL"
+RESOURCE_CLUSTER_NAME = "Internal Cluster Name"
 
 RESOURCE_ATTRIBUTES = [
     CloudResourceAttribute(name=RESOURCE_AUTH_URL),
@@ -48,6 +49,7 @@ RESOURCE_ATTRIBUTES = [
     CloudResourceAttribute(name=RESOURCE_EULA_URL),
     CloudResourceAttribute(name=RESOURCE_DEFAULT_PUBLIC_NETWORK),
     CloudResourceAttribute(name=RESOURCE_DEFAULT_NETWORK_CIDR),
+    CloudResourceAttribute(name=RESOURCE_CLUSTER_NAME),
 ]
 
 # TODO: Migration to rename the OpenStack specific prefix out of these attrs

@@ -18,6 +18,12 @@ class Command(BaseCommand):
             "--name", type=str, required=True, help="Name of OpenStack resource"
         )
         parser.add_argument(
+            "--internal-name",
+            type=str,
+            required=False,
+            help="Internal name of cluster used for invoicing. Defaults to public name",
+        )
+        parser.add_argument(
             "--auth-url",
             type=str,
             required=True,
@@ -132,6 +138,15 @@ class Command(BaseCommand):
             ),
             resource=openstack,
             value=options["role"],
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_CLUSTER_NAME
+            ),
+            resource=openstack,
+            value=options["internal_name"]
+            if options["internal_name"]
+            else options["name"],
         )
 
         # Quantity values do not make sense for an ESI allocation
