@@ -54,6 +54,9 @@ RESOURCE_ATTRIBUTES = [
 ALLOCATION_PROJECT_ID = "Allocated Project ID"
 ALLOCATION_PROJECT_NAME = "Allocated Project Name"
 ALLOCATION_INSTITUTION_SPECIFIC_CODE = "Institution-Specific Code"
+ALLOCATION_CUMULATIVE_CHARGES = "Cumulative Daily Charges for Month"
+ALLOCATION_PREVIOUS_CHARGES = "Previous Charges"
+ALLOCATION_ALERT = "Monthly Allocation Cost Alert"
 
 ALLOCATION_ATTRIBUTES = [
     CloudAllocationAttribute(
@@ -65,6 +68,19 @@ ALLOCATION_ATTRIBUTES = [
     CloudAllocationAttribute(
         name=ALLOCATION_INSTITUTION_SPECIFIC_CODE, type="Text", is_changeable=True
     ),
+    CloudAllocationAttribute(
+        name=ALLOCATION_CUMULATIVE_CHARGES,
+        type="Text",
+        is_private=True,
+        is_changeable=True,
+    ),
+    CloudAllocationAttribute(
+        name=ALLOCATION_PREVIOUS_CHARGES,
+        type="Text",
+        is_private=True,
+        is_changeable=True,
+    ),
+    CloudAllocationAttribute(name=ALLOCATION_ALERT, type="Int", is_changeable=True),
 ]
 
 ###########################################################
