@@ -210,7 +210,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         generated_at = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
 
-        def get_outages_for_service(resource_name: str):
+        def get_outages_for_service(cluster_name: str):
             """Get outages for a service from nerc-rates.
 
             :param cluster_name: Name of the cluster to get outages for.
