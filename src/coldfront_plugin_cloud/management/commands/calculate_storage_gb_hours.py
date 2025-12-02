@@ -20,12 +20,6 @@ logger = logging.getLogger(__name__)
 
 _RATES = None
 
-RESOURCE_NAME_TO_NERC_SERVICE = {
-    "NERC": "stack",
-    "NERC-OCP": "ocp-prod",
-    "NERC-OCP-EDU": "academic",
-}
-
 
 def get_rates():
     # nerc-rates doesn't work with Python 3.9, which is what ColdFront is currently
@@ -219,20 +213,19 @@ class Command(BaseCommand):
         def get_outages_for_service(resource_name: str):
             """Get outages for a service from nerc-rates.
 
-            :param resource_name: Name of the resource to get outages for.
+            :param cluster_name: Name of the cluster to get outages for.
             :return: List of excluded intervals or None.
             """
-            service_name = RESOURCE_NAME_TO_NERC_SERVICE.get(resource_name)
-            if service_name:
-                return utils.load_outages_from_nerc_rates(
-                    options["start"], options["end"], service_name
-                )
-            return None
+            return utils.load_outages_from_nerc_rates(
+                options["start"], options["end"], cluster_name
+            )
 
         def process_invoice_row(allocation, attrs, su_name, rate):
             """Calculate the value and write the bill using the writer."""
-            resource_name = allocation.resources.first().name
-            excluded_intervals_list = get_outages_for_service(resource_name)
+            internal_cluster_name = allocation.resources.first().get_attribute(
+                attributes.RESOURCE_CLUSTER_NAME
+            )
+            excluded_intervals_list = get_outages_for_service(internal_cluster_name)
 
             time = 0
             for attribute in attrs:
@@ -255,7 +248,7 @@ class Command(BaseCommand):
                         attributes.ALLOCATION_PROJECT_ID
                     ),
                     PI=allocation.project.pi.email,
-                    Cluster_Name=allocation.resources.first().name,
+                    Cluster_Name=internal_cluster_name,
                     Institution_Specific_Code=allocation.get_attribute(
                         attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
                     )
