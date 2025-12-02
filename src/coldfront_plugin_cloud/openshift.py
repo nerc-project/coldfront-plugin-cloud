@@ -40,7 +40,7 @@ LIMITRANGE_DEFAULTS = [
         "type": "Container",
         "default": {"cpu": "1", "memory": "4096Mi", "nvidia.com/gpu": "0"},
         "defaultRequest": {"cpu": "500m", "memory": "2048Mi", "nvidia.com/gpu": "0"},
-        "min": {"cpu": "25m", "memory": "32Mi"},
+        "min": {"cpu": "1m", "memory": "1Ki"},
     }
 ]
 

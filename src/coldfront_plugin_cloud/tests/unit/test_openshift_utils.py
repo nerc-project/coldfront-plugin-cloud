@@ -61,5 +61,5 @@ class TestOpenShiftUtils(base.TestBase):
         self.assertTrue(openshift.LimitRangeDifference("foo", None, "bar") in diffs)
         self.assertTrue(openshift.LimitRangeDifference("default,cpu", 1, 2) in diffs)
         self.assertTrue(
-            openshift.LimitRangeDifference("min,memory", 32 * 2**20, None) in diffs
+            openshift.LimitRangeDifference("min,memory", 1 * 2**10, None) in diffs
         )
