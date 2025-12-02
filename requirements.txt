@@ -1,4 +1,4 @@
-git+https://github.com/CCI-MOC/nerc-rates@5569bba#egg=nerc_rates
+git+https://github.com/CCI-MOC/nerc-rates@v1.0.0#egg=nerc_rates
 boto3
 kubernetes
 openshift
