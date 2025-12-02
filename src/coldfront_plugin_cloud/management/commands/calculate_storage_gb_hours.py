@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal, ROUND_HALF_UP
 import dataclasses
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 
@@ -44,6 +44,8 @@ def get_rates():
 @dataclasses.dataclass
 class InvoiceRow:
     InvoiceMonth: str = ""
+    Report_Start_Time: str = ""
+    Report_End_Time: str = ""
     Project_Name: str = ""
     Project_ID: str = ""
     PI: str = ""
@@ -56,12 +58,15 @@ class InvoiceRow:
     Invoice_Type: str = ""
     Rate: Decimal = 0
     Cost: Decimal = 0
+    Generated_At: str = ""
 
     @classmethod
     def get_headers(cls):
         """Returns all headers for display."""
         return [
             "Invoice Month",
+            "Report Start Time",
+            "Report End Time",
             "Project - Allocation",
             "Project - Allocation ID",
             "Manager (PI)",
@@ -74,6 +79,7 @@ class InvoiceRow:
             "SU Type",
             "Rate",
             "Cost",
+            "Generated At",
         ]
 
     def get_value(self, field: str):
@@ -162,7 +168,7 @@ class Command(BaseCommand):
         return pytz.utc.localize(d)
 
     @staticmethod
-    def upload_to_s3(s3_endpoint, s3_bucket, file_location, invoice_month):
+    def upload_to_s3(s3_endpoint, s3_bucket, file_location, invoice_month, end_time):
         s3_key_id = os.getenv("S3_INVOICING_ACCESS_KEY_ID")
         s3_secret = os.getenv("S3_INVOICING_SECRET_ACCESS_KEY")
 
@@ -188,7 +194,18 @@ class Command(BaseCommand):
         s3.upload_file(file_location, Bucket=s3_bucket, Key=primary_location)
         logger.info(f"Uploaded to {primary_location}.")
 
-        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        # Upload daily copy
+        # End time is exclusive, subtract one second to find the inclusive end date
+        invoice_date = end_time - timedelta(seconds=1)
+        invoice_date = invoice_date.strftime("%Y-%m-%d")
+        daily_location = (
+            f"Invoices/{invoice_month}/Service Invoices/NERC Storage {invoice_date}.csv"
+        )
+        s3.upload_file(file_location, Bucket=s3_bucket, Key=daily_location)
+        logger.info(f"Uploaded to {daily_location}.")
+
+        # Archival copy
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         secondary_location = (
             f"Invoices/{invoice_month}/"
             f"Archive/NERC Storage {invoice_month} {timestamp}.csv"
@@ -197,6 +214,8 @@ class Command(BaseCommand):
         logger.info(f"Uploaded to {secondary_location}.")
 
     def handle(self, *args, **options):
+        generated_at = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+
         def get_outages_for_service(resource_name: str):
             """Get outages for a service from nerc-rates.
 
@@ -227,6 +246,8 @@ class Command(BaseCommand):
             if time > 0:
                 row = InvoiceRow(
                     InvoiceMonth=options["invoice_month"],
+                    Report_Start_Time=options["start"].isoformat(),
+                    Report_End_Time=options["end"].isoformat(),
                     Project_Name=allocation.get_attribute(
                         attributes.ALLOCATION_PROJECT_NAME
                     ),
@@ -243,6 +264,7 @@ class Command(BaseCommand):
                     Invoice_Type=su_name,
                     Rate=rate,
                     Cost=(time * rate).quantize(Decimal(".01"), rounding=ROUND_HALF_UP),
+                    Generated_At=generated_at,
                 )
                 csv_invoice_writer.writerow(row.get_values())
 
@@ -338,4 +360,5 @@ class Command(BaseCommand):
                 options["s3_bucket_name"],
                 options["output"],
                 options["invoice_month"],
+                options["end"],
             )
