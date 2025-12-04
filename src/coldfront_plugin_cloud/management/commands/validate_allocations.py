@@ -15,7 +15,7 @@ from coldfront.core.allocation.models import (
 )
 from keystoneauth1.exceptions import http
 
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STATES_TO_VALIDATE = ["Active", "Active (Needs Renewal)"]
@@ -43,7 +43,7 @@ class Command(BaseCommand):
         for coldfront_user in coldfront_users:
             if coldfront_user.user.username not in allocation_users:
                 failed_validation = True
-                logger.warn(
+                logger.warning(
                     f"{coldfront_user.user.username} is not part of {project_id}"
                 )
                 if apply:
@@ -56,7 +56,7 @@ class Command(BaseCommand):
         for allocation_user in allocation_users:
             if allocation_user not in users:
                 failed_validation = True
-                logger.warn(
+                logger.warning(
                     f"{allocation_user} exists in the resource {project_id} but not in coldfront"
                 )
                 if apply:
@@ -97,10 +97,10 @@ class Command(BaseCommand):
         if not isc:
             alloc_str = f'{allocation.pk} of project "{allocation.project.title}"'
             msg = f'Attribute "{attr}" missing on allocation {alloc_str}'
-            logger.warn(msg)
+            logger.warning(msg)
             if apply:
                 utils.set_attribute_on_allocation(allocation, attr, "N/A")
-                logger.warn(f'Attribute "{attr}" added to allocation {alloc_str}')
+                logger.warning(f'Attribute "{attr}" added to allocation {alloc_str}')
 
     def handle(self, *args, **options):
         # Deal with Openstack and ESI resources
