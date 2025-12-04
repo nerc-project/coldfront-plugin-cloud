@@ -37,7 +37,7 @@ class TestAllocation(base.TestBase):
             allocation.get_attribute(attributes.ALLOCATION_PROJECT_NAME)
         )
 
-        allocator._get_project(project_id)
+        allocator.get_project(project_id)
 
         # Check default limit ranges
         limit_ranges = allocator._openshift_get_limits(project_id)
@@ -62,7 +62,7 @@ class TestAllocation(base.TestBase):
         # Deleting a project is not instantaneous on OpenShift
         time.sleep(10)
         with self.assertRaises(kexc.NotFoundError):
-            allocator._get_project(project_id)
+            allocator.get_project(project_id)
 
     def test_add_remove_user(self):
         user = self.new_user()
