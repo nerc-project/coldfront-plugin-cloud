@@ -63,3 +63,25 @@ class TestUsageModels(base.TestBase):
         # Invalid month format should raise ValidationError
         with self.assertRaises(ValidationError):
             usage_models.PreviousChargesDict(root={"2025-11-01": {"su": 1.0}})
+
+    def test_get_month_from_date(self):
+        self.assertEqual(
+            usage_models.get_invoice_month_from_date("2025-11-30"), "2025-11"
+        )
+        self.assertEqual(
+            usage_models.get_invoice_month_from_date("2025-07-30"), "2025-07"
+        )
+
+    def test_is_same_month(self):
+        self.assertTrue(usage_models.is_date_same_month("2025-01-01", "2025-01-15"))
+        self.assertFalse(usage_models.is_date_same_month("2025-01-01", "2025-02-15"))
+
+    def test_merge_models(self):
+        ui1 = usage_models.UsageInfo({"OpenStack CPU": "100.00"})
+        ui2 = usage_models.UsageInfo({"OpenStack NESE Storage": "35.00"})
+        ui_merged = usage_models.merge_models(ui1, ui2)
+
+        self.assertEqual(
+            ui_merged.model_dump(mode="json"),
+            {"OpenStack CPU": "100.00", "OpenStack NESE Storage": "35.00"},
+        )
