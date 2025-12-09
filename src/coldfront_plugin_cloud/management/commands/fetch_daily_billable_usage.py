@@ -30,7 +30,7 @@ RESOURCES_DAILY_ENABLED = ["NERC-OCP", "NERC-EDU", "NERC"]
 RESOURCE_NAME_TO_FILE = {
     "NERC": "NERC OpenStack",
     "NERC-OCP": "ocp-prod",
-    "NERC-EDU": "ocp-academic",
+    "NERC-OCP-EDU": "academic",
 }
 STORAGE_FILE = "NERC Storage"
 ALLOCATION_STATES_TO_PROCESS = ["Active", "Active (Needs Renewal)"]
