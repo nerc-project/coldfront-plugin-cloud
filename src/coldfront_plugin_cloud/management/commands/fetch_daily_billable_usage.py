@@ -212,10 +212,10 @@ class Command(BaseCommand):
             return self.load_csv(download_location)
 
     def get_allocation_usage(
-        self, prefix: str, date_str: str, allocation_id
+        self, resource: str, date_str: str, allocation_id
     ) -> UsageInfo:
         """Loads the service invoice and parse UsageInfo for a specific allocation."""
-        invoice = self.load_service_invoice(prefix, date_str)
+        invoice = self.load_service_invoice(resource, date_str)
 
         try:
             df = invoice.get_group(allocation_id)[
