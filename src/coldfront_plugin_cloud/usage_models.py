@@ -83,7 +83,7 @@ class CumulativeChargesDict(ChargesDict[DateField]):
     def total_charges(self) -> Decimal:
         total = Decimal("0.00")
         if most_recent_charges := self.root.get(self.most_recent_date):
-            total = most_recent_charges.total_charges()
+            total = most_recent_charges.total_charges
         return total
 
 
