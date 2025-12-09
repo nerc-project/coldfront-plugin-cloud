@@ -16,12 +16,44 @@ def validate_month_str(v: str) -> str:
     return v
 
 
+def get_invoice_month_from_date(date_str: str) -> str:
+    return datetime.datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m")
+
+
+def is_date_same_month(date1_str: str, date2_str: str) -> bool:
+    """Compares that two dates are within the same month."""
+    return get_invoice_month_from_date(date1_str) == get_invoice_month_from_date(
+        date2_str
+    )
+
+
+def to_dict(model):
+    """Exports the pydantic model to dictionary format.
+
+    The JSON mode argument ensures Decimals are converted to strings."""
+
+    return model.model_dump(mode="json")
+
+
+def merge_models(model1, model2):
+    """Merges two instances of the same pydantic model."""
+    if type(model1) is type(model2):
+        return model1.__class__(to_dict(model1) | to_dict(model2))
+    else:
+        raise ValueError("Different types of models can't be merged.")
+
+
 DateField = Annotated[str, pydantic.AfterValidator(validate_date_str)]
 MonthField = Annotated[str, pydantic.AfterValidator(validate_month_str)]
 
 
 class UsageInfo(pydantic.RootModel[dict[str, Decimal]]):
-    pass
+    @functools.cached_property
+    def total_charges(self) -> Decimal:
+        total = Decimal("0.00")
+        for su_charge in self.root.values():
+            total += su_charge
+        return total
 
 
 T = TypeVar("T", bound=str)
@@ -41,9 +73,7 @@ class CumulativeChargesDict(ChargesDict[DateField]):
         if self.root:
             months = set()
             for date_str in self.root.keys():
-                months.add(
-                    datetime.datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m")
-                )
+                months.add(get_invoice_month_from_date(date_str))
 
             if len(months) != 1:
                 raise ValueError("All dates must be within the same month")
@@ -53,8 +83,7 @@ class CumulativeChargesDict(ChargesDict[DateField]):
     def total_charges(self) -> Decimal:
         total = Decimal("0.00")
         if most_recent_charges := self.root.get(self.most_recent_date):
-            for su_charge in most_recent_charges.root.values():
-                total += su_charge
+            total = most_recent_charges.total_charges
         return total
 
 

@@ -3,6 +3,8 @@ boto3
 kubernetes
 openshift
 coldfront >= 1.1.0
+pandas
+pyarrow
 pydantic
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
