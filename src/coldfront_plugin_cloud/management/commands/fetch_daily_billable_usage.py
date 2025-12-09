@@ -54,7 +54,7 @@ EMAIL_TEMPLATE = """Dear New England Research Cloud user,
 Your {resource.name} {resource.type} Allocation in project {allocation.project.title} has reached your preset Alert value.
 
 - As of midnight last night, your Allocation reached or exceeded your preset Alert value of {alert_value}.
-- To view your Allocation information visit {CENTER_BASE_URL}/allocations/{allocation.id}
+- To view your Allocation information visit {url}/allocation/{allocation.id}
 
 Thank you,
 New England Research Cloud (NERC)
@@ -281,7 +281,10 @@ class Command(BaseCommand):
         mail.send_mail(
             subject="Allocation Usage Alert",
             message=EMAIL_TEMPLATE.format(
-                allocation=allocation, resource=resource, alert_value=alert_value
+                allocation=allocation,
+                resource=resource,
+                alert_value=alert_value,
+                url=CENTER_BASE_URL,
             ),
             from_email=EMAIL_SENDER,
             recipient_list=[allocation.project.pi.email],
