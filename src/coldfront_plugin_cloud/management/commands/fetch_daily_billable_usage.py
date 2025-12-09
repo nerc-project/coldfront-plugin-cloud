@@ -46,6 +46,7 @@ S3_ENDPOINT = os.getenv(
 )
 S3_BUCKET = os.getenv("S3_INVOICING_BUCKET", "nerc-invoicing")
 
+CENTER_BASE_URL = import_from_settings("CENTER_BASE_URL")
 EMAIL_SENDER = import_from_settings("EMAIL_SENDER")
 EMAIL_ENABLED = import_from_settings("EMAIL_ENABLED")
 EMAIL_TEMPLATE = """Dear New England Research Cloud user,
@@ -53,7 +54,7 @@ EMAIL_TEMPLATE = """Dear New England Research Cloud user,
 Your {resource.name} {resource.type} Allocation in project {allocation.project.title} has reached your preset Alert value.
 
 - As of midnight last night, your Allocation reached or exceeded your preset Alert value of {alert_value}.
-- To view your Allocation information visit {url}
+- To view your Allocation information visit {CENTER_BASE_URL}/allocations/{allocation.id}
 
 Thank you,
 New England Research Cloud (NERC)
@@ -276,7 +277,7 @@ class Command(BaseCommand):
                     )
 
     @staticmethod
-    def send_alert_email(allocation, resource, alert_value):
+    def send_alert_email(allocation: Allocation, resource: Resource, alert_value):
         mail.send_mail(
             subject="Allocation Usage Alert",
             message=EMAIL_TEMPLATE.format(
