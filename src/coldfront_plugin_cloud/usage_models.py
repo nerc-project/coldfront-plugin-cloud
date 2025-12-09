@@ -37,7 +37,7 @@ def to_dict(model):
 
 def merge_models(model1, model2):
     """Merges two instances of the same pydantic model."""
-    if model1.__class__.__name__ == model2.__class__.__name__:
+    if type(model1) is type(model2):
         return model1.__class__(to_dict(model1) | to_dict(model2))
     else:
         raise ValueError("Different types of models can't be merged.")

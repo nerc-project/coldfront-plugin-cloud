@@ -16,7 +16,7 @@ from coldfront_plugin_cloud import utils
 import boto3
 from django.core.management.base import BaseCommand
 from coldfront.core.resource.models import Resource
-from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
+from coldfront.core.allocation.models import Allocation
 from coldfront.core.utils import mail
 import pandas
 import pyarrow
@@ -113,10 +113,10 @@ class Command(BaseCommand):
                 cluster_usage = self.get_allocation_usage(
                     resource.name, date, allocation_project_id
                 )
-                service_usage = self.get_allocation_usage(
+                storage_usage = self.get_allocation_usage(
                     STORAGE_FILE, date, allocation_project_id
                 )
-                new_usage = usage_models.merge_models(cluster_usage, service_usage)
+                new_usage = usage_models.merge_models(cluster_usage, storage_usage)
             except Exception as e:
                 logger.error(
                     f"Unable to get daily billable usage from {resource.name}, skipping {allocation_project_id}: {e}"
@@ -141,16 +141,10 @@ class Command(BaseCommand):
     @staticmethod
     def get_allocations_for_daily_billing():
         """Fetches all allocations of the production resources that are in the two Active states."""
-        resources = Resource.objects.filter(
-            name__in=RESOURCES_DAILY_ENABLED,
+        return Allocation.objects.filter(
+            resources__name__in=RESOURCES_DAILY_ENABLED,
+            status__name__in=ALLOCATION_STATES_TO_PROCESS,
         )
-        allocations = Allocation.objects.filter(
-            resources__in=resources,
-            status__in=AllocationStatusChoice.objects.filter(
-                name__in=ALLOCATION_STATES_TO_PROCESS
-            ),
-        )
-        return allocations
 
     @staticmethod
     def set_total_on_attribute(allocation, total_by_date: TotalByDate):
@@ -164,14 +158,19 @@ class Command(BaseCommand):
     def get_total_from_attribute(allocation: Allocation) -> Optional[TotalByDate]:
         """Load the total and date from the allocation attribute.
 
-        The format if <YYYY-MM-DD>: <Total> USD"""
-
+        The format is <YYYY-MM-DD>: <Total> USD"""
         total = allocation.get_attribute(attributes.ALLOCATION_CUMULATIVE_CHARGES)
         if not total:
             return None
 
-        date, total = total.rstrip(" USD").split(": ")
-        return TotalByDate(date=date, total=Decimal(total))
+        try:
+            date, total = total.rstrip(" USD").split(": ")
+            return TotalByDate(date=date, total=Decimal(total))
+        except ValueError as e:
+            logger.warning(
+                f"Unable to parse total from attribute for allocation {allocation.id}: {e}"
+            )
+            return None
 
     @functools.cached_property
     def s3_client(self):

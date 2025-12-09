@@ -85,3 +85,11 @@ class TestUsageModels(base.TestBase):
             ui_merged.model_dump(mode="json"),
             {"OpenStack CPU": "100.00", "OpenStack NESE Storage": "35.00"},
         )
+
+    def test_merge_models_different_types_fails(self):
+        ui1 = usage_models.UsageInfo({"OpenStack CPU": "100.00"})
+        cc1 = usage_models.CumulativeChargesDict(
+            {"2025-11-01": {"OpenStack CPU": "100.00"}}
+        )
+
+        self.assertRaises(ValueError, usage_models.merge_models, ui1, cc1)
