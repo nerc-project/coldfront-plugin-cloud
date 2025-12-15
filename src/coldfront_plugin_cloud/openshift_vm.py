@@ -8,7 +8,12 @@ class OpenShiftVMResourceAllocator(openshift.OpenShiftResourceAllocator):
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {
             "limits.ephemeral-storage": f"{x}Gi"
         },
-        attributes.QUOTA_REQUESTS_STORAGE: lambda x: {"requests.storage": f"{x}Gi"},
+        attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
+            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
+        },
+        attributes.QUOTA_REQUESTS_IBM_STORAGE: lambda x: {
+            "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
+        },
         attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: lambda x: {
             "requests.nvidia.com/A100_SXM4_40GB": f"{x}"
         },

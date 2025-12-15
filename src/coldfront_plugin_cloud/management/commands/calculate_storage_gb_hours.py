@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal, ROUND_HALF_UP
 import dataclasses
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 
@@ -38,9 +38,12 @@ def get_rates():
 @dataclasses.dataclass
 class InvoiceRow:
     InvoiceMonth: str = ""
+    Report_Start_Time: str = ""
+    Report_End_Time: str = ""
     Project_Name: str = ""
     Project_ID: str = ""
     PI: str = ""
+    Cluster_Name: str = ""
     Invoice_Email: str = ""
     Invoice_Address: str = ""
     Institution: str = ""
@@ -49,15 +52,19 @@ class InvoiceRow:
     Invoice_Type: str = ""
     Rate: Decimal = 0
     Cost: Decimal = 0
+    Generated_At: str = ""
 
     @classmethod
     def get_headers(cls):
         """Returns all headers for display."""
         return [
             "Invoice Month",
+            "Report Start Time",
+            "Report End Time",
             "Project - Allocation",
             "Project - Allocation ID",
             "Manager (PI)",
+            "Cluster Name",
             "Invoice Email",
             "Invoice Address",
             "Institution",
@@ -66,6 +73,7 @@ class InvoiceRow:
             "SU Type",
             "Rate",
             "Cost",
+            "Generated At",
         ]
 
     def get_value(self, field: str):
@@ -111,16 +119,22 @@ class Command(BaseCommand):
             help="CSV file to write invoices to.",
         )
         parser.add_argument(
-            "--openstack-gb-rate",
+            "--openstack-nese-gb-rate",
             type=Decimal,
             required=False,
-            help="Rate for OpenStack Volume and Object GB/hour.",
+            help="Rate for OpenStack NESE Volume and Object GB/hour.",
         )
         parser.add_argument(
-            "--openshift-gb-rate",
+            "--openshift-nese-gb-rate",
             type=Decimal,
             required=False,
-            help="Rate for OpenShift GB/hour.",
+            help="Rate for OpenShift NESE Storage GB/hour.",
+        )
+        parser.add_argument(
+            "--openshift-ibm-gb-rate",
+            type=Decimal,
+            required=False,
+            help="Rate for OpenShift IBM Storage Scale GB/hour.",
         )
         parser.add_argument(
             "--s3-endpoint-url",
@@ -134,28 +148,21 @@ class Command(BaseCommand):
             action="store_true",
             help="Upload generated CSV invoice to S3 storage.",
         )
-        parser.add_argument(
-            "--excluded-time-ranges",
-            type=str,
-            default=None,
-            nargs="+",
-            help="List of time ranges excluded from billing, in ISO format.",
-        )
 
     @staticmethod
     def default_start_argument():
-        d = (datetime.today() - timedelta(days=1)).replace(day=1)
+        d = (datetime.now() - timedelta(days=1)).replace(day=1)
         d = d.replace(hour=0, minute=0, second=0, microsecond=0)
-        return d
+        return pytz.utc.localize(d)
 
     @staticmethod
     def default_end_argument():
-        d = datetime.today()
+        d = datetime.now()
         d = d.replace(hour=0, minute=0, second=0, microsecond=0)
-        return d
+        return pytz.utc.localize(d)
 
     @staticmethod
-    def upload_to_s3(s3_endpoint, s3_bucket, file_location, invoice_month):
+    def upload_to_s3(s3_endpoint, s3_bucket, file_location, invoice_month, end_time):
         s3_key_id = os.getenv("S3_INVOICING_ACCESS_KEY_ID")
         s3_secret = os.getenv("S3_INVOICING_SECRET_ACCESS_KEY")
 
@@ -181,7 +188,18 @@ class Command(BaseCommand):
         s3.upload_file(file_location, Bucket=s3_bucket, Key=primary_location)
         logger.info(f"Uploaded to {primary_location}.")
 
-        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        # Upload daily copy
+        # End time is exclusive, subtract one second to find the inclusive end date
+        invoice_date = end_time - timedelta(seconds=1)
+        invoice_date = invoice_date.strftime("%Y-%m-%d")
+        daily_location = (
+            f"Invoices/{invoice_month}/Service Invoices/NERC Storage {invoice_date}.csv"
+        )
+        s3.upload_file(file_location, Bucket=s3_bucket, Key=daily_location)
+        logger.info(f"Uploaded to {daily_location}.")
+
+        # Archival copy
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         secondary_location = (
             f"Invoices/{invoice_month}/"
             f"Archive/NERC Storage {invoice_month} {timestamp}.csv"
@@ -190,8 +208,25 @@ class Command(BaseCommand):
         logger.info(f"Uploaded to {secondary_location}.")
 
     def handle(self, *args, **options):
+        generated_at = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+
+        def get_outages_for_service(cluster_name: str):
+            """Get outages for a service from nerc-rates.
+
+            :param cluster_name: Name of the cluster to get outages for.
+            :return: List of excluded intervals or None.
+            """
+            return utils.load_outages_from_nerc_rates(
+                options["start"], options["end"], cluster_name
+            )
+
         def process_invoice_row(allocation, attrs, su_name, rate):
             """Calculate the value and write the bill using the writer."""
+            internal_cluster_name = allocation.resources.first().get_attribute(
+                attributes.RESOURCE_CLUSTER_NAME
+            )
+            excluded_intervals_list = get_outages_for_service(internal_cluster_name)
+
             time = 0
             for attribute in attrs:
                 time += utils.calculate_quota_unit_hours(
@@ -204,6 +239,8 @@ class Command(BaseCommand):
             if time > 0:
                 row = InvoiceRow(
                     InvoiceMonth=options["invoice_month"],
+                    Report_Start_Time=options["start"].isoformat(),
+                    Report_End_Time=options["end"].isoformat(),
                     Project_Name=allocation.get_attribute(
                         attributes.ALLOCATION_PROJECT_NAME
                     ),
@@ -211,6 +248,7 @@ class Command(BaseCommand):
                         attributes.ALLOCATION_PROJECT_ID
                     ),
                     PI=allocation.project.pi.email,
+                    Cluster_Name=internal_cluster_name,
                     Institution_Specific_Code=allocation.get_attribute(
                         attributes.ALLOCATION_INSTITUTION_SPECIFIC_CODE
                     )
@@ -219,18 +257,12 @@ class Command(BaseCommand):
                     Invoice_Type=su_name,
                     Rate=rate,
                     Cost=(time * rate).quantize(Decimal(".01"), rounding=ROUND_HALF_UP),
+                    Generated_At=generated_at,
                 )
                 csv_invoice_writer.writerow(row.get_values())
 
         logger.info(f"Processing invoices for {options['invoice_month']}.")
         logger.info(f"Interval {options['start'] - options['end']}.")
-
-        if options["excluded_time_ranges"]:
-            excluded_intervals_list = utils.load_excluded_intervals(
-                options["excluded_time_ranges"]
-            )
-        else:
-            excluded_intervals_list = None
 
         openstack_resources = Resource.objects.filter(
             resource_type=ResourceType.objects.get(name="OpenStack")
@@ -245,23 +277,30 @@ class Command(BaseCommand):
             resources__in=openshift_resources
         )
 
-        if options["openstack_gb_rate"]:
-            openstack_storage_rate = options["openstack_gb_rate"]
+        if options["openstack_nese_gb_rate"]:
+            openstack_nese_storage_rate = options["openstack_nese_gb_rate"]
         else:
-            openstack_storage_rate = get_rates().get_value_at(
-                "Storage GB Rate", options["invoice_month"], Decimal
+            openstack_nese_storage_rate = get_rates().get_value_at(
+                "NESE Storage GB Rate", options["invoice_month"], Decimal
             )
 
-        if options["openshift_gb_rate"]:
-            openshift_storage_rate = options["openshift_gb_rate"]
+        if options["openshift_nese_gb_rate"]:
+            openshift_nese_storage_rate = options["openshift_nese_gb_rate"]
         else:
-            openshift_storage_rate = get_rates().get_value_at(
-                "Storage GB Rate", options["invoice_month"], Decimal
+            openshift_nese_storage_rate = get_rates().get_value_at(
+                "NESE Storage GB Rate", options["invoice_month"], Decimal
+            )
+
+        if options["openshift_ibm_gb_rate"]:
+            openshift_ibm_storage_rate = options["openshift_ibm_gb_rate"]
+        else:
+            openshift_ibm_storage_rate = get_rates().get_value_at(
+                "IBM Spectrum Scale Storage GB Rate", options["invoice_month"], Decimal
             )
 
         logger.info(
-            f"Using storage rate {openstack_storage_rate} (Openstack) and "
-            f"{openshift_storage_rate} (Openshift) for {options['invoice_month']}"
+            f"Using storage rate {openstack_nese_storage_rate} (Openstack NESE), {openshift_nese_storage_rate} (Openshift NESE), and "
+            f"{openshift_ibm_storage_rate} (Openshift IBM Scale) for {options['invoice_month']}"
         )
 
         logger.info(f"Writing to {options['output']}.")
@@ -269,45 +308,50 @@ class Command(BaseCommand):
             csv_invoice_writer = csv.writer(
                 f, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
             )
-            # Write Headers
             csv_invoice_writer.writerow(InvoiceRow.get_headers())
 
             for allocation in openstack_allocations:
                 allocation_str = (
                     f'{allocation.pk} of project "{allocation.project.title}"'
                 )
-                msg = f"Starting billing for allocation {allocation_str}."
-                logger.debug(msg)
+                logger.debug(f"Starting billing for allocation {allocation_str}.")
 
                 process_invoice_row(
                     allocation,
                     [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
                     "OpenStack Storage",
-                    openstack_storage_rate,
+                    openstack_nese_storage_rate,
                 )
 
             for allocation in openshift_allocations:
                 allocation_str = (
                     f'{allocation.pk} of project "{allocation.project.title}"'
                 )
-                msg = f"Starting billing for allocation {allocation_str}."
-                logger.debug(msg)
+                logger.debug(f"Starting billing for allocation {allocation_str}.")
 
                 process_invoice_row(
                     allocation,
                     [
                         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
-                        attributes.QUOTA_REQUESTS_STORAGE,
+                        attributes.QUOTA_REQUESTS_NESE_STORAGE,
                     ],
-                    "OpenShift Storage",
-                    openshift_storage_rate,
+                    "OpenShift NESE Storage",
+                    openshift_nese_storage_rate,
+                )
+
+                process_invoice_row(
+                    allocation,
+                    [attributes.QUOTA_REQUESTS_IBM_STORAGE],
+                    "OpenShift IBM Scale Storage",
+                    openshift_ibm_storage_rate,
                 )
 
         if options["upload_to_s3"]:
             logger.info(f"Uploading to S3 endpoint {options['s3_endpoint_url']}.")
             self.upload_to_s3(
                 options["s3_endpoint_url"],
-                options["s3_bucket"],
+                options["s3_bucket_name"],
                 options["output"],
                 options["invoice_month"],
+                options["end"],
             )

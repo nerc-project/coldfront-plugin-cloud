@@ -7,6 +7,7 @@ from coldfront.core.resource import models as resource_models
 
 from coldfront_plugin_cloud import attributes
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +23,10 @@ ALLOCATION_ATTRIBUTE_MIGRATIONS = [
     ("OpenStack Project ID", {"name": "Allocated Project ID"}),
     ("OpenStack Project Name", {"name": "Allocated Project Name"}),
     ("OpenShift Limit on RAM Quota", {"name": "OpenShift Limit on RAM Quota (MB)"}),
+    (
+        "OpenShift Request on Storage Quota (GiB)",
+        {"name": "OpenShift Request on NESE Storage Quota (GiB)"},
+    ),
     ("OpenStack Volume Quota", {"name": "OpenStack Number of Volumes Quota"}),
     ("OpenStack Compute RAM Quota", {"name": "OpenStack Compute RAM Quota (MiB)"}),
     ("OpenStack Volume GB Quota", {"name": "OpenStack Volume Quota (GiB)"}),

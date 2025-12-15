@@ -141,6 +141,9 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             preauthurl=preauth_url,
         )
 
+    def set_project_configuration(self, project_id, dry_run=False):
+        pass
+
     def create_project(self, suggested_project_name) -> base.ResourceAllocator.Project:
         project_name = utils.get_unique_project_name(
             suggested_project_name, max_length=self.project_name_max_length

@@ -1,10 +1,14 @@
-git+https://github.com/CCI-MOC/nerc-rates@33701ed#egg=nerc_rates
-boto3
+git+https://github.com/CCI-MOC/nerc-rates@v1.0.0#egg=nerc_rates
+boto3>=1.42.6,<2.0
 kubernetes
 openshift
 coldfront >= 1.1.0
+pandas
+pyarrow
+pydantic
 python-cinderclient  # TODO: Set version for OpenStack Clients
 python-keystoneclient
 python-novaclient
 python-neutronclient
 python-swiftclient
+pytz

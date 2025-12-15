@@ -7,27 +7,34 @@ from coldfront.core.resource.models import (
     ResourceType,
 )
 
-from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud import attributes, openshift
 
 
 class Command(BaseCommand):
     help = "Create OpenShift resource"
+
+    @staticmethod
+    def validate_role(role):
+        if role not in openshift.OPENSHIFT_ROLES:
+            raise ValueError(
+                f"Invalid role, {role} is not one of {', '.join(openshift.OPENSHIFT_ROLES)}"
+            )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--name", type=str, required=True, help="Name of OpenShift resource"
         )
         parser.add_argument(
-            "--auth-url",
+            "--internal-name",
             type=str,
-            required=True,
-            help="URL of the openshift-acct-mgt endpoint",
+            required=False,
+            help="Internal name of cluster used for invoicing. Defaults to public name",
         )
         parser.add_argument(
             "--api-url",
             type=str,
             required=True,
-            help="API URL of the openshift cluster",
+            help="API URL of the OpenShift cluster",
         )
         parser.add_argument(
             "--idp", type=str, required=True, help="Name of Openshift identity provider"
@@ -41,10 +48,17 @@ class Command(BaseCommand):
         parser.add_argument(
             "--for-virtualization",
             action="store_true",
-            help="Indicates this is an Openshift Virtualization resource (default: False)",
+            help="Indicates this is an OpenShift Virtualization resource (default: False)",
+        )
+        parser.add_argument(
+            "--ibm-storage-available",
+            action="store_true",
+            help="Indicates that Ibm Scale storage is available in this resource (default: False)",
         )
 
     def handle(self, *args, **options):
+        self.validate_role(options["role"])
+
         if options["for_virtualization"]:
             resource_description = "OpenShift Virtualization environment"
             resource_type = "OpenShift Virtualization"
@@ -62,13 +76,6 @@ class Command(BaseCommand):
             is_allocatable=True,
         )
 
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name=attributes.RESOURCE_AUTH_URL
-            ),
-            resource=openshift,
-            value=options["auth_url"],
-        )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name=attributes.RESOURCE_API_URL
@@ -89,4 +96,21 @@ class Command(BaseCommand):
             ),
             resource=openshift,
             value=options["role"],
+        )
+
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_IBM_AVAILABLE
+            ),
+            resource=openshift,
+            value="true" if options["ibm_storage_available"] else "false",
+        )
+        ResourceAttribute.objects.get_or_create(
+            resource_attribute_type=ResourceAttributeType.objects.get(
+                name=attributes.RESOURCE_CLUSTER_NAME
+            ),
+            resource=openshift,
+            value=options["internal_name"]
+            if options["internal_name"]
+            else options["name"],
         )

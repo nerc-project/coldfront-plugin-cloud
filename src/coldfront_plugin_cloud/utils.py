@@ -1,4 +1,5 @@
 import datetime
+import functools
 import math
 import pytz
 import re
@@ -14,9 +15,12 @@ from coldfront.core.allocation.models import (
 
 from coldfront_plugin_cloud import attributes
 
+# Load outages data once per program execution
+_OUTAGES_DATA = None
+
 
 def env_safe_name(name):
-    return name.replace(" ", "_").replace("-", "_").upper()
+    return re.sub(r"[^A-Za-z0-9]", "_", str(name)).upper()
 
 
 def set_attribute_on_allocation(allocation, attribute_type, attribute_value):
@@ -191,6 +195,12 @@ def calculate_quota_unit_hours(
 
 
 def load_excluded_intervals(excluded_interval_arglist):
+    """Parse excluded time ranges from command line arguments.
+
+    :param excluded_interval_arglist: List of time range strings in format "start,end".
+    :return: Sorted list of [start, end] datetime tuples.
+    """
+
     def interval_sort_key(e):
         return e[0]
 
@@ -221,6 +231,27 @@ def load_excluded_intervals(excluded_interval_arglist):
     check_overlapping_intervals(excluded_intervals_list)
 
     return excluded_intervals_list
+
+
+@functools.cache
+def load_outages_from_nerc_rates(
+    start: datetime.datetime, end: datetime.datetime, affected_service: str
+) -> list[tuple[datetime.datetime, datetime.datetime]]:
+    """Load outage intervals from nerc-rates for a given time period and service.
+
+    :param start: Start time for outage search.
+    :param end: End time for outage search.
+    :param affected_service: Name of the affected service (e.g., "stack", "ocp-prod").
+    :return: List of [start, end] datetime tuples representing outages.
+    """
+    global _OUTAGES_DATA
+    if _OUTAGES_DATA is None:
+        from nerc_rates import outages
+
+        _OUTAGES_DATA = outages.load_from_url()
+    return _OUTAGES_DATA.get_outages_during(
+        start.isoformat(), end.isoformat(), affected_service
+    )
 
 
 def _clamp_time(time, min_time, max_time):

@@ -34,7 +34,8 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_LIMITS_CPU: 1,
         attributes.QUOTA_LIMITS_MEMORY: 4096,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
-        attributes.QUOTA_REQUESTS_STORAGE: 20,
+        attributes.QUOTA_REQUESTS_NESE_STORAGE: 20,
+        attributes.QUOTA_REQUESTS_IBM_STORAGE: 0,
         attributes.QUOTA_REQUESTS_GPU: 0,
         attributes.QUOTA_PVC: 2,
     },
@@ -42,7 +43,8 @@ UNIT_QUOTA_MULTIPLIERS = {
         attributes.QUOTA_LIMITS_CPU: 1,
         attributes.QUOTA_LIMITS_MEMORY: 4096,
         attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
-        attributes.QUOTA_REQUESTS_STORAGE: 20,
+        attributes.QUOTA_REQUESTS_NESE_STORAGE: 20,
+        attributes.QUOTA_REQUESTS_IBM_STORAGE: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
         attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
@@ -74,7 +76,21 @@ STATIC_QUOTA = {
 def get_expected_attributes(allocator: base.ResourceAllocator):
     """Based on the allocator's resource type, return the expected quotas attributes the allocation should have"""
     resource_name = allocator.resource_type
-    return list(UNIT_QUOTA_MULTIPLIERS[resource_name].keys())
+    resource_expected_quotas = UNIT_QUOTA_MULTIPLIERS[resource_name].copy()
+
+    # If the resource attribute is not set (i.e for OpenStack resources), get_attribute returns None
+    is_ibm_storage_available = allocator.resource.get_attribute(
+        attributes.RESOURCE_IBM_AVAILABLE
+    )
+    is_ibm_storage_available = (
+        is_ibm_storage_available and is_ibm_storage_available.lower() == "true"
+    )
+    if "openshift" in resource_name and not is_ibm_storage_available:
+        resource_expected_quotas.pop(
+            attributes.QUOTA_REQUESTS_IBM_STORAGE, None
+        )  # The resource may or may not already have this attribute
+
+    return list(resource_expected_quotas.keys())
 
 
 def find_allocator(allocation) -> base.ResourceAllocator:

@@ -34,6 +34,9 @@ class TestBase(TestCase):
         call_command("register_cloud_attributes")
         sys.stdout = backup
 
+        # For testing we can validate allocations with this status
+        AllocationStatusChoice.objects.get_or_create(name="Active (Needs Renewal)")
+
     @staticmethod
     def new_user(username=None) -> User:
         username = username or f"{uuid.uuid4().hex}@example.com"
@@ -60,12 +63,15 @@ class TestBase(TestCase):
         return Resource.objects.get(name=resource_name)
 
     @staticmethod
-    def new_openstack_resource(name=None, auth_url=None) -> Resource:
+    def new_openstack_resource(
+        name=None, internal_name=None, auth_url=None
+    ) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             "add_openstack_resource",
             name=resource_name,
+            internal_name=internal_name,
             auth_url=auth_url or f"https://{resource_name}/identity/v3",
             projects_domain="default",
             users_domain="default",
@@ -80,17 +86,21 @@ class TestBase(TestCase):
 
     @staticmethod
     def new_openshift_resource(
-        name=None, auth_url=None, api_url=None, idp=None, for_virtualization=False
+        name=None,
+        api_url=None,
+        idp=None,
+        for_virtualization=False,
+        ibm_storage_available=False,
     ) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             "add_openshift_resource",
             name=resource_name,
-            auth_url=auth_url or "https://onboarding-onboarding.cluster.local",
             api_url=api_url or "https://onboarding-onboarding.cluster.local:6443",
             idp=idp or "developer",
             for_virtualization=for_virtualization,
+            ibm_storage_available=ibm_storage_available,
         )
         return Resource.objects.get(name=resource_name)
 
@@ -111,12 +121,14 @@ class TestBase(TestCase):
         )
         return pu
 
-    def new_allocation(self, project, resource, quantity) -> Allocation:
+    def new_allocation(
+        self, project, resource, quantity, status="Active"
+    ) -> Allocation:
         allocation, _ = Allocation.objects.get_or_create(
             project=project,
             justification="a justification for testing data",
             quantity=quantity,
-            status=AllocationStatusChoice.objects.get(name="Active"),
+            status=AllocationStatusChoice.objects.get(name=status),
         )
         allocation.resources.add(resource)
         return allocation

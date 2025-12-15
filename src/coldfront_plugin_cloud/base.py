@@ -39,6 +39,10 @@ class ResourceAllocator(abc.ABC):
         return self.resource.get_attribute(attributes.RESOURCE_ROLE) or "member"
 
     @abc.abstractmethod
+    def set_project_configuration(self, project_id, dry_run=False):
+        pass
+
+    @abc.abstractmethod
     def create_project(self, suggested_project_name) -> Project:
         pass
 

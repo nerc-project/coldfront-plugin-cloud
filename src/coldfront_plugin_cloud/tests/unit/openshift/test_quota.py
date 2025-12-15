@@ -1,17 +1,9 @@
 from unittest import mock
 
-from coldfront_plugin_cloud.tests import base
-from coldfront_plugin_cloud.openshift import OpenShiftResourceAllocator
+from coldfront_plugin_cloud.tests.unit.openshift import base
 
 
-class TestOpenshiftQuota(base.TestBase):
-    def setUp(self) -> None:
-        mock_resource = mock.Mock()
-        mock_allocation = mock.Mock()
-        self.allocator = OpenShiftResourceAllocator(mock_resource, mock_allocation)
-        self.allocator.id_provider = "fake_idp"
-        self.allocator.k8_client = mock.Mock()
-
+class TestOpenshiftQuota(base.TestUnitOpenshiftBase):
     @mock.patch(
         "coldfront_plugin_cloud.openshift.OpenShiftResourceAllocator._openshift_get_project",
         mock.Mock(),
@@ -43,7 +35,7 @@ class TestOpenshiftQuota(base.TestBase):
     )
     def test_delete_moc_quota(self, fake_get_resourcequotas):
         fake_get_resourcequotas.return_value = [{"metadata": {"name": "fake-quota"}}]
-        self.allocator.delete_moc_quotas("test-project")
+        self.allocator.delete_quotas("test-project")
         self.allocator.k8_client.resources.get.return_value.delete.assert_any_call(
             namespace="test-project", name="fake-quota"
         )

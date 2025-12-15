@@ -1,12 +1,14 @@
 import os
 import time
 import unittest
+from unittest import mock
 import uuid
 
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
 from coldfront_plugin_cloud.tests import base
 
 from django.core.management import call_command
+import kubernetes.dynamic.exceptions as kexc
 
 
 @unittest.skipUnless(os.getenv("FUNCTIONAL_TESTS"), "Functional tests not enabled.")
@@ -15,8 +17,8 @@ class TestAllocation(base.TestBase):
         super().setUp()
         self.resource = self.new_openshift_resource(
             name="Microshift",
-            auth_url=os.getenv("OS_AUTH_URL"),
             api_url=os.getenv("OS_API_URL"),
+            ibm_storage_available=True,
         )
 
     def test_new_allocation(self):
@@ -37,6 +39,13 @@ class TestAllocation(base.TestBase):
 
         allocator._get_project(project_id)
 
+        # Check default limit ranges
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            limit_ranges["items"][0]["metadata"]["name"], f"{project_id}-limits"
+        )
+
         # Check user and roles
         user_info = allocator.get_federated_user(user.username)
         self.assertEqual(user_info, {"username": user.username})
@@ -52,7 +61,7 @@ class TestAllocation(base.TestBase):
 
         # Deleting a project is not instantaneous on OpenShift
         time.sleep(10)
-        with self.assertRaises(openshift.NotFound):
+        with self.assertRaises(kexc.NotFoundError):
             allocator._get_project(project_id)
 
     def test_add_remove_user(self):
@@ -127,7 +136,7 @@ class TestAllocation(base.TestBase):
             2 * 5,
         )
         self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 2 * 20
+            allocation.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE), 2 * 20
         )
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 2 * 0)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 2 * 2)
@@ -141,7 +150,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -156,7 +166,7 @@ class TestAllocation(base.TestBase):
             allocation, attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB, 50
         )
         utils.set_attribute_on_allocation(
-            allocation, attributes.QUOTA_REQUESTS_STORAGE, 100
+            allocation, attributes.QUOTA_REQUESTS_NESE_STORAGE, 100
         )
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_REQUESTS_GPU, 1)
         utils.set_attribute_on_allocation(allocation, attributes.QUOTA_PVC, 10)
@@ -167,7 +177,7 @@ class TestAllocation(base.TestBase):
             allocation.get_attribute(attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB), 50
         )
         self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_REQUESTS_STORAGE), 100
+            allocation.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE), 100
         )
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_REQUESTS_GPU), 1)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_PVC), 10)
@@ -184,7 +194,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "6",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "50Gi",
-                "requests.storage": "100Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "100Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "1",
                 "persistentvolumeclaims": "10",
             },
@@ -213,7 +224,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "2",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -234,7 +246,8 @@ class TestAllocation(base.TestBase):
                 "limits.cpu": "3",
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
-                "requests.storage": "40Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -286,3 +299,306 @@ class TestAllocation(base.TestBase):
         self.assertTrue(
             namespace_dict_labels.items() > openshift.PROJECT_DEFAULT_LABELS.items()
         )
+
+    def test_create_incomplete(self):
+        """Creating a user that only has user, but no identity or mapping should not raise an error."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+        user_def = {
+            "metadata": {"name": user.username},
+            "fullName": user.username,
+        }
+
+        allocator._openshift_create_user(user_def)
+        self.assertTrue(allocator._openshift_user_exists(user.username))
+        self.assertFalse(allocator._openshift_identity_exists(user.username))
+        self.assertFalse(
+            allocator._openshift_useridentitymapping_exists(
+                user.username, user.username
+            )
+        )
+
+        # Now create identity and mapping, no errors should be raised
+        allocator.get_or_create_federated_user(user.username)
+        self.assertTrue(allocator._openshift_user_exists(user.username))
+        self.assertTrue(allocator._openshift_identity_exists(user.username))
+        self.assertTrue(
+            allocator._openshift_useridentitymapping_exists(
+                user.username, user.username
+            )
+        )
+
+    @mock.patch.object(
+        tasks,
+        "UNIT_QUOTA_MULTIPLIERS",
+        {
+            "openshift": {
+                attributes.QUOTA_LIMITS_CPU: 1,
+            }
+        },
+    )
+    def test_allocation_new_attribute(self):
+        """When a new attribute is introduced, but pre-existing allocations don't have it"""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+            },
+        )
+
+        # Add a new attribute for Openshift
+        tasks.UNIT_QUOTA_MULTIPLIERS["openshift"][attributes.QUOTA_LIMITS_MEMORY] = 4096
+
+        call_command("validate_allocations", apply=True)
+        allocation.refresh_from_db()
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+        self.assertEqual(
+            allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096
+        )
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+                "limits.memory": "8Gi",
+            },
+        )
+
+    def test_migrate_quota_field_names(self):
+        """When a quota key in QUOTA_KEY_MAPPING changes to a new value, validate_allocations should update the quota."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+        # Now migrate NESE Storage quota field (ocs-external...) to fake storage quota
+        with unittest.mock.patch.dict(
+            openshift.OpenShiftResourceAllocator.QUOTA_KEY_MAPPING,
+            {
+                attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
+                    "fake-storage.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
+                }
+            },
+        ):
+            call_command("validate_allocations", apply=True)
+
+        # Check the quota after migration
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "fake-storage.storageclass.storage.k8s.io/requests.storage": "20Gi",  # Migrated key
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+    def test_ibm_storage_not_available(self):
+        """If IBM Scale storage is not available, the corresponding quotas should not be set."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+
+        # Set ibm storage as not available
+        self.resource.resourceattribute_set.filter(
+            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
+        ).update(value="false")
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+        # Now set IBM Scale storage as available
+        self.resource.resourceattribute_set.filter(
+            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
+        ).update(value="true")
+
+        call_command("validate_allocations", apply=True)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",  # Newly added IBM key
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+    def test_needs_renewal_allocation(self):
+        """Simple test to validate allocations in `Active (Needs Renewal)` status."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(
+            project, self.resource, 1, "Active (Needs Renewal)"
+        )
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        user2 = self.new_user()
+        self.new_allocation_user(allocation, user2)
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+        assert user2.username not in allocator.get_users(project_id)
+        call_command("validate_allocations", apply=True)
+        assert user2.username in allocator.get_users(project_id)
+
+    def test_limitrange_defaults_update(self):
+        """Test validation if default LimitRange changes, or actual LimitRange is deleted."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        # Check initial limit ranges
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"],
+                openshift.LIMITRANGE_DEFAULTS,
+            ),
+            [],
+        )
+
+        # Change LimitRange defaults
+        new_defaults = [
+            {
+                "type": "Container",
+                "default": {"cpu": "2", "memory": "8192Mi", "nvidia.com/gpu": "1"},
+                "defaultRequest": {
+                    "cpu": "1",
+                    "memory": "4096Mi",
+                    "nvidia.com/gpu": "1",
+                },
+                "min": {"cpu": "100m", "memory": "64Mi"},
+            }
+        ]
+        openshift.LIMITRANGE_DEFAULTS = new_defaults
+
+        call_command("validate_allocations", apply=True)
+
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"], new_defaults
+            ),
+            [],
+        )
+
+        # Delete and re-create limit range using validate_allocations
+        allocator._openshift_delete_limits(project_id)
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 0)
+        call_command("validate_allocations", apply=True)
+        limit_ranges = allocator._openshift_get_limits(project_id)
+        self.assertEqual(len(limit_ranges["items"]), 1)
+        self.assertEqual(
+            openshift.limit_ranges_diff(
+                limit_ranges["items"][0]["spec"]["limits"], new_defaults
+            ),
+            [],
+        )
+
+    def test_preexisting_project(self):
+        """Test allocation activation and validation when the project already exists on OpenShift."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        self.new_allocation_user(allocation, user)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        project_id = allocator.create_project(project.title).id
+
+        self.assertEqual(allocator.get_quota(project_id), {})
+        self.assertEqual(allocator.get_users(project_id), set())
+
+        utils.set_attribute_on_allocation(
+            allocation, attributes.ALLOCATION_PROJECT_ID, project_id
+        )
+        utils.set_attribute_on_allocation(
+            allocation, attributes.ALLOCATION_PROJECT_NAME, project_id
+        )
+        tasks.activate_allocation(allocation.pk)
+        call_command("validate_allocations", apply=True)
+
+        self.assertEqual(
+            allocator.get_quota(project_id),
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+        assert set([user.username]) == allocator.get_users(project_id)
