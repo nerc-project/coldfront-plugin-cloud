@@ -1,4 +1,5 @@
 import io
+from unittest import mock
 
 from unittest.mock import Mock, patch
 
@@ -19,6 +20,18 @@ Project - Allocation ID,SU Type,Cost
 test-allocation-1,OpenStack CPU,100.25
 test-allocation-1,OpenStack V100 GPU,500.37
 test-allocation-2,OpenStack CPU,0.25
+"""
+
+OUTPUT_EMAIL_TEMPLATE = """Dear New England Research Cloud user,
+
+Your FakeProd OpenStack Allocation in project FakeProject has reached your preset Alert value.
+
+- As of midnight last night, your Allocation reached or exceeded your preset Alert value of 100.
+- To view your Allocation information visit http://localhost/allocation/{allocation_id}
+
+Thank you,
+New England Research Cloud (NERC)
+https://nerc.mghpcc.org/
 """
 
 
@@ -108,10 +121,6 @@ class TestFetchDailyBillableUsage(base.TestBase):
         self.assertNotIn(dev_allocation_1, returned_allocation_ids)
 
     @patch(
-        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.EMAIL_ENABLED",
-        True,
-    )
-    @patch(
         "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.RESOURCES_DAILY_ENABLED",
         ["FakeProd"],
     )
@@ -179,7 +188,7 @@ class TestFetchDailyBillableUsage(base.TestBase):
             "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.Command.send_alert_email"
         ) as mock:
             call_command("fetch_daily_billable_usage", date="2025-11-16")
-            mock.assert_called_once_with(allocation_1, fakeprod.name, 200)
+            mock.assert_called_once_with(allocation_1, fakeprod, 200)
             self.assertEqual(
                 allocation_1.get_attribute(attributes.ALLOCATION_CUMULATIVE_CHARGES),
                 "2025-11-16: 225.00 USD",
@@ -192,3 +201,40 @@ class TestFetchDailyBillableUsage(base.TestBase):
             allocation_1.get_attribute(attributes.ALLOCATION_CUMULATIVE_CHARGES),
             "2025-11-16: 225.00 USD",
         )
+
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.CENTER_BASE_URL",
+        "http://localhost",
+    )
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.EMAIL_SENDER",
+        "test@example.com",
+    )
+    def test_send_alert_email(self):
+        fakeprod = self.new_openstack_resource(
+            name="FakeProd", internal_name="FakeProd"
+        )
+        prod_project = self.new_project(title="FakeProject")
+        allocation_1 = self.new_allocation(
+            project=prod_project, resource=fakeprod, quantity=1, status="Active"
+        )
+
+        manager = self.new_user()
+        self.new_project_user(manager, prod_project, role="Manager")
+
+        normal_user = self.new_user()
+        self.new_project_user(normal_user, prod_project, role="User")
+
+        with mock.patch("coldfront.core.utils.mail.send_email") as mock_send_email:
+            Command.send_alert_email(
+                allocation=allocation_1, resource=fakeprod, alert_value=100
+            )
+            mock_send_email.assert_called_once_with(
+                subject="Allocation Usage Alert",
+                body=OUTPUT_EMAIL_TEMPLATE.format(
+                    allocation_id=allocation_1.id,
+                ),
+                sender="test@example.com",
+                receiver_list=[allocation_1.project.pi.email],
+                cc=[manager.email],
+            )
