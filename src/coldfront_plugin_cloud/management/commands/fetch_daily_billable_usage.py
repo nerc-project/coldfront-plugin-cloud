@@ -294,5 +294,9 @@ class Command(BaseCommand):
             ),
             sender=EMAIL_SENDER,
             receiver_list=[allocation.project.pi.email],
-            cc=cls.get_managers(allocation),
+            cc=[
+                x
+                for x in cls.get_managers(allocation)
+                if x != allocation.project.pi.email
+            ],
         )
