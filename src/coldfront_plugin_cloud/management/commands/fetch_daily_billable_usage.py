@@ -48,10 +48,9 @@ S3_BUCKET = os.getenv("S3_INVOICING_BUCKET", "nerc-invoicing")
 
 CENTER_BASE_URL = import_from_settings("CENTER_BASE_URL")
 EMAIL_SENDER = import_from_settings("EMAIL_SENDER")
-EMAIL_ENABLED = import_from_settings("EMAIL_ENABLED")
 EMAIL_TEMPLATE = """Dear New England Research Cloud user,
 
-Your {resource.name} {resource.type} Allocation in project {allocation.project.title} has reached your preset Alert value.
+Your {resource.name} {resource.resource_type} Allocation in project {allocation.project.title} has reached your preset Alert value.
 
 - As of midnight last night, your Allocation reached or exceeded your preset Alert value of {alert_value}.
 - To view your Allocation information visit {url}/allocation/{allocation.id}
@@ -259,11 +258,11 @@ class Command(BaseCommand):
                 f"{allocation.id} of {allocation.project.title} exceeded"
                 f"alerting value of {allocation_alerting_value}."
             )
-            if not already_alerted and EMAIL_ENABLED:
+            if not already_alerted:
                 try:
                     cls.send_alert_email(
                         allocation,
-                        allocation.resources.first().name,
+                        allocation.get_parent_resource,
                         allocation_alerting_value,
                     )
                     logger.info(
@@ -276,15 +275,28 @@ class Command(BaseCommand):
                     )
 
     @staticmethod
-    def send_alert_email(allocation: Allocation, resource: Resource, alert_value):
-        mail.send_mail(
+    def get_managers(allocation: Allocation):
+        """Returns list of managers with enabled notifications."""
+        managers_query = allocation.project.projectuser_set.filter(
+            role__name="Manager", status__name="Active", enable_notifications=True
+        )
+        return [manager.user.email for manager in managers_query]
+
+    @classmethod
+    def send_alert_email(cls, allocation: Allocation, resource: Resource, alert_value):
+        mail.send_email(
             subject="Allocation Usage Alert",
-            message=EMAIL_TEMPLATE.format(
+            body=EMAIL_TEMPLATE.format(
                 allocation=allocation,
                 resource=resource,
                 alert_value=alert_value,
                 url=CENTER_BASE_URL,
             ),
-            from_email=EMAIL_SENDER,
-            recipient_list=[allocation.project.pi.email],
+            sender=EMAIL_SENDER,
+            receiver_list=[allocation.project.pi.email],
+            cc=[
+                x
+                for x in cls.get_managers(allocation)
+                if x != allocation.project.pi.email
+            ],
         )
