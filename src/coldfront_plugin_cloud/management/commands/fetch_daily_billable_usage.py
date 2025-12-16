@@ -277,16 +277,10 @@ class Command(BaseCommand):
     @staticmethod
     def get_managers(allocation: Allocation):
         """Returns list of managers with enabled notifications."""
-        managers = []
-
         managers_query = allocation.project.projectuser_set.filter(
-            role__name="Manager", status__name="Active"
+            role__name="Manager", status__name="Active", enable_notifications=True
         )
-        for manager in managers_query:
-            if manager.enable_notifications:
-                managers.append(manager.user.email)
-
-        return managers
+        return [manager.user.email for manager in managers_query]
 
     @classmethod
     def send_alert_email(cls, allocation: Allocation, resource: Resource, alert_value):
