@@ -23,8 +23,8 @@ import pyarrow
 from pandas.core.groupby.generic import DataFrameGroupBy
 
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 RESOURCES_DAILY_ENABLED = ["NERC-OCP", "NERC-OCP-EDU", "NERC"]
 RESOURCE_NAME_TO_FILE = {
