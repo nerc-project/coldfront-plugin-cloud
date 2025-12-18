@@ -26,7 +26,7 @@ from pandas.core.groupby.generic import DataFrameGroupBy
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-RESOURCES_DAILY_ENABLED = ["NERC-OCP", "NERC-EDU", "NERC"]
+RESOURCES_DAILY_ENABLED = ["NERC-OCP", "NERC-OCP-EDU", "NERC"]
 RESOURCE_NAME_TO_FILE = {
     "NERC": "NERC OpenStack",
     "NERC-OCP": "ocp-prod",
