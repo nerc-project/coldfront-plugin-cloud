@@ -10,6 +10,7 @@ env:
   PYTHONWARNINGS: ignore
   KUBECONFIG: ${{ github.workspace }}/kubeconfig
   ACCT_MGT_VERSION: "cecbe131843e5033ab6f6fdce2b5a8af58d80f9d"
+  DB_URL: "postgres://postgres:postgres@localhost:5432/postgres"
 
 jobs:
   build:

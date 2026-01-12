@@ -6,3 +6,4 @@ python-keystoneclient
 python-novaclient
 python-neutronclient
 python-swiftclient
+psycopg2
