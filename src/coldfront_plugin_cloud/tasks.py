@@ -17,82 +17,6 @@ from coldfront_plugin_cloud import (
 logger = logging.getLogger(__name__)
 
 
-# Map the amount of quota that 1 unit of `quantity` gets you
-# This is multiplied to the quantity of that resource allocation.
-UNIT_QUOTA_MULTIPLIERS = {
-    "openstack": {
-        attributes.QUOTA_INSTANCES: 1,
-        attributes.QUOTA_VCPU: 1,
-        attributes.QUOTA_RAM: 4096,
-        attributes.QUOTA_VOLUMES: 2,
-        attributes.QUOTA_VOLUMES_GB: 20,
-        attributes.QUOTA_FLOATING_IPS: 0,
-        attributes.QUOTA_OBJECT_GB: 1,
-        attributes.QUOTA_GPU: 0,
-    },
-    "openshift": {
-        attributes.QUOTA_LIMITS_CPU: 1,
-        attributes.QUOTA_LIMITS_MEMORY: 4096,
-        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
-        attributes.QUOTA_REQUESTS_NESE_STORAGE: 20,
-        attributes.QUOTA_REQUESTS_IBM_STORAGE: 0,
-        attributes.QUOTA_REQUESTS_GPU: 0,
-        attributes.QUOTA_PVC: 2,
-    },
-    "openshift_vm": {
-        attributes.QUOTA_LIMITS_CPU: 1,
-        attributes.QUOTA_LIMITS_MEMORY: 4096,
-        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: 5,
-        attributes.QUOTA_REQUESTS_NESE_STORAGE: 20,
-        attributes.QUOTA_REQUESTS_IBM_STORAGE: 0,
-        attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
-        attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
-        attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
-        attributes.QUOTA_PVC: 2,
-    },
-    "esi": {attributes.QUOTA_FLOATING_IPS: 0, attributes.QUOTA_NETWORKS: 0},
-}
-
-# The amount of quota that every projects gets,
-# regardless of units of quantity. This is added
-# on top of the multiplication.
-STATIC_QUOTA = {
-    "openstack": {
-        attributes.QUOTA_FLOATING_IPS: 2,
-        attributes.QUOTA_GPU: 0,
-    },
-    "openshift": {
-        attributes.QUOTA_REQUESTS_GPU: 0,
-    },
-    "esi": {attributes.QUOTA_FLOATING_IPS: 1, attributes.QUOTA_NETWORKS: 1},
-    "openshift_vm": {
-        attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4: 0,
-        attributes.QUOTA_REQUESTS_VM_GPU_V100: 0,
-        attributes.QUOTA_REQUESTS_VM_GPU_H100: 0,
-    },
-}
-
-
-def get_expected_attributes(allocator: base.ResourceAllocator):
-    """Based on the allocator's resource type, return the expected quotas attributes the allocation should have"""
-    resource_name = allocator.resource_type
-    resource_expected_quotas = UNIT_QUOTA_MULTIPLIERS[resource_name].copy()
-
-    # If the resource attribute is not set (i.e for OpenStack resources), get_attribute returns None
-    is_ibm_storage_available = allocator.resource.get_attribute(
-        attributes.RESOURCE_IBM_AVAILABLE
-    )
-    is_ibm_storage_available = (
-        is_ibm_storage_available and is_ibm_storage_available.lower() == "true"
-    )
-    if "openshift" in resource_name and not is_ibm_storage_available:
-        resource_expected_quotas.pop(
-            attributes.QUOTA_REQUESTS_IBM_STORAGE, None
-        )  # The resource may or may not already have this attribute
-
-    return list(resource_expected_quotas.keys())
-
-
 def find_allocator(allocation) -> base.ResourceAllocator:
     allocators = {
         "openstack": openstack.OpenStackResourceAllocator,
@@ -115,13 +39,10 @@ def activate_allocation(allocation_pk):
             allocation.quantity = 1
 
         # Calculate the quota for the project, and set the attribute for each element
-        expected_coldfront_attrs = get_expected_attributes(allocator)
-        for coldfront_attr in expected_coldfront_attrs:
+        resource_quotaspecs = allocator.resource_quotaspecs
+        for coldfront_attr, quota_spec in resource_quotaspecs.root.items():
             if not allocation.get_attribute(coldfront_attr):
-                value = allocation.quantity * UNIT_QUOTA_MULTIPLIERS[
-                    allocator.resource_type
-                ].get(coldfront_attr, 0)
-                value += STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
+                value = quota_spec.quota_by_su_quantity(allocation.quantity)
                 utils.set_attribute_on_allocation(allocation, coldfront_attr, value)
 
     allocation = Allocation.objects.get(pk=allocation_pk)

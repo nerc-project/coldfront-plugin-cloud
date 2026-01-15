@@ -4,6 +4,8 @@ import unittest
 from coldfront_plugin_cloud import attributes, openshift_vm, tasks
 from coldfront_plugin_cloud.tests import base
 
+from django.core.management import call_command
+
 
 @unittest.skipUnless(os.getenv("FUNCTIONAL_TESTS"), "Functional tests not enabled.")
 class TestAllocation(base.TestBase):
@@ -13,6 +15,42 @@ class TestAllocation(base.TestBase):
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
             for_virtualization=True,
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            resource_name=self.resource.name,
+            quota_label="ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            multiplier=20,
+            static_quota=0,
+            unit_suffix="Gi",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4,
+            resource_name=self.resource.name,
+            quota_label="requests.nvidia.com/A100_SXM4_40GB",
+            multiplier=0,
+            static_quota=0,
+            unit_suffix="",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_VM_GPU_V100,
+            resource_name=self.resource.name,
+            quota_label="requests.nvidia.com/GV100GL_Tesla_V100",
+            multiplier=0,
+            static_quota=0,
+            unit_suffix="",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_VM_GPU_H100,
+            resource_name=self.resource.name,
+            quota_label="requests.nvidia.com/H100_SXM5_80GB",
+            multiplier=0,
+            static_quota=0,
+            unit_suffix="",
         )
 
     def test_new_allocation(self):

@@ -17,8 +17,67 @@ from novaclient import client as novaclient
 class TestAllocation(base.TestBase):
     def setUp(self) -> None:
         super().setUp()
+        resource_name = "Devstack"
         self.resource = self.new_openstack_resource(
-            name="Devstack", auth_url=os.getenv("OS_AUTH_URL")
+            name=resource_name, auth_url=os.getenv("OS_AUTH_URL")
+        )
+
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_INSTANCES,
+            resource_name=resource_name,
+            quota_label="instances",
+            multiplier=1,
+            resource_type="compute",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_VCPU,
+            resource_name=resource_name,
+            quota_label="cores",
+            multiplier=1,
+            resource_type="compute",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_RAM,
+            resource_name=resource_name,
+            quota_label="ram",
+            multiplier=4096,
+            resource_type="compute",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_VOLUMES,
+            resource_name=resource_name,
+            quota_label="volumes",
+            multiplier=2,
+            resource_type="volume",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_VOLUMES_GB,
+            resource_name=resource_name,
+            quota_label="gigabytes",
+            multiplier=20,
+            resource_type="volume",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_FLOATING_IPS,
+            resource_name=resource_name,
+            quota_label="floatingip",
+            multiplier=0,
+            static_quota=2,
+            resource_type="network",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_OBJECT_GB,
+            resource_name=resource_name,
+            quota_label="x-account-meta-quota-bytes",
+            multiplier=1,
+            resource_type="object",
         )
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
@@ -114,10 +173,8 @@ class TestAllocation(base.TestBase):
             expected_quota.pop("x-account-meta-quota-bytes")
         self.assertEqual(expected_quota, resulting_quota)
 
-        # Check correct attributes
-        for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-            if "OpenStack" in attr.name:
-                self.assertIsNotNone(allocation.get_attribute(attr.name))
+        for attr in allocator.resource_quotaspecs.root.keys():
+            self.assertIsNotNone(allocation.get_attribute(attr))
 
     def test_new_allocation_with_quantity(self):
         user = self.new_user()
@@ -213,9 +270,9 @@ class TestAllocation(base.TestBase):
 
         # Change allocation attributes for object store quota
         current_quota = allocator.get_quota(openstack_project.id)
-        obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING["object"][
-            "keys"
-        ][attributes.QUOTA_OBJECT_GB]
+        obj_key = allocator.resource_quotaspecs.root[
+            attributes.QUOTA_OBJECT_GB
+        ].quota_label
         if obj_key in current_quota.keys():
             utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 6)
             self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 6)

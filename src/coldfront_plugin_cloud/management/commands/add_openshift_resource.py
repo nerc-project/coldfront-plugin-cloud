@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+from django.core.management import call_command
 
 from coldfront.core.resource.models import (
     Resource,
@@ -50,11 +51,6 @@ class Command(BaseCommand):
             action="store_true",
             help="Indicates this is an OpenShift Virtualization resource (default: False)",
         )
-        parser.add_argument(
-            "--ibm-storage-available",
-            action="store_true",
-            help="Indicates that Ibm Scale storage is available in this resource (default: False)",
-        )
 
     def handle(self, *args, **options):
         self.validate_role(options["role"])
@@ -97,14 +93,6 @@ class Command(BaseCommand):
             resource=openshift,
             value=options["role"],
         )
-
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name=attributes.RESOURCE_IBM_AVAILABLE
-            ),
-            resource=openshift,
-            value="true" if options["ibm_storage_available"] else "false",
-        )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(
                 name=attributes.RESOURCE_CLUSTER_NAME
@@ -113,4 +101,36 @@ class Command(BaseCommand):
             value=options["internal_name"]
             if options["internal_name"]
             else options["name"],
+        )
+
+        # Add common Openshift resources (cpu, memory, etc)
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_LIMITS_CPU,
+            resource_name=options["name"],
+            quota_label="limits.cpu",
+            multiplier=1,
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_LIMITS_MEMORY,
+            resource_name=options["name"],
+            quota_label="limits.memory",
+            multiplier=4096,
+            unit_suffix="Mi",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+            resource_name=options["name"],
+            quota_label="limits.ephemeral-storage",
+            multiplier=5,
+            unit_suffix="Gi",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_PVC,
+            resource_name=options["name"],
+            quota_label="persistentvolumeclaims",
+            multiplier=2,
         )

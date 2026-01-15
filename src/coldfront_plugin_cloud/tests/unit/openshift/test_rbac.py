@@ -2,19 +2,10 @@ from unittest import mock
 
 import kubernetes.dynamic.exceptions as kexc
 
-from coldfront_plugin_cloud.tests import base
-from coldfront_plugin_cloud.openshift import OpenShiftResourceAllocator
+from coldfront_plugin_cloud.tests.unit.openshift import base
 
 
-class TestMocOpenShiftRBAC(base.TestBase):
-    def setUp(self) -> None:
-        mock_resource = mock.Mock()
-        mock_allocation = mock.Mock()
-        self.allocator = OpenShiftResourceAllocator(mock_resource, mock_allocation)
-        self.allocator.id_provider = "fake_idp"
-        self.allocator.k8_client = mock.Mock()
-        self.allocator.member_role_name = "admin"
-
+class TestMocOpenShiftRBAC(base.TestUnitOpenshiftBase):
     def test_user_in_rolebindings_false(self):
         fake_rb = {
             "subjects": [
