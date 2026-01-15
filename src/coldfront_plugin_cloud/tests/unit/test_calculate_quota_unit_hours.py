@@ -19,14 +19,24 @@ SECONDS_IN_DAY = 3600 * 24
 
 
 class TestCalculateAllocationQuotaHours(base.TestBase):
+    def setUp(self):
+        super().setUp()
+        self.resource = self.new_openshift_resource(
+            name="",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+            resource_name=self.resource.name,
+            quota_label="limits.ephemeral-storage",
+            multiplier=5,
+            unit_suffix="Gi",
+        )
+
     @patch("coldfront_plugin_cloud.utils.load_outages_from_nerc_rates")
     def test_new_allocation_quota(self, mock_load_outages):
         """Test quota calculation with nerc-rates outages mocked."""
         mock_load_outages.return_value = []
-
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
 
         with freezegun.freeze_time("2020-03-15 00:01:00"):
             user = self.new_user()
@@ -94,9 +104,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_expired(self):
         """Test that expiration doesn't affect invoicing."""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -127,9 +134,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_denied(self):
         """Test a simple case of invoicing until a status change."""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -157,9 +161,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_last_revoked(self):
         """Test that we correctly distinguish the last transition to an unbilled state."""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -202,9 +203,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 144)
 
     def test_new_allocation_quota_new(self):
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -220,9 +218,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 0)
 
     def test_new_allocation_quota_never_approved(self):
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -242,9 +237,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_decrease(self):
         """Test for when a change request decreases the quota"""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -288,9 +280,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_increase(self):
         """Test for when a change request increases the quota"""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -334,9 +323,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_decrease_multiple(self):
         """Test for when multiple different change request decreases the quota"""
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -397,9 +383,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 48)
 
     def test_new_allocation_quota_change_request(self):
-        self.resource = self.new_openshift_resource(
-            name="",
-        )
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
@@ -627,6 +610,15 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
                 project = self.new_project(pi=user)
                 resource = self.new_openstack_resource(
                     name="TEST-RESOURCE", internal_name="test-service"
+                )
+                call_command(
+                    "add_quota_to_resource",
+                    display_name=attributes.QUOTA_VOLUMES_GB,
+                    resource_name=resource.name,
+                    quota_label="volume.gigabytes",
+                    multiplier=20,
+                    resource_type="storage",
+                    invoice_name="OpenStack Storage",
                 )
                 allocation = self.new_allocation(project, resource, 100)
                 for attr, val in [

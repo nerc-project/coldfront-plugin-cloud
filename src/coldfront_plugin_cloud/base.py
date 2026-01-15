@@ -1,11 +1,13 @@
 import abc
 import functools
+import json
 from typing import NamedTuple
 
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
 
 from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud.models.quota_models import QuotaSpecs
 
 
 class ResourceAllocator(abc.ABC):
@@ -24,6 +26,19 @@ class ResourceAllocator(abc.ABC):
     ):
         self.resource = resource
         self.allocation = allocation
+
+        try:
+            resource_quota_attr = resource_models.ResourceAttribute.objects.get(
+                resource=resource,
+                resource_attribute_type__name=attributes.RESOURCE_QUOTA_RESOURCES,
+            )
+            self.resource_quotaspecs = QuotaSpecs.model_validate(
+                json.loads(resource_quota_attr.value)
+            )
+        except resource_models.ResourceAttribute.DoesNotExist as e:
+            raise ValueError(
+                f"Resource {resource.name} does not have quota resources defined. Run either register_default_quotas or add_quota_to_resource management command to add quotas to the resource."
+            ) from e
 
     def get_or_create_federated_user(self, username):
         if not (user := self.get_federated_user(username)):

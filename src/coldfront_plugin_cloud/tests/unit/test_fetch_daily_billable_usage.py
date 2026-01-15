@@ -8,7 +8,7 @@ from coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage impor
     Command,
 )
 from coldfront_plugin_cloud import attributes
-from coldfront_plugin_cloud import usage_models
+from coldfront_plugin_cloud.models import usage_models
 from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud import utils
 

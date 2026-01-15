@@ -20,6 +20,7 @@ class TestAllocation(base.TestBase):
         self.resource = self.new_openstack_resource(
             name="Devstack", auth_url=os.getenv("OS_AUTH_URL")
         )
+        call_command("register_default_quotas", apply=True)
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
         self.compute = novaclient.Client(session=self.session, version=2)
@@ -114,10 +115,8 @@ class TestAllocation(base.TestBase):
             expected_quota.pop("x-account-meta-quota-bytes")
         self.assertEqual(expected_quota, resulting_quota)
 
-        # Check correct attributes
-        for attr in attributes.ALLOCATION_QUOTA_ATTRIBUTES:
-            if "OpenStack" in attr.name:
-                self.assertIsNotNone(allocation.get_attribute(attr.name))
+        for attr in allocator.resource_quotaspecs.root.keys():
+            self.assertIsNotNone(allocation.get_attribute(attr))
 
     def test_new_allocation_with_quantity(self):
         user = self.new_user()
@@ -203,7 +202,20 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 6)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 200)
 
-        call_command("validate_allocations", apply=True)
+        with self.assertLogs(
+            "coldfront_plugin_cloud.management.commands.validate_allocations"
+        ) as cm:
+            call_command("validate_allocations", apply=True)
+
+        self.assertTrue(
+            any(
+                [
+                    f"Value for quota for {attributes.QUOTA_FLOATING_IPS} = 3 does not match expected value of 6"
+                    in log_message
+                    for log_message in cm.output
+                ]
+            )
+        )
 
         # Recheck neutron quota after attribute change
         new_neutron_quota = self.networking.show_quota(openstack_project.id)["quota"]
@@ -213,9 +225,9 @@ class TestAllocation(base.TestBase):
 
         # Change allocation attributes for object store quota
         current_quota = allocator.get_quota(openstack_project.id)
-        obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING["object"][
-            "keys"
-        ][attributes.QUOTA_OBJECT_GB]
+        _, obj_key = allocator._extract_quota_label(
+            allocator.resource_quotaspecs.root[attributes.QUOTA_OBJECT_GB]
+        )
         if obj_key in current_quota.keys():
             utils.set_attribute_on_allocation(allocation, attributes.QUOTA_OBJECT_GB, 6)
             self.assertEqual(allocation.get_attribute(attributes.QUOTA_OBJECT_GB), 6)
