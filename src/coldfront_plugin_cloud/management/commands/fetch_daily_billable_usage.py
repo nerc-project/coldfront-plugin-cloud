@@ -192,6 +192,7 @@ class Command(BaseCommand):
     def load_csv(location) -> DataFrameGroupBy:
         df = pandas.read_csv(
             location,
+            engine="pyarrow",
             dtype={INVOICE_COLUMN_COST: pandas.ArrowDtype(pyarrow.decimal128(12, 2))},
         )
         return df.groupby(INVOICE_COLUMN_ALLOCATION_ID)
