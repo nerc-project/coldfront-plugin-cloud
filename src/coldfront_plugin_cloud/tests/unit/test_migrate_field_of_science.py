@@ -1,6 +1,8 @@
+import os
 import uuid
 import tempfile
 
+from django.db import connection
 from django.core.management import call_command
 from coldfront.core.project.models import Project
 from coldfront.core.field_of_science.models import FieldOfScience
@@ -9,6 +11,19 @@ from coldfront_plugin_cloud.tests import base
 
 
 class TestFixAllocation(base.TestBase):
+    def setUp(self) -> None:
+        """
+        Because Coldfront manually sets the IDs of FieldOfScience (FOS) entries, this creates a mismatch
+        between the actual FOS IDs and the sequence that Postgres uses to auto-increment them
+        """
+        super().setUp()
+
+        if os.getenv("DB_URL"):
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'SELECT setval(pg_get_serial_sequence(\'field_of_science_fieldofscience\',\'id\'), coalesce(max("id"), 1), max("id") IS NOT null) FROM "field_of_science_fieldofscience";'
+                )
+
     def test_command_output(self):
         old_fos_1 = self.new_field_of_science()
         old_fos_2 = self.new_field_of_science()
