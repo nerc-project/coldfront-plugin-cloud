@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: 3.12
 
-      - name: Install dependancies, ColdFront and plugin
+      - name: Install dependencies, ColdFront and plugin
         run: |
           ./ci/setup.sh
 
