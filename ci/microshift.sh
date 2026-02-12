@@ -23,7 +23,7 @@ sudo docker run -d --rm --name microshift --privileged \
     quay.io/microshift/microshift-aio:latest
 echo "::endgroup::"
 
-microshift_addr=$(sudo docker inspect microshift -f '{{ .NetworkSettings.IPAddress }}')
+microshift_addr=$(sudo docker inspect microshift --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 sudo sed -i '/onboarding-onboarding.cluster.local/d' /etc/hosts
 echo "$microshift_addr  onboarding-onboarding.cluster.local" | sudo tee -a /etc/hosts
 
