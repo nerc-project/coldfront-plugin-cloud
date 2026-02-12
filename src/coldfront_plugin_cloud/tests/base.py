@@ -109,7 +109,14 @@ class TestBase(TestCase):
         pi = pi or self.new_user()
         status = ProjectStatusChoice.objects.get(name="New")
 
-        Project.objects.create(title=title, pi=pi, status=status)
+        project = Project.objects.create(title=title, pi=pi, status=status)
+        ProjectUser.objects.get_or_create(
+            user=pi,
+            project=project,
+            role=ProjectUserRoleChoice.objects.get(name="Manager"),
+            status=ProjectUserStatusChoice.objects.get(name="Active"),
+        )
+
         return Project.objects.get(title=title)
 
     def new_project_user(self, user, project, role="Manager", status="Active"):
