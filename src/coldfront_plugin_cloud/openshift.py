@@ -30,7 +30,6 @@ IGNORED_ATTRIBUTES = [
 
 PROJECT_DEFAULT_LABELS = {
     "opendatahub.io/dashboard": "true",
-    "modelmesh-enabled": "true",
     "nerc.mghpcc.org/allow-unencrypted-routes": "true",
     "nerc.mghpcc.org/project": "true",
 }
