@@ -87,20 +87,20 @@ class TestBase(TestCase):
     @staticmethod
     def new_openshift_resource(
         name=None,
+        internal_name=None,
         api_url=None,
         idp=None,
         for_virtualization=False,
-        ibm_storage_available=False,
     ) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             "add_openshift_resource",
             name=resource_name,
+            internal_name=internal_name,
             api_url=api_url or "https://onboarding-onboarding.cluster.local:6443",
             idp=idp or "developer",
             for_virtualization=for_virtualization,
-            ibm_storage_available=ibm_storage_available,
         )
         return Resource.objects.get(name=resource_name)
 

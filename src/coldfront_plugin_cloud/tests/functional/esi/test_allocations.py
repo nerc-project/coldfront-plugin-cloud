@@ -17,9 +17,30 @@ from novaclient import client as novaclient
 class TestAllocation(base.TestBase):
     def setUp(self) -> None:
         super().setUp()
+        resource_name = "ESI"
         self.resource = self.new_esi_resource(
             name="ESI", auth_url=os.getenv("OS_AUTH_URL")
         )
+
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_NETWORKS,
+            resource_name=resource_name,
+            quota_label="network",
+            multiplier=0,
+            static_quota=1,
+            resource_type="network",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_FLOATING_IPS,
+            resource_name=resource_name,
+            quota_label="floatingip",
+            multiplier=0,
+            static_quota=1,
+            resource_type="network",
+        )
+
         self.session = openstack.get_session_for_resource(self.resource)
         self.identity = client.Client(session=self.session)
         self.compute = novaclient.Client(session=self.session, version=2)

@@ -625,14 +625,25 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
             with freezegun.freeze_time("2020-03-01"):
                 user = self.new_user()
                 project = self.new_project(pi=user)
-                resource = self.new_openstack_resource(
+                resource = self.new_openshift_resource(
                     name="TEST-RESOURCE", internal_name="test-service"
+                )
+                call_command(
+                    "add_quota_to_resource",
+                    display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+                    resource_name=resource.name,
+                    quota_label="ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+                    multiplier=20,
+                    static_quota=0,
+                    unit_suffix="Gi",
+                    resource_type="storage",
+                    invoice_name="nese-storage",
                 )
                 allocation = self.new_allocation(project, resource, 100)
                 for attr, val in [
                     (attributes.ALLOCATION_PROJECT_NAME, "test"),
                     (attributes.ALLOCATION_PROJECT_ID, "123"),
-                    (attributes.QUOTA_VOLUMES_GB, 10),
+                    (attributes.QUOTA_REQUESTS_NESE_STORAGE, 10),
                 ]:
                     utils.set_attribute_on_allocation(allocation, attr, val)
 

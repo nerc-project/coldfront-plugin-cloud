@@ -1,7 +1,6 @@
 import os
 import time
 import unittest
-from unittest import mock
 import uuid
 
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
@@ -18,7 +17,22 @@ class TestAllocation(base.TestBase):
         self.resource = self.new_openshift_resource(
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
-            ibm_storage_available=True,
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            resource_name=self.resource.name,
+            quota_label="ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            multiplier=20,
+            static_quota=0,
+            unit_suffix="Gi",
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_GPU,
+            resource_name=self.resource.name,
+            quota_label="requests.nvidia.com/gpu",
+            multiplier=0,
         )
 
     def test_new_allocation(self):
@@ -151,7 +165,6 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -195,7 +208,6 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "50Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "100Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "1",
                 "persistentvolumeclaims": "10",
             },
@@ -225,7 +237,6 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -247,7 +258,6 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "8Gi",
                 "limits.ephemeral-storage": "10Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "4",
             },
@@ -330,59 +340,8 @@ class TestAllocation(base.TestBase):
             )
         )
 
-    @mock.patch.object(
-        tasks,
-        "UNIT_QUOTA_MULTIPLIERS",
-        {
-            "openshift": {
-                attributes.QUOTA_LIMITS_CPU: 1,
-            }
-        },
-    )
-    def test_allocation_new_attribute(self):
-        """When a new attribute is introduced, but pre-existing allocations don't have it"""
-        user = self.new_user()
-        project = self.new_project(pi=user)
-        allocation = self.new_allocation(project, self.resource, 2)
-        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
-
-        tasks.activate_allocation(allocation.pk)
-        allocation.refresh_from_db()
-
-        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
-
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "2",
-            },
-        )
-
-        # Add a new attribute for Openshift
-        tasks.UNIT_QUOTA_MULTIPLIERS["openshift"][attributes.QUOTA_LIMITS_MEMORY] = 4096
-
-        call_command("validate_allocations", apply=True)
-        allocation.refresh_from_db()
-
-        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
-        self.assertEqual(
-            allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096
-        )
-
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "2",
-                "limits.memory": "8Gi",
-            },
-        )
-
     def test_migrate_quota_field_names(self):
-        """When a quota key in QUOTA_KEY_MAPPING changes to a new value, validate_allocations should update the quota."""
+        """When a quota changes to a new label name, validate_allocations should update the quota."""
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
@@ -401,22 +360,22 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "4Gi",
                 "limits.ephemeral-storage": "5Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "2",
             },
         )
 
         # Now migrate NESE Storage quota field (ocs-external...) to fake storage quota
-        with unittest.mock.patch.dict(
-            openshift.OpenShiftResourceAllocator.QUOTA_KEY_MAPPING,
-            {
-                attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
-                    "fake-storage.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
-                }
-            },
-        ):
-            call_command("validate_allocations", apply=True)
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            resource_name=self.resource.name,
+            quota_label="fake-storage.storageclass.storage.k8s.io/requests.storage",
+            multiplier=20,
+            static_quota=0,
+            unit_suffix="Gi",
+        )
+        call_command("validate_allocations", apply=True)
 
         # Check the quota after migration
         quota = allocator.get_quota(project_id)
@@ -427,58 +386,6 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "4Gi",
                 "limits.ephemeral-storage": "5Gi",
                 "fake-storage.storageclass.storage.k8s.io/requests.storage": "20Gi",  # Migrated key
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
-                "requests.nvidia.com/gpu": "0",
-                "persistentvolumeclaims": "2",
-            },
-        )
-
-    def test_ibm_storage_not_available(self):
-        """If IBM Scale storage is not available, the corresponding quotas should not be set."""
-        user = self.new_user()
-        project = self.new_project(pi=user)
-
-        # Set ibm storage as not available
-        self.resource.resourceattribute_set.filter(
-            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
-        ).update(value="false")
-        allocation = self.new_allocation(project, self.resource, 1)
-        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
-
-        tasks.activate_allocation(allocation.pk)
-        allocation.refresh_from_db()
-
-        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "1",
-                "limits.memory": "4Gi",
-                "limits.ephemeral-storage": "5Gi",
-                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
-                "requests.nvidia.com/gpu": "0",
-                "persistentvolumeclaims": "2",
-            },
-        )
-
-        # Now set IBM Scale storage as available
-        self.resource.resourceattribute_set.filter(
-            resource_attribute_type__name=attributes.RESOURCE_IBM_AVAILABLE
-        ).update(value="true")
-
-        call_command("validate_allocations", apply=True)
-
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "1",
-                "limits.memory": "4Gi",
-                "limits.ephemeral-storage": "5Gi",
-                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",  # Newly added IBM key
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "2",
             },
@@ -596,9 +503,129 @@ class TestAllocation(base.TestBase):
                 "limits.memory": "4Gi",
                 "limits.ephemeral-storage": "5Gi",
                 "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
-                "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": "0",
                 "requests.nvidia.com/gpu": "0",
                 "persistentvolumeclaims": "2",
             },
         )
         assert set([user.username]) == allocator.get_users(project_id)
+
+    def test_remove_quota(self):
+        """Test removing a quota from a resource and validating allocations.
+        After removal, prior allocations should still have the quota, but new allocations should not."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation_1 = self.new_allocation(project, self.resource, 1)
+        allocator_1 = openshift.OpenShiftResourceAllocator(self.resource, allocation_1)
+
+        tasks.activate_allocation(allocation_1.pk)
+        allocation_1.refresh_from_db()
+        project_id_1 = allocation_1.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator_1.get_quota(project_id_1)
+        self.assertIn(
+            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            quota,
+        )
+
+        # Now remove NESE Storage quota from resource
+        call_command(
+            "remove_quota_from_resource",
+            resource_name=self.resource.name,
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            apply=True,
+        )
+        call_command(
+            "validate_allocations", apply=True
+        )  # This should have not removed the quota from prior allocation (Have no impact)
+
+        quota = allocator_1.get_quota(project_id_1)
+        self.assertIn(
+            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            quota,
+        )
+        self.assertIsNotNone(
+            allocation_1.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE)
+        )
+
+        # Create second allocation, which should not have the NESE storage quota
+        self.resource.refresh_from_db()
+        project_2 = self.new_project(pi=user)
+        allocation_2 = self.new_allocation(project_2, self.resource, 1)
+        allocator_2 = openshift.OpenShiftResourceAllocator(self.resource, allocation_2)
+        tasks.activate_allocation(allocation_2.pk)
+        allocation_2.refresh_from_db()
+        project_id_2 = allocation_2.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota_2 = allocator_2.get_quota(project_id_2)
+        self.assertNotIn(
+            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            quota_2,
+        )
+        self.assertIsNone(
+            allocation_2.get_attribute(attributes.QUOTA_REQUESTS_NESE_STORAGE)
+        )
+
+
+class TestAllocationNewQuota(base.TestBase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.resource = self.new_openshift_resource(
+            name="Microshift",
+            api_url=os.getenv("OS_API_URL"),
+        )
+
+    def test_allocation_new_attribute(self):
+        """When a new attribute is introduced, but pre-existing allocations don't have it"""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+                "limits.memory": "8Gi",
+                "limits.ephemeral-storage": "10Gi",
+                "persistentvolumeclaims": "4",
+            },  # Note no ceph storage quota
+        )
+
+        # Add a new attribute for Openshift
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            resource_name=self.resource.name,
+            quota_label="ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
+            multiplier=20,
+            static_quota=0,
+            unit_suffix="Gi",
+        )
+
+        call_command("validate_allocations", apply=True)
+        allocation.refresh_from_db()
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_LIMITS_CPU), 2 * 1)
+        self.assertEqual(
+            allocation.get_attribute(attributes.QUOTA_LIMITS_MEMORY), 2 * 4096
+        )
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "2",
+                "limits.memory": "8Gi",
+                "limits.ephemeral-storage": "10Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "40Gi",
+                "persistentvolumeclaims": "4",
+            },
+        )

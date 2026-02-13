@@ -1,7 +1,6 @@
 import logging
 
 from coldfront_plugin_cloud import attributes
-from coldfront_plugin_cloud import openstack
 from coldfront_plugin_cloud import openshift
 from coldfront_plugin_cloud import utils
 from coldfront_plugin_cloud import tasks
@@ -19,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STATES_TO_VALIDATE = ["Active", "Active (Needs Renewal)"]
+OPENSTACK_OBJ_KEY = "x-account-meta-quota-bytes"
 
 
 class Command(BaseCommand):
@@ -85,9 +85,10 @@ class Command(BaseCommand):
 
     @staticmethod
     def set_default_quota_on_allocation(allocation, allocator, coldfront_attr):
-        uqm = tasks.UNIT_QUOTA_MULTIPLIERS[allocator.resource_type]
-        value = allocation.quantity * uqm.get(coldfront_attr, 0)
-        value += tasks.STATIC_QUOTA[allocator.resource_type].get(coldfront_attr, 0)
+        resource_quotaspecs = allocator.resource_quotaspecs
+        value = resource_quotaspecs.root[coldfront_attr].quota_by_su_quantity(
+            allocation.quantity
+        )
         utils.set_attribute_on_allocation(allocation, coldfront_attr, value)
         return value
 
@@ -143,12 +144,8 @@ class Command(BaseCommand):
                 project_id, allocation, allocator, options["apply"]
             )
 
-            obj_key = openstack.OpenStackResourceAllocator.QUOTA_KEY_MAPPING["object"][
-                "keys"
-            ][attributes.QUOTA_OBJECT_GB]
-
-            for attr in tasks.get_expected_attributes(allocator):
-                key = allocator.QUOTA_KEY_MAPPING_ALL_KEYS.get(attr, None)
+            for attr, quotaspec in allocator.resource_quotaspecs.root.items():
+                key = quotaspec.quota_label
                 if not key:
                     # Note(knikolla): Some attributes are only maintained
                     # for bookkeeping purposes and do not have a
@@ -157,10 +154,12 @@ class Command(BaseCommand):
 
                 expected_value = allocation.get_attribute(attr)
                 current_value = quota.get(key, None)
-                if key == obj_key and expected_value <= 0:
+                if key == OPENSTACK_OBJ_KEY and expected_value <= 0:
                     expected_obj_value = 1
                     current_value = int(
-                        allocator.object(project_id).head_account().get(obj_key)
+                        allocator.object(project_id)
+                        .head_account()
+                        .get(OPENSTACK_OBJ_KEY)
                     )
                     if current_value != expected_obj_value:
                         failed_validation = True
@@ -251,11 +250,9 @@ class Command(BaseCommand):
                 project_id, allocator, options["apply"]
             )
 
-            for attr in tasks.get_expected_attributes(allocator):
-                key_with_lambda = allocator.QUOTA_KEY_MAPPING.get(attr, None)
-
+            for attr, quotaspec in allocator.resource_quotaspecs.root.items():
                 # This gives me just the plain key
-                key = list(key_with_lambda(1).keys())[0]
+                key = quotaspec.quota_label
 
                 expected_value = allocation.get_attribute(attr)
                 current_value = quota.get(key, None)

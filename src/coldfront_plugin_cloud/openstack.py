@@ -66,36 +66,15 @@ def get_session_for_resource(resource):
 class OpenStackResourceAllocator(base.ResourceAllocator):
     # Map the attribute name in ColdFront, to the client of the respective
     # service, the version of the API, and the key in the payload.
-    QUOTA_KEY_MAPPING = {
-        "compute": {
-            "keys": {
-                attributes.QUOTA_INSTANCES: "instances",
-                attributes.QUOTA_VCPU: "cores",
-                attributes.QUOTA_RAM: "ram",
-            },
-        },
-        "network": {
-            "keys": {
-                attributes.QUOTA_FLOATING_IPS: "floatingip",
-            }
-        },
-        "object": {
-            "keys": {
-                attributes.QUOTA_OBJECT_GB: "x-account-meta-quota-bytes",
-            }
-        },
-        "volume": {
-            "keys": {
-                attributes.QUOTA_VOLUMES: "volumes",
-                attributes.QUOTA_VOLUMES_GB: "gigabytes",
-            }
-        },
-    }
-
-    QUOTA_KEY_MAPPING_ALL_KEYS = {
-        quota_key: quota_name
-        for k in QUOTA_KEY_MAPPING.values()
-        for quota_key, quota_name in k["keys"].items()
+    SERVICE_QUOTA_MAPPING = {
+        "compute": [
+            attributes.QUOTA_INSTANCES,
+            attributes.QUOTA_VCPU,
+            attributes.QUOTA_RAM,
+        ],
+        "network": [attributes.QUOTA_FLOATING_IPS],
+        "object": [attributes.QUOTA_OBJECT_GB],
+        "volume": [attributes.QUOTA_VOLUMES, attributes.QUOTA_VOLUMES_GB],
     }
 
     resource_type = "openstack"
@@ -167,11 +146,14 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         # If an attribute with the appropriate name is associated with an
         # allocation, set that as the quota. Otherwise, multiply
         # the quantity attribute via the mapping table above.
-        for service_name, service in self.QUOTA_KEY_MAPPING.items():
+        for service_name, quotas_list in self.SERVICE_QUOTA_MAPPING.items():
             # No need to do any calculations here, just go through each service
             # and set the value in the attribute.
             payload = dict()
-            for coldfront_attr, openstack_key in service["keys"].items():
+            for coldfront_attr in quotas_list:
+                openstack_key = self.resource_quotaspecs.root[
+                    coldfront_attr
+                ].quota_label
                 value = self.allocation.get_attribute(coldfront_attr)
                 if value is not None:
                     payload[openstack_key] = value
@@ -194,9 +176,9 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
             # Note(knikolla): For consistency with other OpenStack
             # quotas we're storing this as GB on the attribute and
             # converting to bytes for Swift.
-            obj_q_mapping = self.QUOTA_KEY_MAPPING["object"]["keys"][
+            obj_q_mapping = self.resource_quotaspecs.root[
                 attributes.QUOTA_OBJECT_GB
-            ]
+            ].quota_label
             payload[obj_q_mapping] *= GB_IN_BYTES
             if payload[obj_q_mapping] <= 0:
                 payload[obj_q_mapping] = 1
@@ -245,7 +227,10 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
 
     def _get_network_quota(self, quotas, project_id):
         network_quota = self.network.show_quota(project_id)["quota"]
-        for k in self.QUOTA_KEY_MAPPING["network"]["keys"].values():
+        for quotaspec in self.resource_quotaspecs.get_quotas_by_type(
+            "network"
+        ).values():
+            k = quotaspec.quota_label
             quotas[k] = network_quota.get(k)
 
         return quotas
@@ -254,16 +239,20 @@ class OpenStackResourceAllocator(base.ResourceAllocator):
         quotas = dict()
 
         compute_quota = self.compute.quotas.get(project_id)
-        for k in self.QUOTA_KEY_MAPPING["compute"]["keys"].values():
+        for quotaspec in self.resource_quotaspecs.get_quotas_by_type(
+            "compute"
+        ).values():
+            k = quotaspec.quota_label
             quotas[k] = compute_quota.__getattr__(k)
 
         volume_quota = self.volume.quotas.get(project_id)
-        for k in self.QUOTA_KEY_MAPPING["volume"]["keys"].values():
+        for quotaspec in self.resource_quotaspecs.get_quotas_by_type("volume").values():
+            k = quotaspec.quota_label
             quotas[k] = volume_quota.__getattr__(k)
 
         quotas = self._get_network_quota(quotas, project_id)
 
-        key = self.QUOTA_KEY_MAPPING["object"]["keys"][attributes.QUOTA_OBJECT_GB]
+        key = self.resource_quotaspecs.root[attributes.QUOTA_OBJECT_GB].quota_label
         try:
             swift = self.object(project_id).head_account()
             quotas[key] = int(int(swift.get(key)) / GB_IN_BYTES)
