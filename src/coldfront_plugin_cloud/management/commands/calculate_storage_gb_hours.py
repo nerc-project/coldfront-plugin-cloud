@@ -1,4 +1,5 @@
 import csv
+import json
 from decimal import Decimal, ROUND_HALF_UP
 import dataclasses
 from datetime import datetime, timedelta, timezone
@@ -7,6 +8,7 @@ import os
 
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import utils
+from coldfront_plugin_cloud.models.quota_models import QuotaSpecs
 
 import boto3
 from django.core.management.base import BaseCommand
@@ -19,6 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 _RATES = None
+STORAGE_RESOURCE_TYPE_NAME = "storage"
 
 
 def get_rates():
@@ -210,6 +213,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         generated_at = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
 
+        def get_storage_quotaspecs(allocation: Allocation):
+            """Get storage-related quota attributes for an allocation."""
+            quotaspecs_dict = json.loads(
+                allocation.resources.first().get_attribute(
+                    attributes.RESOURCE_QUOTA_RESOURCES
+                )
+            )
+            quotaspecs = QuotaSpecs.model_validate(quotaspecs_dict)
+            return quotaspecs.get_quotas_by_type(STORAGE_RESOURCE_TYPE_NAME)
+
         def get_outages_for_service(cluster_name: str):
             """Get outages for a service from nerc-rates.
 
@@ -316,12 +329,14 @@ class Command(BaseCommand):
                 )
                 logger.debug(f"Starting billing for allocation {allocation_str}.")
 
-                process_invoice_row(
-                    allocation,
-                    [attributes.QUOTA_VOLUMES_GB, attributes.QUOTA_OBJECT_GB],
-                    "OpenStack Storage",
-                    openstack_nese_storage_rate,
-                )
+                quotaspecs = get_storage_quotaspecs(allocation)
+                for quota_name, quotaspec in quotaspecs.items():
+                    process_invoice_row(
+                        allocation,
+                        [quota_name],
+                        quotaspec.invoice_name,
+                        openstack_nese_storage_rate,
+                    )
 
             for allocation in openshift_allocations:
                 allocation_str = (

@@ -50,11 +50,6 @@ class Command(BaseCommand):
             action="store_true",
             help="Indicates this is an OpenShift Virtualization resource (default: False)",
         )
-        parser.add_argument(
-            "--ibm-storage-available",
-            action="store_true",
-            help="Indicates that Ibm Scale storage is available in this resource (default: False)",
-        )
 
     def handle(self, *args, **options):
         self.validate_role(options["role"])
@@ -96,14 +91,6 @@ class Command(BaseCommand):
             ),
             resource=openshift,
             value=options["role"],
-        )
-
-        ResourceAttribute.objects.get_or_create(
-            resource_attribute_type=ResourceAttributeType.objects.get(
-                name=attributes.RESOURCE_IBM_AVAILABLE
-            ),
-            resource=openshift,
-            value="true" if options["ibm_storage_available"] else "false",
         )
         ResourceAttribute.objects.get_or_create(
             resource_attribute_type=ResourceAttributeType.objects.get(

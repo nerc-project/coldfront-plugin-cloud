@@ -157,22 +157,6 @@ class NotFound(ApiException):
 
 
 class OpenShiftResourceAllocator(base.ResourceAllocator):
-    QUOTA_KEY_MAPPING = {
-        attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
-        attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
-        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {
-            "limits.ephemeral-storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
-            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_IBM_STORAGE: lambda x: {
-            "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
-        attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
-    }
-
     resource_type = "openshift"
 
     project_name_max_length = 45
@@ -286,9 +270,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         object in the project namespace with no extra scopes"""
 
         quota_spec = {}
-        for key, func in self.QUOTA_KEY_MAPPING.items():
+        for key, quotaspec in self.resource_quotaspecs.root.items():
             if (x := self.allocation.get_attribute(key)) is not None:
-                quota_spec.update(func(x))
+                quota_spec.update({quotaspec.quota_label: quotaspec.formatted_quota(x)})
 
         quota_def = {
             "metadata": {"name": f"{project_id}-project"},
