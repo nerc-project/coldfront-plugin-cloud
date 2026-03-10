@@ -117,6 +117,10 @@ class Command(BaseCommand):
                 "resource_type": STORAGE_RESOURCE_TYPE_NAME,
                 "invoice_name": OPENSTACK_STORAGE_INVOICE_NAME,
             },
+            {
+                "display_name": attributes.QUOTA_GPU,
+                "quota_label": "internal.gpu_quota",
+            },
         ]
 
         # Find OpenShift resources
