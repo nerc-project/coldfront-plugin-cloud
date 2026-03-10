@@ -119,7 +119,7 @@ class Command(BaseCommand):
             },
             {
                 "display_name": attributes.QUOTA_GPU,
-                "quota_label": "internal.gpu_quota",
+                "quota_label": "internal.",
             },
         ]
 
