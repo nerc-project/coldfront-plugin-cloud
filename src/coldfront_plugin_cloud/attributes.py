@@ -73,8 +73,8 @@ ALLOCATION_ATTRIBUTES = [
     CloudAllocationAttribute(
         name=ALLOCATION_CUMULATIVE_CHARGES,
         type="Text",
-        is_private=True,
-        is_changeable=True,
+        is_private=False,
+        is_changeable=False,
     ),
     CloudAllocationAttribute(
         name=ALLOCATION_PREVIOUS_CHARGES,
