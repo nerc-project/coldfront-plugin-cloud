@@ -1,7 +1,6 @@
 import os
 import time
 import unittest
-import uuid
 
 from coldfront_plugin_cloud import attributes, openshift, tasks, utils
 from coldfront_plugin_cloud.tests import base
@@ -51,7 +50,13 @@ class TestAllocation(base.TestBase):
 
         allocator._get_role(user.username, project_id)
 
+        # Check Keycloak group and user membership
+        self.kc_admin_client.get_group_id(project_id)
+        user_id = self.kc_admin_client.get_user_id(user.username)
+        assert project_id in self.kc_admin_client.get_user_groups(user_id)
+
         allocator.remove_role_from_user(user.username, project_id)
+        assert project_id not in self.kc_admin_client.get_user_groups(user_id)
 
         with self.assertRaises(openshift.NotFound):
             allocator._get_role(user.username, project_id)
@@ -108,7 +113,7 @@ class TestAllocation(base.TestBase):
 
         # directly add a user to openshift which should then be
         # deleted when validate_allocations is called
-        non_coldfront_user = uuid.uuid4().hex
+        non_coldfront_user = self.new_user(add_to_keycloak=True).username
         allocator.get_or_create_federated_user(non_coldfront_user)
         allocator.assign_role_on_user(non_coldfront_user, project_id)
         assert non_coldfront_user in allocator.get_users(project_id)

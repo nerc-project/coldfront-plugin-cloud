@@ -39,7 +39,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         mock_load_outages.return_value = []
 
         with freezegun.freeze_time("2020-03-15 00:01:00"):
-            user = self.new_user()
+            user = self.new_user(add_to_keycloak=False)
             project = self.new_project(pi=user)
             allocation = self.new_allocation(project, self.resource, 2)
             utils.set_attribute_on_allocation(
@@ -104,7 +104,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_expired(self):
         """Test that expiration doesn't affect invoicing."""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
         allocation.status = allocation_models.AllocationStatusChoice.objects.get(
@@ -134,7 +134,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_denied(self):
         """Test a simple case of invoicing until a status change."""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -161,7 +161,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_new_allocation_quota_last_revoked(self):
         """Test that we correctly distinguish the last transition to an unbilled state."""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -203,7 +203,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 144)
 
     def test_new_allocation_quota_new(self):
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -218,7 +218,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 0)
 
     def test_new_allocation_quota_never_approved(self):
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -237,7 +237,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_decrease(self):
         """Test for when a change request decreases the quota"""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -280,7 +280,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_increase(self):
         """Test for when a change request increases the quota"""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -323,7 +323,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
     def test_change_request_decrease_multiple(self):
         """Test for when multiple different change request decreases the quota"""
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -383,7 +383,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         self.assertEqual(value, 48)
 
     def test_new_allocation_quota_change_request(self):
-        user = self.new_user()
+        user = self.new_user(add_to_keycloak=False)
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 2)
 
@@ -606,7 +606,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
 
         with patch.object(utils, "_OUTAGES_DATA", mock_outages_data):
             with freezegun.freeze_time("2020-03-01"):
-                user = self.new_user()
+                user = self.new_user(add_to_keycloak=False)
                 project = self.new_project(pi=user)
                 resource = self.new_openstack_resource(
                     name="TEST-RESOURCE", internal_name="test-service"

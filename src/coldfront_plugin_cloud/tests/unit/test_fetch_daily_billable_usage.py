@@ -93,8 +93,9 @@ class TestFetchDailyBillableUsage(base.TestBase):
         )
         fakedev = self.new_openstack_resource(name="FakeDev", internal_name="FakeDev")
 
-        prod_project = self.new_project()
-        dev_project = self.new_project()
+        user = self.new_user(add_to_keycloak=False)
+        prod_project = self.new_project(pi=user)
+        dev_project = self.new_project(pi=user)
 
         prod_allocation_1 = self.new_allocation(
             project=prod_project, resource=fakeprod, quantity=1, status="Active"
@@ -138,7 +139,9 @@ class TestFetchDailyBillableUsage(base.TestBase):
         fakeprod = self.new_openstack_resource(
             name="FakeProd", internal_name="FakeProd"
         )
-        prod_project = self.new_project()
+
+        user = self.new_user(add_to_keycloak=False)
+        prod_project = self.new_project(pi=user)
         allocation_1 = self.new_allocation(
             project=prod_project, resource=fakeprod, quantity=1, status="Active"
         )
@@ -216,15 +219,17 @@ class TestFetchDailyBillableUsage(base.TestBase):
         fakeprod = self.new_openstack_resource(
             name="FakeProd", internal_name="FakeProd"
         )
-        prod_project = self.new_project(title="FakeProject")
+
+        user = self.new_user(add_to_keycloak=False)
+        prod_project = self.new_project(pi=user, title="FakeProject")
         allocation_1 = self.new_allocation(
             project=prod_project, resource=fakeprod, quantity=1, status="Active"
         )
 
-        manager = self.new_user()
+        manager = self.new_user(add_to_keycloak=False)
         self.new_project_user(manager, prod_project, role="Manager")
 
-        normal_user = self.new_user()
+        normal_user = self.new_user(add_to_keycloak=False)
         self.new_project_user(normal_user, prod_project, role="User")
 
         with mock.patch("coldfront.core.utils.mail.send_email") as mock_send_email:

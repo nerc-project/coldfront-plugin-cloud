@@ -21,6 +21,10 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Install Keycloak
+        run: |
+          bash ./ci/setup-keycloak.sh
+
       - name: Install dependencies, ColdFront and plugin
         run: |
           ./ci/setup.sh
