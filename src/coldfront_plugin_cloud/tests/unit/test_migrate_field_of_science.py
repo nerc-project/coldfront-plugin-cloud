@@ -11,12 +11,13 @@ from coldfront_plugin_cloud.tests import base
 
 
 class TestFixAllocation(base.TestBase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         """
         Because Coldfront manually sets the IDs of FieldOfScience (FOS) entries, this creates a mismatch
         between the actual FOS IDs and the sequence that Postgres uses to auto-increment them
         """
-        super().setUp()
+        super().setUpTestData()
 
         if os.getenv("DB_URL"):
             with connection.cursor() as cursor:

@@ -12,9 +12,10 @@ import kubernetes.dynamic.exceptions as kexc
 
 @unittest.skipUnless(os.getenv("FUNCTIONAL_TESTS"), "Functional tests not enabled.")
 class TestAllocation(base.TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.resource = self.new_openshift_resource(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
         )
@@ -325,62 +326,6 @@ class TestAllocation(base.TestBase):
             )
         )
 
-    def test_migrate_quota_field_names(self):
-        """When a quota changes to a new label name, validate_allocations should update the quota."""
-        user = self.new_user()
-        project = self.new_project(pi=user)
-        allocation = self.new_allocation(project, self.resource, 1)
-        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
-
-        tasks.activate_allocation(allocation.pk)
-        allocation.refresh_from_db()
-
-        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
-
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "1",
-                "limits.memory": "4Gi",
-                "limits.ephemeral-storage": "5Gi",
-                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
-                "requests.nvidia.com/gpu": "0",
-                "persistentvolumeclaims": "2",
-            },
-        )
-
-        # Change storage quotal to non-default value, to check new attribute preserves the value after migration
-        utils.set_attribute_on_allocation(
-            allocation, attributes.QUOTA_REQUESTS_NESE_STORAGE, 50
-        )
-
-        # Now migrate NESE Storage quota field (ocs-external...) to fake storage quota
-        call_command(
-            "add_quota_to_resource",
-            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
-            resource_name=self.resource.name,
-            quota_label="fake-storage.storageclass.storage.k8s.io/requests.storage",
-            multiplier=20,
-            static_quota=0,
-            unit_suffix="Gi",
-        )
-        call_command("validate_allocations", apply=True)
-
-        # Check the quota after migration
-        quota = allocator.get_quota(project_id)
-        self.assertEqual(
-            quota,
-            {
-                "limits.cpu": "1",
-                "limits.memory": "4Gi",
-                "limits.ephemeral-storage": "5Gi",
-                "fake-storage.storageclass.storage.k8s.io/requests.storage": "50Gi",  # Migrated key
-                "requests.nvidia.com/gpu": "0",
-                "persistentvolumeclaims": "2",
-            },
-        )
-
     def test_needs_renewal_allocation(self):
         """Simple test to validate allocations in `Active (Needs Renewal)` status."""
         user = self.new_user()
@@ -499,6 +444,17 @@ class TestAllocation(base.TestBase):
         )
         assert set([user.username]) == allocator.get_users(project_id)
 
+
+class TestAllocationRemoveQuota(base.TestBase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
+            name="Microshift",
+            api_url=os.getenv("OS_API_URL"),
+        )
+        call_command("register_default_quotas", apply=True)
+
     def test_remove_quota(self):
         """Test removing a quota from a resource and validating allocations.
         After removal, prior allocations should still have the quota, but new allocations should not."""
@@ -570,17 +526,85 @@ class TestAllocation(base.TestBase):
         )
 
 
+class TestAllocationMigrateQuota(base.TestBase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
+            name="Microshift",
+            api_url=os.getenv("OS_API_URL"),
+        )
+        call_command("register_default_quotas", apply=True)
+
+    def test_migrate_quota_field_names(self):
+        """When a quota changes to a new label name, validate_allocations should update the quota."""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 1)
+        allocator = openshift.OpenShiftResourceAllocator(self.resource, allocation)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": "20Gi",
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+        # Change storage quotal to non-default value, to check new attribute preserves the value after migration
+        utils.set_attribute_on_allocation(
+            allocation, attributes.QUOTA_REQUESTS_NESE_STORAGE, 50
+        )
+
+        # Now migrate NESE Storage quota field (ocs-external...) to fake storage quota
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_REQUESTS_NESE_STORAGE,
+            resource_name=self.resource.name,
+            quota_label="fake-storage.storageclass.storage.k8s.io/requests.storage",
+            multiplier=20,
+            static_quota=0,
+            unit_suffix="Gi",
+        )
+        call_command("validate_allocations", apply=True)
+
+        # Check the quota after migration
+        quota = allocator.get_quota(project_id)
+        self.assertEqual(
+            quota,
+            {
+                "limits.cpu": "1",
+                "limits.memory": "4Gi",
+                "limits.ephemeral-storage": "5Gi",
+                "fake-storage.storageclass.storage.k8s.io/requests.storage": "50Gi",  # Migrated key
+                "requests.nvidia.com/gpu": "0",
+                "persistentvolumeclaims": "2",
+            },
+        )
+
+
 class TestAllocationNewQuota(base.TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.resource = self.new_openshift_resource(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
         )
         call_command(
             "add_quota_to_resource",
             display_name=attributes.QUOTA_LIMITS_CPU,
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             quota_label="limits.cpu",
             multiplier=1,
         )

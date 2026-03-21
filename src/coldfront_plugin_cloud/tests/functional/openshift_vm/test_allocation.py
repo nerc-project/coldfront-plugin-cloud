@@ -9,9 +9,10 @@ from django.core.management import call_command
 
 @unittest.skipUnless(os.getenv("FUNCTIONAL_TESTS"), "Functional tests not enabled.")
 class TestAllocation(base.TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.resource = self.new_openshift_resource(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
             name="Microshift",
             api_url=os.getenv("OS_API_URL"),
             for_virtualization=True,
@@ -19,14 +20,14 @@ class TestAllocation(base.TestBase):
         call_command("register_default_quotas", apply=True)
         call_command(
             "remove_quota_from_resource",
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             display_name=attributes.QUOTA_REQUESTS_GPU,
             apply=True,
         )
         call_command(
             "add_quota_to_resource",
             display_name=attributes.QUOTA_REQUESTS_VM_GPU_A100_SXM4,
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             quota_label="requests.nvidia.com/A100_SXM4_40GB",
             multiplier=0,
             static_quota=0,
@@ -35,7 +36,7 @@ class TestAllocation(base.TestBase):
         call_command(
             "add_quota_to_resource",
             display_name=attributes.QUOTA_REQUESTS_VM_GPU_V100,
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             quota_label="requests.nvidia.com/GV100GL_Tesla_V100",
             multiplier=0,
             static_quota=0,
@@ -44,7 +45,7 @@ class TestAllocation(base.TestBase):
         call_command(
             "add_quota_to_resource",
             display_name=attributes.QUOTA_REQUESTS_VM_GPU_H100,
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             quota_label="requests.nvidia.com/H100_SXM5_80GB",
             multiplier=0,
             static_quota=0,
