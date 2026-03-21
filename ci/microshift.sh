@@ -5,8 +5,6 @@
 #
 set -xe
 
-: "${ACCT_MGT_VERSION:="master"}"
-: "${ACCT_MGT_REPOSITORY:="https://github.com/cci-moc/openshift-acct-mgt.git"}"
 : "${KUBECONFIG:=$HOME/.kube/config}"
 
 test_dir="$PWD/testdata"
@@ -24,8 +22,6 @@ sudo docker run -d --rm --name microshift --privileged \
 echo "::endgroup::"
 
 microshift_addr=$(sudo docker inspect microshift --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-sudo sed -i '/onboarding-onboarding.cluster.local/d' /etc/hosts
-echo "$microshift_addr  onboarding-onboarding.cluster.local" | sudo tee -a /etc/hosts
 
 KUBECONFIG_FULL_PATH="$(readlink -f "$KUBECONFIG")"
 mkdir -p "${KUBECONFIG_FULL_PATH%/*}"
@@ -46,14 +42,8 @@ while ! oc get route -A; do
 done
 echo "::endgroup::"
 
-# Install OpenShift Account Management
-git clone "${ACCT_MGT_REPOSITORY}" "$test_dir/openshift-acct-mgt"
-git -C "$test_dir/openshift-acct-mgt" config advice.detachedHead false
-git -C "$test_dir/openshift-acct-mgt" checkout "$ACCT_MGT_VERSION"
+# Creating service account and rolebinding
+oc create serviceaccount test-serviceaccount -n default
+oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:default:test-serviceaccount
 
-echo "::group::Deploy openshift-acct-mgt"
-oc apply -k "$test_dir/openshift-acct-mgt/k8s/overlays/crc"
-oc wait -n onboarding --for=condition=available --timeout=800s deployment/onboarding
-echo "::endgroup::"
-
-sleep 60
+sleep 10
