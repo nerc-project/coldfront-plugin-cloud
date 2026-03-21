@@ -18,21 +18,24 @@ from django.core.management import call_command
 SECONDS_IN_DAY = 3600 * 24
 
 
-class TestCalculateAllocationQuotaHours(base.TestBase):
-    def setUp(self):
-        super().setUp()
-        self.resource = self.new_openshift_resource(
+class TestCalculateAllocationQuotaHoursBase(base.TestBase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+        cls.resource = cls.new_openshift_resource(
             name="",
         )
         call_command(
             "add_quota_to_resource",
             display_name=attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
-            resource_name=self.resource.name,
+            resource_name=cls.resource.name,
             quota_label="limits.ephemeral-storage",
             multiplier=5,
             unit_suffix="Gi",
         )
 
+
+class TestCalculateQuotaUnitHours(TestCalculateAllocationQuotaHoursBase):
     @patch("coldfront_plugin_cloud.utils.load_outages_from_nerc_rates")
     def test_new_allocation_quota(self, mock_load_outages):
         """Test quota calculation with nerc-rates outages mocked."""
@@ -61,28 +64,6 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         )
         self.assertEqual(value, 96)
 
-        with tempfile.NamedTemporaryFile() as fp:
-            call_command(
-                "calculate_storage_gb_hours",
-                "--output",
-                fp.name,
-                "--start",
-                "2020-03-01",
-                "--end",
-                "2020-03-31",
-                "--openstack-nese-gb-rate",
-                "0.0000087890625",
-                "--openshift-nese-gb-rate",
-                "0.0000087890625",
-                "--openshift-ibm-gb-rate",
-                "0.00001",
-                "--invoice-month",
-                "2020-03",
-            )
-
-        # Let's test a complete CLI call. This is not for testing
-        # the validity but just the unerrored execution of the complete pipeline.
-        # Tests that verify the correct output are further down in the test file.
         with tempfile.NamedTemporaryFile() as fp:
             call_command(
                 "calculate_storage_gb_hours",
@@ -524,6 +505,7 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         )
         self.assertEqual(value, 0)
 
+    # TODO Delete this test and the fucntion it tests
     def test_load_excluded_intervals(self):
         """Test load_excluded_intervals returns valid output"""
 
@@ -586,6 +568,8 @@ class TestCalculateAllocationQuotaHours(base.TestBase):
         with self.assertRaises(AssertionError):
             utils.load_excluded_intervals(invalid_interval)
 
+
+class TestNERCOutagesIntegration(TestCalculateAllocationQuotaHoursBase):
     @patch(
         "coldfront_plugin_cloud.management.commands.calculate_storage_gb_hours.get_rates"
     )

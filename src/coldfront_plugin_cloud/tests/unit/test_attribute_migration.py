@@ -12,13 +12,16 @@ from django.core.management import call_command
 
 
 class TestAttributeMigration(base.TestBase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         # Run initial setup but do not register the attributes
         backup, sys.stdout = sys.stdout, open(devnull, "a")
         call_command("initial_setup", "-f")
         call_command("load_test_data")
         sys.stdout = backup
 
+
+class TestRenameAttribute(TestAttributeMigration):
     @mock.patch.object(
         register_cloud_attributes,
         "RESOURCE_ATTRIBUTE_MIGRATIONS",
@@ -96,6 +99,8 @@ class TestAttributeMigration(base.TestBase):
         with self.assertRaises(allocation_models.AllocationAttributeType.DoesNotExist):
             allocation_models.AllocationAttributeType.objects.get(name="No Migration")
 
+
+class TestRenameIdentityURL(TestAttributeMigration):
     def test_rename_identity_url(self):
         with mock.patch.object(
             register_cloud_attributes,

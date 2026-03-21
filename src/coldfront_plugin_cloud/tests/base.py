@@ -26,7 +26,8 @@ from django.core.management import call_command
 
 
 class TestBase(TestCase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         # Otherwise output goes to the terminal for every test that is run
         backup, sys.stdout = sys.stdout, open(devnull, "a")
         call_command("initial_setup", "-f")
