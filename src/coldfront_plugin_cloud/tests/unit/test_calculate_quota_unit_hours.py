@@ -505,69 +505,6 @@ class TestCalculateQuotaUnitHours(TestCalculateAllocationQuotaHoursBase):
         )
         self.assertEqual(value, 0)
 
-    # TODO Delete this test and the fucntion it tests
-    def test_load_excluded_intervals(self):
-        """Test load_excluded_intervals returns valid output"""
-
-        # Single interval
-        interval_list = ["2023-01-01,2023-01-02"]
-        output = utils.load_excluded_intervals(interval_list)
-        self.assertEqual(
-            output,
-            [
-                [
-                    pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
-                    pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0)),
-                ]
-            ],
-        )
-
-        # More than 1 interval
-        interval_list = [
-            "2023-01-01,2023-01-02",
-            "2023-01-04 09:00:00,2023-01-15 10:00:00",
-        ]
-        output = utils.load_excluded_intervals(interval_list)
-        self.assertEqual(
-            output,
-            [
-                [
-                    pytz.utc.localize(datetime.datetime(2023, 1, 1, 0, 0, 0)),
-                    pytz.utc.localize(datetime.datetime(2023, 1, 2, 0, 0, 0)),
-                ],
-                [
-                    pytz.utc.localize(datetime.datetime(2023, 1, 4, 9, 0, 0)),
-                    pytz.utc.localize(datetime.datetime(2023, 1, 15, 10, 0, 0)),
-                ],
-            ],
-        )
-
-    def test_load_excluded_intervals_invalid(self):
-        """Test when given invalid time intervals"""
-
-        # First interval is invalid
-        invalid_interval = ["foo"]
-        with self.assertRaises(ValueError):
-            utils.load_excluded_intervals(invalid_interval)
-
-        # First interval is valid, but not second
-        invalid_interval = ["2001-01-01,2002-01-01", "foo,foo"]
-        with self.assertRaises(ValueError):
-            utils.load_excluded_intervals(invalid_interval)
-
-        # End date is before start date
-        invalid_interval = ["2000-10-01,2000-01-01"]
-        with self.assertRaises(AssertionError):
-            utils.load_excluded_intervals(invalid_interval)
-
-        # Overlapping intervals
-        invalid_interval = [
-            "2000-01-01,2000-01-04",
-            "2000-01-02,2000-01-06",
-        ]
-        with self.assertRaises(AssertionError):
-            utils.load_excluded_intervals(invalid_interval)
-
 
 class TestNERCOutagesIntegration(TestCalculateAllocationQuotaHoursBase):
     @patch(

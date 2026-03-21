@@ -1,7 +1,6 @@
 import datetime
 import functools
 import math
-import pytz
 import re
 import secrets
 
@@ -192,45 +191,6 @@ def calculate_quota_unit_hours(
     value_times_seconds += since_last_event * last_event_value
 
     return math.ceil(value_times_seconds / 3600)
-
-
-def load_excluded_intervals(excluded_interval_arglist):
-    """Parse excluded time ranges from command line arguments.
-
-    :param excluded_interval_arglist: List of time range strings in format "start,end".
-    :return: Sorted list of [start, end] datetime tuples.
-    """
-
-    def interval_sort_key(e):
-        return e[0]
-
-    def check_overlapping_intervals(excluded_intervals_list):
-        prev_interval = excluded_intervals_list[0]
-        for i in range(1, len(excluded_intervals_list)):
-            cur_interval = excluded_intervals_list[i]
-            assert cur_interval[0] >= prev_interval[1], (
-                f"Interval start date {cur_interval[0]} overlaps with another interval's end date {prev_interval[1]}"
-            )
-            prev_interval = cur_interval
-
-    excluded_intervals_list = list()
-    for interval in excluded_interval_arglist:
-        start, end = interval.strip().split(",")
-        start_dt, end_dt = [datetime.datetime.fromisoformat(i) for i in [start, end]]
-        assert end_dt > start_dt, (
-            f"Interval end date ({end}) is before start date ({start})!"
-        )
-        excluded_intervals_list.append(
-            [
-                pytz.utc.localize(datetime.datetime.fromisoformat(start)),
-                pytz.utc.localize(datetime.datetime.fromisoformat(end)),
-            ]
-        )
-
-    excluded_intervals_list.sort(key=interval_sort_key)
-    check_overlapping_intervals(excluded_intervals_list)
-
-    return excluded_intervals_list
 
 
 @functools.cache
