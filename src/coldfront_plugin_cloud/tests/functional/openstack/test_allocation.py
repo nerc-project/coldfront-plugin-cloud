@@ -202,9 +202,7 @@ class TestAllocation(base.TestBase):
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_FLOATING_IPS), 6)
         self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 200)
 
-        with self.assertLogs(
-            "coldfront_plugin_cloud.management.commands.validate_allocations"
-        ) as cm:
+        with self.assertLogs("coldfront_plugin_cloud.base") as cm:
             call_command("validate_allocations", apply=True)
 
         self.assertTrue(
@@ -410,3 +408,69 @@ class TestAllocation(base.TestBase):
 
         self.assertEqual(len(roles), 1)
         self.assertEqual(roles[0].role["id"], self.role_member.id)
+
+
+class TestAllocationNewAttribute(base.TestBase):
+    def setUp(self):
+        super().setUp()
+        self.resource = self.new_openstack_resource(
+            name="Devstack", auth_url=os.getenv("OS_AUTH_URL")
+        )
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_VCPU,
+            resource_name=self.resource.name,
+            quota_label="compute.cores",
+            multiplier=1,
+        )
+
+        self.session = openstack.get_session_for_resource(self.resource)
+        self.compute = novaclient.Client(session=self.session, version=2)
+
+    def test_allocation_new_attribute(self):
+        """When a new attribute is introduced, but pre-existing allocations don't have it.
+        Since OpenStack provides defaults for some quotas,
+        Coldfront may use those defaults, even after the quota is added to Coldfront"""
+        user = self.new_user()
+        project = self.new_project(pi=user)
+        allocation = self.new_allocation(project, self.resource, 2)
+
+        tasks.activate_allocation(allocation.pk)
+        allocation.refresh_from_db()
+
+        project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 1)
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_RAM), None)
+
+        # Check Openstack does have a non-zero default ram quota
+        actual_nova_quota = self.compute.quotas.get(project_id)
+        default_ram_quota = actual_nova_quota.ram
+        self.assertEqual(actual_nova_quota.cores, 2)
+        self.assertTrue(default_ram_quota > 0)
+
+        # Add a new attribute for OpenStack
+        # Since Openstack already provided defaults, Coldfront should use those
+        call_command(
+            "add_quota_to_resource",
+            display_name=attributes.QUOTA_RAM,
+            resource_name=self.resource.name,
+            quota_label="compute.ram",
+            multiplier=4096,
+        )
+
+        call_command("validate_allocations", apply=True)
+        allocation.refresh_from_db()
+
+        self.assertEqual(allocation.get_attribute(attributes.QUOTA_VCPU), 2 * 1)
+        self.assertEqual(
+            allocation.get_attribute(attributes.QUOTA_RAM), default_ram_quota
+        )
+
+        expected_nova_quota = {
+            "cores": 2,
+            "ram": default_ram_quota,
+        }
+        actual_nova_quota = self.compute.quotas.get(project_id)
+        for k, v in expected_nova_quota.items():
+            self.assertEqual(actual_nova_quota.__getattr__(k), v)
