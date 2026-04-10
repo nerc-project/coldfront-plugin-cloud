@@ -1,0 +1,35 @@
+name: test-functional-keycloak
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.12
+
+      - name: Upgrade and install packages
+        run: |
+          bash ./ci/setup-ubuntu.sh
+
+      - name: Install Keycloak
+        run: |
+          bash ./ci/setup-keycloak.sh
+
+      - name: Install ColdFront and plugin
+        run: |
+          ./ci/setup.sh
+
+      - name: Run functional tests
+        run: |
+          ./ci/run_functional_tests_keycloak.sh

@@ -6,8 +6,10 @@ from django_q.tasks import async_task
 from coldfront_plugin_cloud.tasks import (
     activate_allocation,
     add_user_to_allocation,
+    add_user_to_keycloak,
     disable_allocation,
     remove_user_from_allocation,
+    remove_user_from_keycloak,
 )
 from coldfront.core.allocation.signals import (
     allocation_activate,
@@ -23,6 +25,10 @@ def is_async():
     # in `coldfront-nerc` the configuration of a Django Q cluster, therefore
     # execution is to be performed asynchronously for longer running tasks.
     return os.getenv("REDIS_HOST")
+
+
+def is_keycloak_enabled():
+    return os.getenv("KEYCLOAK_BASE_URL")
 
 
 @receiver(allocation_activate)
@@ -48,11 +54,18 @@ def activate_allocation_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get("allocation_user_pk")
     if is_async():
         async_task(add_user_to_allocation, allocation_user_pk)
+        if is_keycloak_enabled():
+            async_task(add_user_to_keycloak, allocation_user_pk)
     else:
         add_user_to_allocation(allocation_user_pk)
+        if is_keycloak_enabled():
+            add_user_to_keycloak(allocation_user_pk)
 
 
 @receiver(allocation_remove_user)
 def allocation_remove_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get("allocation_user_pk")
     remove_user_from_allocation(allocation_user_pk)
+
+    if is_keycloak_enabled():
+        remove_user_from_keycloak(allocation_user_pk)
