@@ -12,7 +12,7 @@ from coldfront.core.utils.common import import_from_settings
 from coldfront_plugin_cloud.models import usage_models
 from coldfront_plugin_cloud.models.usage_models import UsageInfo, validate_date_str
 from coldfront_plugin_cloud import utils
-from coldfront_plugin_cloud.models import AllocationDailyBillableUsage
+from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
 
 import boto3
 from django.core.management.base import BaseCommand

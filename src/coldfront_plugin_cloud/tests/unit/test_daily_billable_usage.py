@@ -11,7 +11,7 @@ from coldfront_plugin_cloud.daily_billable_usage import (
     get_daily_billable_usage,
     get_daily_billable_usage_range,
 )
-from coldfront_plugin_cloud.models import AllocationDailyBillableUsage
+from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
 from coldfront_plugin_cloud.tests import base
 
 

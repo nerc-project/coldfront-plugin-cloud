@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 from coldfront.core.allocation.models import Allocation
-from coldfront_plugin_cloud.models import AllocationDailyBillableUsage
+from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
 from coldfront_plugin_cloud.usage_models import UsageInfo, validate_date_str
 
 
