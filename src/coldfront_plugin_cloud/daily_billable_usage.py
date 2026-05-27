@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from coldfront.core.allocation.models import Allocation
 from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
-from coldfront_plugin_cloud.usage_models import UsageInfo, validate_date_str
+from coldfront_plugin_cloud.models.usage_models import UsageInfo, validate_date_str
 
 
 def _rows_to_usage_info(rows: Iterable[AllocationDailyBillableUsage]) -> UsageInfo:

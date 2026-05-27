@@ -4,7 +4,7 @@ from datetime import date
 from django.core.management.base import BaseCommand, CommandError
 
 from coldfront.core.allocation.models import Allocation
-from coldfront_plugin_cloud import usage_models
+from coldfront_plugin_cloud.models import usage_models
 from coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage import (
     Command as FetchCommand,
 )
