@@ -178,8 +178,8 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         openshift_url = self.resource.get_attribute(attributes.RESOURCE_API_URL)
 
         k8_config = kubernetes.client.Configuration()
-        k8_config.api_key["authorization"] = openshift_token
-        k8_config.api_key_prefix["authorization"] = "Bearer"
+        k8_config.api_key["BearerToken"] = openshift_token
+        k8_config.api_key_prefix["BearerToken"] = "Bearer"
         k8_config.host = openshift_url
 
         if self.verify == "false":
