@@ -17,7 +17,6 @@ export OPENSTACK_ESI_APPLICATION_CREDENTIAL_ID=$OPENSTACK_DEVSTACK_APPLICATION_C
 
 export OPENSTACK_PUBLIC_NETWORK_ID=$(microstack.openstack network show external -f value -c id)
 export DJANGO_SETTINGS_MODULE="local_settings"
-export PYTHONPATH=src
 export FUNCTIONAL_TESTS="True"
 export OS_AUTH_URL="https://localhost:5000"
 export PYTHONWARNINGS="ignore:Unverified HTTPS request"

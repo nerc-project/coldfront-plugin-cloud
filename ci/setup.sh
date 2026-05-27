@@ -2,8 +2,6 @@
 
 set -xe
 
-export PYTHONPATH=src
-
 # If running on Github actions, don't create a virtualenv
 # Else install postgres
 if [[ ! "${CI}" == "true" ]]; then

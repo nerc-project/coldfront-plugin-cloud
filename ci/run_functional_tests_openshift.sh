@@ -15,7 +15,6 @@ fi
 microshift_addr=$(sudo docker inspect microshift --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 
 export DJANGO_SETTINGS_MODULE="local_settings"
-export PYTHONPATH=src
 export FUNCTIONAL_TESTS="True"
 export OS_API_URL="https://$microshift_addr:6443"
 export PYTHONWARNINGS="ignore:Unverified HTTPS request"

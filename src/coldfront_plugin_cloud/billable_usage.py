@@ -1,7 +1,9 @@
 from collections.abc import Iterable
 
 from coldfront.core.allocation.models import Allocation
-from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
+from coldfront_plugin_cloud.models.daily_billable_usage import (
+    AllocationDailyBillableUsage,
+)
 from coldfront_plugin_cloud.models.usage_models import UsageInfo, validate_date_str
 
 
@@ -62,7 +64,7 @@ def get_daily_billable_usage(allocation: Allocation, date: str) -> UsageInfo:
         ValueError: If allocation is unsaved, date is invalid, or empty.
 
     Example:
-        >>> from coldfront_plugin_cloud.daily_billable_usage import get_daily_billable_usage
+        >>> from coldfront_plugin_cloud.billable_usage import get_daily_billable_usage
         >>> usage = get_daily_billable_usage(allocation, "2025-11-15")
         >>> usage.root.get("OpenStack CPU")
         Decimal('100.00')
@@ -83,10 +85,10 @@ def get_daily_billable_usage(allocation: Allocation, date: str) -> UsageInfo:
     return _rows_to_usage_info(rows)
 
 
-def get_daily_billable_usage_range(
+def get_daily_billable_usage_by_date(
     allocation: Allocation, start_date: str, end_date: str
-) -> UsageInfo:
-    """Load billable usage rows for an allocation across an inclusive date range.
+) -> dict[str, UsageInfo]:
+    """Load billable usage grouped by day across an inclusive date range.
 
     Args:
         allocation: ColdFront allocation to read.
@@ -94,26 +96,20 @@ def get_daily_billable_usage_range(
         end_date: Last day (inclusive), ``YYYY-MM-DD``.
 
     Returns:
-        A single UsageInfo built from all matching rows. Each SU type appears
-        at most once; if the same SU type exists on multiple days, the last
-        row processed wins (queryset has no explicit ordering).
+        Mapping of ``YYYY-MM-DD`` date strings to UsageInfo. Dates with no
+        usage rows are omitted.
 
     Raises:
         TypeError: If allocation or either date has the wrong type.
         ValueError: If allocation is unsaved, a date is invalid, or
             start_date is after end_date.
 
-    Note:
-        For per-day breakdowns, call get_daily_billable_usage once per date
-        or add a separate helper that returns a date-keyed structure
-        (e.g. CumulativeChargesDict).
-
     Example:
-        >>> usage = get_daily_billable_usage_range(
+        >>> usage_by_date = get_daily_billable_usage_by_date(
         ...     allocation, "2025-11-01", "2025-11-30"
         ... )
-        >>> usage.root  # merged across the whole range, not per-day
-        {'OpenStack CPU': Decimal('110.00'), 'Storage': Decimal('35.00')}
+        >>> usage_by_date["2025-11-15"].root
+        {'OpenStack CPU': Decimal('100.00'), 'Storage': Decimal('30.12')}
     """
     if not isinstance(allocation, Allocation):
         raise TypeError(
@@ -136,5 +132,14 @@ def get_daily_billable_usage_range(
         allocation=allocation,
         date__gte=start_date,
         date__lte=end_date,
-    )
-    return _rows_to_usage_info(rows)
+    ).order_by("date", "su_type")
+
+    usage_by_date: dict[str, UsageInfo] = {}
+    for row in rows:
+        day = row.date.isoformat() if hasattr(row.date, "isoformat") else str(row.date)
+        usage_by_date.setdefault(day, UsageInfo({}))
+        if not row.su_type:
+            raise ValueError(f"usage row id={row.pk} has empty su_type")
+        usage_by_date[day].root[row.su_type] = row.value
+
+    return usage_by_date

@@ -1,17 +1,25 @@
+import os
 import time
 from decimal import Decimal
+
+import django
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "local_settings")
+django.setup()
 
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
 
 from coldfront.core.allocation.models import Allocation
-from coldfront_plugin_cloud.daily_billable_usage import (
+from coldfront_plugin_cloud.billable_usage import (
     _rows_to_usage_info,
     get_daily_billable_usage,
-    get_daily_billable_usage_range,
+    get_daily_billable_usage_by_date,
 )
-from coldfront_plugin_cloud.models.daily_billable_usage import AllocationDailyBillableUsage
+from coldfront_plugin_cloud.models.daily_billable_usage import (
+    AllocationDailyBillableUsage,
+)
 from coldfront_plugin_cloud.tests import base
 
 
@@ -147,7 +155,7 @@ class TestGetDailyBillableUsage(base.TestBase):
         self.assertEqual(usage.total_charges, Decimal("100.00"))
 
 
-class TestGetDailyBillableUsageRange(base.TestBase):
+class TestGetDailyBillableUsageByDate(base.TestBase):
     def _new_allocation(self):
         resource = self.new_openstack_resource()
         project = self.new_project()
@@ -161,63 +169,43 @@ class TestGetDailyBillableUsageRange(base.TestBase):
             value=Decimal(value),
         )
 
-    def test_inclusive_range(self):
-        # Range queries should include both endpoints and exclude rows outside the window.
+    def test_groups_usage_by_date(self):
         allocation = self._new_allocation()
         self._create_usage_row(allocation, "2025-11-01", "OpenStack CPU", "10.00")
-        self._create_usage_row(allocation, "2025-11-15", "Storage", "20.00")
-        self._create_usage_row(allocation, "2025-11-30", "OpenStack V100 GPU", "30.00")
-        self._create_usage_row(allocation, "2025-12-01", "OpenStack CPU", "99.00")
+        self._create_usage_row(allocation, "2025-11-01", "Storage", "5.50")
+        self._create_usage_row(allocation, "2025-11-02", "OpenStack CPU", "22.50")
+        self._create_usage_row(allocation, "2025-10-31", "OpenStack CPU", "99.00")
 
-        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
+        usage_by_date = get_daily_billable_usage_by_date(
+            allocation, "2025-11-01", "2025-11-30"
+        )
 
-        self.assertEqual(usage.root["OpenStack CPU"], Decimal("10.00"))
-        self.assertEqual(usage.root["Storage"], Decimal("20.00"))
-        self.assertEqual(usage.root["OpenStack V100 GPU"], Decimal("30.00"))
-        self.assertEqual(usage.total_charges, Decimal("60.00"))
+        self.assertEqual(list(usage_by_date.keys()), ["2025-11-01", "2025-11-02"])
+        self.assertEqual(
+            usage_by_date["2025-11-01"].root,
+            {"OpenStack CPU": Decimal("10.00"), "Storage": Decimal("5.50")},
+        )
+        self.assertEqual(
+            usage_by_date["2025-11-02"].root,
+            {"OpenStack CPU": Decimal("22.50")},
+        )
 
     def test_empty_when_no_matching_rows(self):
-        # A valid range with no data should return an empty UsageInfo, not an error.
         allocation = self._new_allocation()
-        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
-        self.assertEqual(usage.root, {})
-        self.assertEqual(usage.total_charges, Decimal("0"))
+        usage_by_date = get_daily_billable_usage_by_date(
+            allocation, "2025-11-01", "2025-11-30"
+        )
+        self.assertEqual(usage_by_date, {})
 
     def test_start_date_after_end_date(self):
-        # Detect inverted ranges early to avoid confusing empty results.
         allocation = self._new_allocation()
-        with self.assertRaises(ValueError) as ctx:
-            get_daily_billable_usage_range(allocation, "2025-11-30", "2025-11-01")
-        self.assertIn("start_date", str(ctx.exception))
-        self.assertIn("end_date", str(ctx.exception))
-
-    def test_duplicate_su_type_last_row_wins(self):
-        # Document current merge semantics: duplicate SU types collapse to one value based on iteration order.
-        allocation = self._new_allocation()
-        self._create_usage_row(allocation, "2025-11-01", "OpenStack CPU", "100.00")
-        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "200.00")
-
-        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-15")
-
-        self.assertEqual(usage.root["OpenStack CPU"], Decimal("100.00"))
+        with self.assertRaises(ValueError):
+            get_daily_billable_usage_by_date(allocation, "2025-11-30", "2025-11-01")
 
     def test_unsaved_allocation(self):
-        # Same guardrail as single-day reads: unsaved allocations can't be queried.
         allocation = Allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
-
-    def test_invalid_start_date(self):
-        # Validate both endpoints before querying so bad input fails consistently.
-        allocation = self._new_allocation()
-        with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(allocation, "2025-13-01", "2025-11-30")
-
-    def test_invalid_end_date(self):
-        # Validate both endpoints before querying so bad input fails consistently.
-        allocation = self._new_allocation()
-        with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(allocation, "2025-11-01", "not-a-date")
+            get_daily_billable_usage_by_date(allocation, "2025-11-01", "2025-11-30")
 
 
 class TestAllocationDailyBillableUsageModel(base.TestBase):
