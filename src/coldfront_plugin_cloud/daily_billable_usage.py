@@ -79,9 +79,7 @@ def get_daily_billable_usage(allocation: Allocation, date: str) -> UsageInfo:
         raise ValueError("date must be a non-empty YYYY-MM-DD string")
     date = validate_date_str(date)
 
-    rows = AllocationDailyBillableUsage.objects.filter(
-        allocation=allocation, date=date
-    )
+    rows = AllocationDailyBillableUsage.objects.filter(allocation=allocation, date=date)
     return _rows_to_usage_info(rows)
 
 

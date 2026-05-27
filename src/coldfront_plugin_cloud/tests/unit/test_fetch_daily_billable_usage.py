@@ -252,7 +252,9 @@ class TestFetchDailyBillableUsage(base.TestBase):
         from coldfront_plugin_cloud.models import AllocationDailyBillableUsage
 
         mock_get_allocation_usage.side_effect = [
-            usage_models.UsageInfo({"OpenStack CPU": "100.00", "OpenStack GPU": "50.00"}),
+            usage_models.UsageInfo(
+                {"OpenStack CPU": "100.00", "OpenStack GPU": "50.00"}
+            ),
             usage_models.UsageInfo({"Storage": "30.12"}),
         ]
 
@@ -291,7 +293,9 @@ class TestFetchDailyBillableUsage(base.TestBase):
 
         # Test update_or_create by running again with different values for same date
         mock_get_allocation_usage.side_effect = [
-            usage_models.UsageInfo({"OpenStack CPU": "110.00", "OpenStack GPU": "55.00"}),
+            usage_models.UsageInfo(
+                {"OpenStack CPU": "110.00", "OpenStack GPU": "55.00"}
+            ),
             usage_models.UsageInfo({"Storage": "35.00"}),
         ]
         call_command("fetch_daily_billable_usage", date="2025-11-15")
@@ -420,12 +424,8 @@ class TestFetchDailyBillableUsage(base.TestBase):
         self.assertEqual(
             alloc1_entries.get(su_type="OpenStack CPU").value, Decimal("150.00")
         )
-        self.assertEqual(
-            alloc1_entries.get(su_type="Storage").value, Decimal("35.00")
-        )
+        self.assertEqual(alloc1_entries.get(su_type="Storage").value, Decimal("35.00"))
         self.assertEqual(
             alloc2_entries.get(su_type="OpenStack CPU").value, Decimal("250.00")
         )
-        self.assertEqual(
-            alloc2_entries.get(su_type="Storage").value, Decimal("55.00")
-        )
+        self.assertEqual(alloc2_entries.get(su_type="Storage").value, Decimal("55.00"))

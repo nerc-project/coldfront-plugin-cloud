@@ -31,7 +31,9 @@ _RAMP_STEP = {
 }
 
 
-def usage_for_day(base: dict[str, str], day_index: int, ramp: bool) -> usage_models.UsageInfo:
+def usage_for_day(
+    base: dict[str, str], day_index: int, ramp: bool
+) -> usage_models.UsageInfo:
     if not ramp:
         return usage_models.UsageInfo(base)
     ramped = {}
@@ -144,8 +146,7 @@ class Command(BaseCommand):
         for item in su_args:
             if "=" not in item:
                 raise CommandError(
-                    f"expected NAME=AMOUNT, got {item!r} "
-                    "(e.g. 'OpenStack CPU=100.00')"
+                    f"expected NAME=AMOUNT, got {item!r} (e.g. 'OpenStack CPU=100.00')"
                 )
             name, amount = item.split("=", 1)
             usage[name.strip()] = amount.strip()

@@ -328,7 +328,7 @@ class Command(BaseCommand):
                 allocation=allocation,
                 date=date,
                 su_type=su_type,
-                defaults={'value': value}
+                defaults={"value": value},
             )
 
     @staticmethod
@@ -338,5 +338,7 @@ class Command(BaseCommand):
         Args:
             date: The date string in YYYY-MM-DD format for which to remove entries
         """
-        deleted_count, _ = AllocationDailyBillableUsage.objects.filter(date=date).delete()
+        deleted_count, _ = AllocationDailyBillableUsage.objects.filter(
+            date=date
+        ).delete()
         logger.info(f"Removed {deleted_count} usage entries for date {date}")

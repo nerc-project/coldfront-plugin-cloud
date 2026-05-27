@@ -137,7 +137,9 @@ class TestGetDailyBillableUsage(base.TestBase):
         other_allocation = self._new_allocation()
         self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
         self._create_usage_row(allocation, "2025-11-16", "OpenStack CPU", "200.00")
-        self._create_usage_row(other_allocation, "2025-11-15", "OpenStack CPU", "999.00")
+        self._create_usage_row(
+            other_allocation, "2025-11-15", "OpenStack CPU", "999.00"
+        )
 
         usage = get_daily_billable_usage(allocation, "2025-11-15")
 
@@ -167,9 +169,7 @@ class TestGetDailyBillableUsageRange(base.TestBase):
         self._create_usage_row(allocation, "2025-11-30", "OpenStack V100 GPU", "30.00")
         self._create_usage_row(allocation, "2025-12-01", "OpenStack CPU", "99.00")
 
-        usage = get_daily_billable_usage_range(
-            allocation, "2025-11-01", "2025-11-30"
-        )
+        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
 
         self.assertEqual(usage.root["OpenStack CPU"], Decimal("10.00"))
         self.assertEqual(usage.root["Storage"], Decimal("20.00"))
@@ -179,9 +179,7 @@ class TestGetDailyBillableUsageRange(base.TestBase):
     def test_empty_when_no_matching_rows(self):
         # A valid range with no data should return an empty UsageInfo, not an error.
         allocation = self._new_allocation()
-        usage = get_daily_billable_usage_range(
-            allocation, "2025-11-01", "2025-11-30"
-        )
+        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
         self.assertEqual(usage.root, {})
         self.assertEqual(usage.total_charges, Decimal("0"))
 
@@ -189,9 +187,7 @@ class TestGetDailyBillableUsageRange(base.TestBase):
         # Detect inverted ranges early to avoid confusing empty results.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError) as ctx:
-            get_daily_billable_usage_range(
-                allocation, "2025-11-30", "2025-11-01"
-            )
+            get_daily_billable_usage_range(allocation, "2025-11-30", "2025-11-01")
         self.assertIn("start_date", str(ctx.exception))
         self.assertIn("end_date", str(ctx.exception))
 
@@ -201,9 +197,7 @@ class TestGetDailyBillableUsageRange(base.TestBase):
         self._create_usage_row(allocation, "2025-11-01", "OpenStack CPU", "100.00")
         self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "200.00")
 
-        usage = get_daily_billable_usage_range(
-            allocation, "2025-11-01", "2025-11-15"
-        )
+        usage = get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-15")
 
         self.assertEqual(usage.root["OpenStack CPU"], Decimal("100.00"))
 
@@ -211,25 +205,19 @@ class TestGetDailyBillableUsageRange(base.TestBase):
         # Same guardrail as single-day reads: unsaved allocations can't be queried.
         allocation = Allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(
-                allocation, "2025-11-01", "2025-11-30"
-            )
+            get_daily_billable_usage_range(allocation, "2025-11-01", "2025-11-30")
 
     def test_invalid_start_date(self):
         # Validate both endpoints before querying so bad input fails consistently.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(
-                allocation, "2025-13-01", "2025-11-30"
-            )
+            get_daily_billable_usage_range(allocation, "2025-13-01", "2025-11-30")
 
     def test_invalid_end_date(self):
         # Validate both endpoints before querying so bad input fails consistently.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage_range(
-                allocation, "2025-11-01", "not-a-date"
-            )
+            get_daily_billable_usage_range(allocation, "2025-11-01", "not-a-date")
 
 
 class TestAllocationDailyBillableUsageModel(base.TestBase):
@@ -260,9 +248,7 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
     def test_unique_together_raises_on_duplicate(self):
         # Enforce one row per (allocation, date, su_type) so upserts don't create duplicates.
         allocation = self._new_allocation()
-        self._create_usage_row(
-            allocation, "2025-11-15", "OpenStack CPU", "100.00"
-        )
+        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
         with self.assertRaises(IntegrityError):
             AllocationDailyBillableUsage.objects.create(
                 allocation=allocation,
@@ -274,9 +260,7 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
     def test_allocation_delete_cascades_to_usage_rows(self):
         # Foreign key cascade prevents orphaned usage rows when an allocation is deleted.
         allocation = self._new_allocation()
-        self._create_usage_row(
-            allocation, "2025-11-15", "OpenStack CPU", "100.00"
-        )
+        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
         self._create_usage_row(allocation, "2025-11-16", "Storage", "30.00")
         self.assertEqual(AllocationDailyBillableUsage.objects.count(), 2)
 
@@ -293,12 +277,8 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
         allocation_a = self._new_allocation()
         allocation_b = self._new_allocation()
         self._create_usage_row(allocation_a, "2025-11-01", "Storage", "10.00")
-        self._create_usage_row(
-            allocation_a, "2025-11-15", "OpenStack CPU", "20.00"
-        )
-        self._create_usage_row(
-            allocation_b, "2025-11-15", "OpenStack CPU", "30.00"
-        )
+        self._create_usage_row(allocation_a, "2025-11-15", "OpenStack CPU", "20.00")
+        self._create_usage_row(allocation_b, "2025-11-15", "OpenStack CPU", "30.00")
 
         rows = list(AllocationDailyBillableUsage.objects.all())
         self.assertEqual(len(rows), 3)
@@ -312,9 +292,7 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
     def test_value_stores_two_decimal_places(self):
         # Value is money-like and must round-trip without float precision loss.
         allocation = self._new_allocation()
-        row = self._create_usage_row(
-            allocation, "2025-11-15", "Storage", "30.12"
-        )
+        row = self._create_usage_row(allocation, "2025-11-15", "Storage", "30.12")
         row.refresh_from_db()
         self.assertEqual(row.value, Decimal("30.12"))
 
@@ -353,9 +331,7 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
         # Reverse relation is the primary way callers will traverse allocation -> daily usage rows.
         allocation = self._new_allocation()
         other_allocation = self._new_allocation()
-        self._create_usage_row(
-            allocation, "2025-11-15", "OpenStack CPU", "100.00"
-        )
+        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
         self._create_usage_row(allocation, "2025-11-16", "Storage", "30.00")
         self._create_usage_row(
             other_allocation, "2025-11-15", "OpenStack CPU", "999.00"
