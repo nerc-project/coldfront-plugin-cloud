@@ -1,7 +1,7 @@
 from decimal import Decimal
 from pydantic import ValidationError
 
-from coldfront_plugin_cloud import usage_models
+from coldfront_plugin_cloud.models import usage_models
 from coldfront_plugin_cloud.tests import base
 
 

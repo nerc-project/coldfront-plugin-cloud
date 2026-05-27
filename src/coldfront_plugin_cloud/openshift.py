@@ -30,7 +30,6 @@ IGNORED_ATTRIBUTES = [
 
 PROJECT_DEFAULT_LABELS = {
     "opendatahub.io/dashboard": "true",
-    "modelmesh-enabled": "true",
     "nerc.mghpcc.org/allow-unencrypted-routes": "true",
     "nerc.mghpcc.org/project": "true",
 }
@@ -157,22 +156,6 @@ class NotFound(ApiException):
 
 
 class OpenShiftResourceAllocator(base.ResourceAllocator):
-    QUOTA_KEY_MAPPING = {
-        attributes.QUOTA_LIMITS_CPU: lambda x: {"limits.cpu": f"{x * 1000}m"},
-        attributes.QUOTA_LIMITS_MEMORY: lambda x: {"limits.memory": f"{x}Mi"},
-        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB: lambda x: {
-            "limits.ephemeral-storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_NESE_STORAGE: lambda x: {
-            "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_IBM_STORAGE: lambda x: {
-            "ibm-spectrum-scale-fileset.storageclass.storage.k8s.io/requests.storage": f"{x}Gi"
-        },
-        attributes.QUOTA_REQUESTS_GPU: lambda x: {"requests.nvidia.com/gpu": f"{x}"},
-        attributes.QUOTA_PVC: lambda x: {"persistentvolumeclaims": f"{x}"},
-    }
-
     resource_type = "openshift"
 
     project_name_max_length = 45
@@ -223,9 +206,15 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         )
         return api
 
-    def set_project_configuration(self, project_id, dry_run=False):
+    def set_project_configuration(self, project_id, apply=True):
+        self.set_users(project_id, apply)
+        self.set_limitranges(project_id, apply)
+        self.set_project_labels(project_id, apply)
+        self.set_quota_config(project_id, apply)
+
+    def set_limitranges(self, project_id, apply=True):
         def _recreate_limitrange():
-            if not dry_run:
+            if apply:
                 self._openshift_delete_limits(project_id)
                 self._openshift_create_limits(project_id)
             logger.info(f"Recreated LimitRanges for namespace {project_id}.")
@@ -233,7 +222,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         limits = self._openshift_get_limits(project_id).get("items", [])
 
         if not limits:
-            if not dry_run:
+            if apply:
                 self._openshift_create_limits(project_id)
             logger.info(f"Created default LimitRange for namespace {project_id}.")
 
@@ -256,6 +245,45 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                         f"LimitRange for {project_id} differs {difference.key}: expected {difference.expected} but found {difference.actual}"
                     )
                 _recreate_limitrange()
+
+    def set_project_labels(self, project_id, apply=True):
+        cloud_namespace_obj = self._openshift_get_namespace(project_id)
+        cloud_namespace_obj_labels = cloud_namespace_obj["metadata"]["labels"]
+        if missing_or_incorrect_labels := [
+            label_items[0]
+            for label_items in PROJECT_DEFAULT_LABELS.items()
+            if label_items not in cloud_namespace_obj_labels.items()
+        ]:
+            logger.warning(
+                f"Openshift project {project_id} is missing default labels: {', '.join(missing_or_incorrect_labels)}"
+            )
+            if apply:
+                cloud_namespace_obj_labels.update(PROJECT_DEFAULT_LABELS)
+                self.patch_project(project_id, cloud_namespace_obj)
+                logger.warning(
+                    f"Labels updated for Openshift project {project_id}: {', '.join(missing_or_incorrect_labels)}"
+                )
+
+    def set_quota_config(self, project_id, apply=True):
+        failed_validation = False
+        quota = self.get_quota(project_id)
+        for attr, quotaspec in self.resource_quotaspecs.root.items():
+            quota_key = quotaspec.quota_label
+            expected_value = self.allocation.get_attribute(attr)
+            current_value = quota.get(quota_key, None)
+            current_value = parse_quota_value(current_value, attr)
+
+            failed_validation = failed_validation | self.check_and_apply_quota_attr(
+                attr, expected_value, current_value, apply
+            )
+
+        if failed_validation and apply:
+            try:
+                self.set_quota(project_id)
+                logger.info(f"Quota for {project_id} was out of date. Reapplied!")
+            except Exception as e:
+                logger.info(f"setting cluster-side quota failed: {e}")
+                return
 
     def create_project(self, suggested_project_name):
         sanitized_project_name = utils.get_sanitized_project_name(
@@ -286,9 +314,9 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
         object in the project namespace with no extra scopes"""
 
         quota_spec = {}
-        for key, func in self.QUOTA_KEY_MAPPING.items():
+        for key, quotaspec in self.resource_quotaspecs.root.items():
             if (x := self.allocation.get_attribute(key)) is not None:
-                quota_spec.update(func(x))
+                quota_spec.update({quotaspec.quota_label: quotaspec.formatted_quota(x)})
 
         quota_def = {
             "metadata": {"name": f"{project_id}-project"},
@@ -435,7 +463,7 @@ class OpenShiftResourceAllocator(base.ResourceAllocator):
                 f"User {username} has no rolebindings in project {project_id}"
             )
 
-    def _get_project(self, project_id):
+    def get_project(self, project_id):
         return self._openshift_get_project(project_id)
 
     def _delete_user(self, username):

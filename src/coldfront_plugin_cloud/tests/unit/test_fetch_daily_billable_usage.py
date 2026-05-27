@@ -9,17 +9,17 @@ from coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage impor
     Command,
 )
 from coldfront_plugin_cloud import attributes
-from coldfront_plugin_cloud import usage_models
+from coldfront_plugin_cloud.models import usage_models
 from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud import utils
 
 from django.core.management import call_command
 
-
+# Quote char `|` should be read correctly by fetch command
 TEST_INVOICE = """
 Project - Allocation ID,SU Type,Cost
-test-allocation-1,OpenStack CPU,100.25
-test-allocation-1,OpenStack V100 GPU,500.37
+|test-allocation-1, foo|,OpenStack CPU,100.25
+|test-allocation-1, foo|,OpenStack V100 GPU,500.37
 test-allocation-2,OpenStack CPU,0.25
 """
 
@@ -76,7 +76,9 @@ class TestFetchDailyBillableUsage(base.TestBase):
         invoice = c.load_csv(test_invoice_data)
         mock_load_service_invoice.return_value = invoice
 
-        usage_info = c.get_allocation_usage("Test", "2025-01-11", "test-allocation-1")
+        usage_info = c.get_allocation_usage(
+            "Test", "2025-01-11", "test-allocation-1, foo"
+        )
         usage_info_dict = usage_models.to_dict(usage_info)
 
         self.assertEqual(usage_info_dict["OpenStack CPU"], "100.25")

@@ -4,10 +4,20 @@ from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud.openshift import OpenShiftResourceAllocator
 
 
+class TestOpenshiftResourceAllocator(OpenShiftResourceAllocator):
+    def __init__(self):
+        self.resource = mock.Mock()
+        self.allocation = mock.Mock()
+        self.resource_quotaspecs = mock.Mock()
+        self.id_provider = "fake_idp"
+        self.k8_client = mock.Mock()
+
+        self.verify = False
+        self.safe_resource_name = "foo"
+        self.apis = {}
+        self.member_role_name = "admin"
+
+
 class TestUnitOpenshiftBase(base.TestBase):
     def setUp(self) -> None:
-        mock_resource = mock.Mock()
-        mock_allocation = mock.Mock()
-        self.allocator = OpenShiftResourceAllocator(mock_resource, mock_allocation)
-        self.allocator.id_provider = "fake_idp"
-        self.allocator.k8_client = mock.Mock()
+        self.allocator = TestOpenshiftResourceAllocator()

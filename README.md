@@ -3,11 +3,6 @@
 The cloud plugin allows resource allocations to be requested and
 provisioned in OpenStack and OpenShift cloud environments from ColdFront.
 
-Note: OpenShift support requires deploying the [openshift-acct-mgt][]
-API service.
-
-[openshift-acct-mgt]: https://github.com/cci-moc/openshift-acct-mgt
-
 ## Terminology
 Caution as OpenStack, OpenShift and ColdFront use the same term to mean different
 things!

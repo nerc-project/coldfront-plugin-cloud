@@ -9,8 +9,8 @@ from typing import Optional
 
 from coldfront_plugin_cloud import attributes
 from coldfront.core.utils.common import import_from_settings
-from coldfront_plugin_cloud import usage_models
-from coldfront_plugin_cloud.usage_models import UsageInfo, validate_date_str
+from coldfront_plugin_cloud.models import usage_models
+from coldfront_plugin_cloud.models.usage_models import UsageInfo, validate_date_str
 from coldfront_plugin_cloud import utils
 from coldfront_plugin_cloud.models import AllocationDailyBillableUsage
 
@@ -205,7 +205,9 @@ class Command(BaseCommand):
     def load_csv(location) -> DataFrameGroupBy:
         df = pandas.read_csv(
             location,
+            engine="pyarrow",
             dtype={INVOICE_COLUMN_COST: pandas.ArrowDtype(pyarrow.decimal128(12, 2))},
+            quotechar="|",
         )
         return df.groupby(INVOICE_COLUMN_ALLOCATION_ID)
 

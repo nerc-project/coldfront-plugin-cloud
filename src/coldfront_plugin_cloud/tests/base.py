@@ -26,7 +26,8 @@ from django.core.management import call_command
 
 
 class TestBase(TestCase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         # Otherwise output goes to the terminal for every test that is run
         backup, sys.stdout = sys.stdout, open(devnull, "a")
         call_command("initial_setup", "-f")
@@ -87,20 +88,20 @@ class TestBase(TestCase):
     @staticmethod
     def new_openshift_resource(
         name=None,
+        internal_name=None,
         api_url=None,
         idp=None,
         for_virtualization=False,
-        ibm_storage_available=False,
     ) -> Resource:
         resource_name = name or uuid.uuid4().hex
 
         call_command(
             "add_openshift_resource",
             name=resource_name,
+            internal_name=internal_name,
             api_url=api_url or "https://onboarding-onboarding.cluster.local:6443",
             idp=idp or "developer",
             for_virtualization=for_virtualization,
-            ibm_storage_available=ibm_storage_available,
         )
         return Resource.objects.get(name=resource_name)
 
@@ -109,7 +110,14 @@ class TestBase(TestCase):
         pi = pi or self.new_user()
         status = ProjectStatusChoice.objects.get(name="New")
 
-        Project.objects.create(title=title, pi=pi, status=status)
+        project = Project.objects.create(title=title, pi=pi, status=status)
+        ProjectUser.objects.get_or_create(
+            user=pi,
+            project=project,
+            role=ProjectUserRoleChoice.objects.get(name="Manager"),
+            status=ProjectUserStatusChoice.objects.get(name="Active"),
+        )
+
         return Project.objects.get(title=title)
 
     def new_project_user(self, user, project, role="Manager", status="Active"):
