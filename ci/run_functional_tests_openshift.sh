@@ -13,6 +13,7 @@ if [[ ! "${CI}" == "true" ]]; then
 fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
+export PYTHONPATH=src
 export FUNCTIONAL_TESTS="True"
 export OS_API_URL="https://onboarding-onboarding.cluster.local:6443"
 export PYTHONWARNINGS="ignore:Unverified HTTPS request"

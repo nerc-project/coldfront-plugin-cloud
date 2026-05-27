@@ -7,6 +7,7 @@ if [[ ! "${CI}" == "true" ]]; then
 fi
 
 export DJANGO_SETTINGS_MODULE="local_settings"
+export PYTHONPATH=src
 
 coverage run --source="." -m django test coldfront_plugin_cloud.tests.unit
 coverage report

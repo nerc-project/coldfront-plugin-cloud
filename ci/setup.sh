@@ -2,6 +2,8 @@
 
 set -xe
 
+export PYTHONPATH=src
+
 # If running on Github actions, don't create a virtualenv
 if [[ ! "${CI}" == "true" ]]; then
     virtualenv -p python3 /tmp/coldfront_venv
