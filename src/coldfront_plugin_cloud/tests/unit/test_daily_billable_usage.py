@@ -7,20 +7,20 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "local_settings")
 django.setup()
 
-from django.core.exceptions import ValidationError
-from django.core.management import call_command
-from django.db import IntegrityError
+from django.core.exceptions import ValidationError  # noqa: E402
+from django.core.management import call_command  # noqa: E402
+from django.db import IntegrityError  # noqa: E402
 
-from coldfront.core.allocation.models import Allocation
-from coldfront_plugin_cloud.billable_usage import (
+from coldfront.core.allocation.models import Allocation  # noqa: E402
+from coldfront_plugin_cloud.billable_usage import (  # noqa: E402
     _rows_to_usage_info,
     get_daily_billable_usage,
     get_daily_billable_usage_by_date,
 )
-from coldfront_plugin_cloud.models.daily_billable_usage import (
+from coldfront_plugin_cloud.models.daily_billable_usage import (  # noqa: E402
     AllocationDailyBillableUsage,
 )
-from coldfront_plugin_cloud.tests import base
+from coldfront_plugin_cloud.tests import base  # noqa: E402
 
 
 class TestRowsToUsageInfo(base.TestBase):
