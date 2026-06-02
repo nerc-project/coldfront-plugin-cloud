@@ -1,8 +1,13 @@
 import datetime
 import logging
 import time
+from string import Template
 
-from coldfront.core.allocation.models import Allocation, AllocationUser
+from coldfront.core.allocation.models import (
+    Allocation,
+    AllocationUser,
+    AllocationAttribute,
+)
 
 from coldfront_plugin_cloud import (
     attributes,
@@ -12,9 +17,14 @@ from coldfront_plugin_cloud import (
     esi,
     openshift_vm,
     utils,
+    kc_client,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_kc_client():
+    return kc_client.KeyCloakAPIClient()
 
 
 def find_allocator(allocation) -> base.ResourceAllocator:
@@ -128,3 +138,85 @@ def remove_user_from_allocation(allocation_user_pk):
             allocator.remove_role_from_user(username, project_id)
         else:
             logger.warning("No project has been created. Nothing to disable.")
+
+
+def _clean_template_string(template_string: str) -> str:
+    return template_string.replace(" ", "_").lower()
+
+
+def _get_keycloak_group_name(allocation: Allocation, template_string: str) -> str:
+    """
+    Acceptable variables for the group name template string is:
+    - $resource_name: the name of the resource (e.g. "OpenShift")
+    - Any allocation attribute defined for the allocation, with spaces replaced by underscores and
+    all lowercase (e.g. for `Project Name`, the variable would be `$project_name`)
+    """
+    resource_name = allocation.resources.first().name
+    allocation_attrs_list: list[AllocationAttribute] = (
+        allocation.allocationattribute_set.all()
+    )
+
+    template_sub_dict = {"resource_name": resource_name}
+    for attr in allocation_attrs_list:
+        template_sub_dict[
+            _clean_template_string(attr.allocation_attribute_type.name)
+        ] = attr.value
+
+    return Template(template_string).substitute(**template_sub_dict)
+
+
+def add_user_to_keycloak(allocation_user_pk):
+    allocation_user = AllocationUser.objects.get(pk=allocation_user_pk)
+    allocation = allocation_user.allocation
+
+    kc_admin_client = get_kc_client()
+    username = allocation_user.user.username
+
+    group_name_template = allocation.resources.first().get_attribute(
+        attributes.RESOURCE_KEYCLOAK_GROUP_TEMPLATE
+    )
+    if group_name_template is None:
+        logger.info(
+            f"Keycloak enabled but no group name template specified for resource {allocation.resources.first().name}. Skipping addition to Keycloak group"
+        )
+        return
+
+    if (user_id := kc_admin_client.get_user_id(username)) is None:
+        logger.warning(f"User {username} not found in Keycloak, cannot add to group.")
+        return
+
+    group_name = _get_keycloak_group_name(allocation, group_name_template)
+    kc_admin_client.create_group(group_name)
+    group_id = kc_admin_client.get_group_id(group_name)
+    kc_admin_client.add_user_to_group(user_id, group_id)
+
+
+def remove_user_from_keycloak(allocation_user_pk):
+    allocation_user = AllocationUser.objects.get(pk=allocation_user_pk)
+    allocation = allocation_user.allocation
+
+    kc_admin_client = get_kc_client()
+    username = allocation_user.user.username
+
+    group_name_template = allocation.resources.first().get_attribute(
+        attributes.RESOURCE_KEYCLOAK_GROUP_TEMPLATE
+    )
+    if group_name_template is None:
+        logger.info(
+            f"Keycloak enabled but no group name template specified for resource {allocation.resources.first().name}. Skipping removal from Keycloak group"
+        )
+        return
+
+    if (user_id := kc_admin_client.get_user_id(username)) is None:
+        logger.warning(
+            f"User {username} not found in Keycloak, cannot remove from group."
+        )
+        return
+
+    group_name = _get_keycloak_group_name(allocation, group_name_template)
+    if (group_id := kc_admin_client.get_group_id(group_name)) is None:
+        logger.warning(
+            f"Group {group_name} not found in Keycloak, skipping removal for user {username}."
+        )
+        return
+    kc_admin_client.remove_user_from_group(user_id, group_id)

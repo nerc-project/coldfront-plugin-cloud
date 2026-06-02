@@ -24,7 +24,6 @@ RESOURCE_AUTH_URL = "Identity Endpoint URL"
 RESOURCE_API_URL = "OpenShift API Endpoint URL"
 RESOURCE_IDENTITY_NAME = "OpenShift Identity Provider Name"
 RESOURCE_ROLE = "Role for User in Project"
-RESOURCE_QUOTA_RESOURCES = "Available Quota Resources"
 
 RESOURCE_FEDERATION_PROTOCOL = "OpenStack Federation Protocol"
 RESOURCE_IDP = "OpenStack Identity Provider"
@@ -35,6 +34,8 @@ RESOURCE_DEFAULT_NETWORK_CIDR = "OpenStack Default Network CIDR"
 
 RESOURCE_EULA_URL = "EULA URL"
 RESOURCE_CLUSTER_NAME = "Internal Cluster Name"
+RESOURCE_QUOTA_RESOURCES = "Available Quota Resources"
+RESOURCE_KEYCLOAK_GROUP_TEMPLATE = "Template String for Keycloak Group Names"
 
 RESOURCE_ATTRIBUTES = [
     CloudResourceAttribute(name=RESOURCE_AUTH_URL),
@@ -45,6 +46,7 @@ RESOURCE_ATTRIBUTES = [
     CloudResourceAttribute(name=RESOURCE_PROJECT_DOMAIN),
     CloudResourceAttribute(name=RESOURCE_ROLE),
     CloudResourceAttribute(name=RESOURCE_QUOTA_RESOURCES),
+    CloudResourceAttribute(name=RESOURCE_KEYCLOAK_GROUP_TEMPLATE),
     CloudResourceAttribute(name=RESOURCE_USER_DOMAIN),
     CloudResourceAttribute(name=RESOURCE_EULA_URL),
     CloudResourceAttribute(name=RESOURCE_DEFAULT_PUBLIC_NETWORK),

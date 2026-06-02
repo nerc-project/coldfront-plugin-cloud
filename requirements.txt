@@ -12,3 +12,4 @@ python-novaclient
 python-neutronclient
 python-swiftclient
 pytz
+requests
