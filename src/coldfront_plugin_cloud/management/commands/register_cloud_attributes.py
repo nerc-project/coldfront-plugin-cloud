@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 
 from coldfront.core.allocation import models as allocation_models
 from coldfront.core.resource import models as resource_models
+from coldfront.core.project import models as project_models
 
 from coldfront_plugin_cloud import attributes
 
@@ -138,9 +139,21 @@ class Command(BaseCommand):
             name="OpenShift Virtualization", description="OpenShift Virtualization"
         )
 
+    def register_project_attributes(self):
+        for attr in attributes.PROJECT_ATTRIBUTES:
+            project_models.ProjectAttributeType.objects.get_or_create(
+                name=attr.name,
+                attribute_type=project_models.AttributeType.objects.get(name=attr.type),
+                has_usage=attr.has_usage,
+                is_private=attr.is_private,
+                is_changeable=attr.is_changeable,
+                is_unique=attr.is_unique,
+            )
+
     def handle(self, *args, **options):
         self.register_resource_type()
         self.migrate_resource_attributes()
         self.migrate_allocation_attributes()
         self.register_resource_attributes()
         self.register_allocation_attributes()
+        self.register_project_attributes()
