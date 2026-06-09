@@ -1,26 +1,24 @@
-import os
-import time
+from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
-import django
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from django.utils import timezone
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "local_settings")
-django.setup()
-
-from django.core.exceptions import ValidationError  # noqa: E402
-from django.core.management import call_command  # noqa: E402
-from django.db import IntegrityError  # noqa: E402
-
-from coldfront.core.allocation.models import Allocation  # noqa: E402
-from coldfront_plugin_cloud.billable_usage import (  # noqa: E402
+from coldfront.core.allocation.models import Allocation
+from coldfront_plugin_cloud.billable_usage import (
     _rows_to_usage_info,
     get_daily_billable_usage,
     get_daily_billable_usage_by_date,
 )
-from coldfront_plugin_cloud.models.daily_billable_usage import (  # noqa: E402
+from coldfront_plugin_cloud.management.commands.seed_daily_billable_usage import (
+    seed_daily_billable_usage,
+)
+from coldfront_plugin_cloud.models.daily_billable_usage import (
     AllocationDailyBillableUsage,
 )
-from coldfront_plugin_cloud.tests import base  # noqa: E402
+from coldfront_plugin_cloud.tests import base
 
 
 class TestRowsToUsageInfo(base.TestBase):
@@ -86,10 +84,9 @@ class TestGetDailyBillableUsage(base.TestBase):
         )
 
     def test_happy_path_via_seed_command(self):
-        # Integration sanity check: seed rows via command, then read them back through the API.
+        # Integration sanity check: seed rows via function, then read them back through the API.
         allocation = self._new_allocation()
-        call_command(
-            "seed_daily_billable_usage",
+        seed_daily_billable_usage(
             allocation_id=allocation.id,
             date="2025-11-15",
         )
@@ -307,9 +304,10 @@ class TestAllocationDailyBillableUsageModel(base.TestBase):
         self.assertIsNotNone(created_at)
         self.assertIsNotNone(modified_at)
 
-        time.sleep(0.02)
-        row.value = Decimal("150.00")
-        row.save()
+        later = timezone.now() + timedelta(seconds=1)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            row.value = Decimal("150.00")
+            row.save()
         row.refresh_from_db()
 
         self.assertEqual(row.created, created_at)

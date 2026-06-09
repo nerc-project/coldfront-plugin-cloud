@@ -1,12 +1,13 @@
 import calendar
-from datetime import date
+from datetime import date as date_type
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
 
 from coldfront.core.allocation.models import Allocation
 from coldfront_plugin_cloud.models import usage_models
-from coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage import (
-    Command as FetchCommand,
+from coldfront_plugin_cloud.models.daily_billable_usage import (
+    AllocationDailyBillableUsage,
 )
 
 DEFAULT_USAGE = {
@@ -39,13 +40,62 @@ def usage_for_day(
     ramped = {}
     for su_type, amount in base.items():
         step = _RAMP_STEP.get(su_type, 0)
-        ramped[su_type] = str(float(amount) + day_index * step)
+        ramped_value = usage_models.Decimal(amount) + usage_models.Decimal(
+            day_index
+        ) * usage_models.Decimal(str(step))
+        ramped[su_type] = str(ramped_value)
     return usage_models.UsageInfo(ramped)
 
 
-def current_month() -> str:
-    today = date.today()
+def _current_month_str() -> str:
+    today = date_type.today()
     return f"{today.year}-{today.month:02d}"
+
+
+def seed_daily_billable_usage(
+    *,
+    allocation_id: int,
+    date: str | None = None,
+    month: str | None = None,
+    current_month: bool = False,
+    su: list[str] | None = None,
+    ramp: bool = False,
+    through_today: bool = False,
+) -> dict:
+    """Insert test AllocationDailyBillableUsage rows for local development.
+
+    Returns a summary dict with keys: allocation_id, dates, total_rows, su_types.
+    """
+    try:
+        allocation = Allocation.objects.get(pk=allocation_id)
+    except ObjectDoesNotExist as exc:
+        raise CommandError(f"allocation id={allocation_id} not found") from exc
+
+    base_usage = _parse_usage(su)
+    if date:
+        dates = [usage_models.validate_date_str(date)]
+    elif current_month:
+        month_str = _current_month_str()
+        dates = dates_in_month(month_str)
+        if through_today:
+            today = date_type.today().isoformat()
+            dates = [d for d in dates if d <= today]
+    else:
+        assert month is not None
+        dates = dates_in_month(month)
+
+    total_rows = 0
+    for day_index, day in enumerate(dates):
+        usage_info = usage_for_day(base_usage, day_index, ramp)
+        _store_usage_in_database(allocation, day, usage_info)
+        total_rows += len(usage_info.root)
+
+    return {
+        "allocation_id": allocation.id,
+        "dates": dates,
+        "total_rows": total_rows,
+        "su_types": list(base_usage.keys()),
+    }
 
 
 class Command(BaseCommand):
@@ -96,58 +146,54 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        try:
-            allocation = Allocation.objects.get(pk=options["allocation_id"])
-        except Allocation.DoesNotExist as exc:
-            raise CommandError(
-                f"allocation id={options['allocation_id']} not found"
-            ) from exc
+        summary = seed_daily_billable_usage(
+            allocation_id=options["allocation_id"],
+            date=options.get("date"),
+            month=options.get("month"),
+            current_month=options.get("current_month", False),
+            su=options.get("su"),
+            ramp=options.get("ramp", False),
+            through_today=options.get("through_today", False),
+        )
 
-        base_usage = self._parse_usage(options["su"])
-        if options.get("date"):
-            dates = [usage_models.validate_date_str(options["date"])]
-        elif options.get("current_month"):
-            month = current_month()
-            dates = dates_in_month(month)
-            if options["through_today"]:
-                today = date.today().isoformat()
-                dates = [d for d in dates if d <= today]
-        else:
-            dates = dates_in_month(options["month"])
-
-        total_rows = 0
-        for day_index, day in enumerate(dates):
-            usage_info = usage_for_day(base_usage, day_index, options["ramp"])
-            FetchCommand.store_usage_in_database(allocation, day, usage_info)
-            total_rows += len(usage_info.root)
-
-        su_count = len(base_usage)
+        dates = summary["dates"]
         self.stdout.write(
             self.style.SUCCESS(
-                f"Seeded {su_count} SU type(s) × {len(dates)} day(s) "
-                f"= {total_rows} row(s) for allocation {allocation.id}"
+                f"Seeded {len(summary['su_types'])} SU type(s) × {len(dates)} day(s) "
+                f"= {summary['total_rows']} row(s) for allocation {summary['allocation_id']}"
             )
         )
         if len(dates) > 1:
             self.stdout.write(f"  dates: {dates[0]} … {dates[-1]}")
-            for su_type in base_usage:
+            for su_type in summary["su_types"]:
                 self.stdout.write(f"  {su_type}")
         if len(dates) == 1:
+            base_usage = _parse_usage(options.get("su"))
             for su_type, value in usage_for_day(
-                base_usage, 0, options["ramp"]
+                base_usage, 0, options.get("ramp", False)
             ).root.items():
                 self.stdout.write(f"  {dates[0]} {su_type}: {value}")
 
-    @staticmethod
-    def _parse_usage(su_args: list[str] | None) -> dict[str, str]:
-        if not su_args:
-            return dict(DEFAULT_USAGE)
-        usage = {}
-        for item in su_args:
-            if "=" not in item:
-                raise CommandError(
-                    f"expected NAME=AMOUNT, got {item!r} (e.g. 'OpenStack CPU=100.00')"
-                )
-            name, amount = item.split("=", 1)
-            usage[name.strip()] = amount.strip()
-        return usage
+
+def _store_usage_in_database(allocation: Allocation, date: str, usage_info) -> None:
+    for su_type, value in usage_info.root.items():
+        AllocationDailyBillableUsage.objects.update_or_create(
+            allocation=allocation,
+            date=date,
+            su_type=su_type,
+            defaults={"value": value},
+        )
+
+
+def _parse_usage(su_args: list[str] | None) -> dict[str, str]:
+    if not su_args:
+        return dict(DEFAULT_USAGE)
+    usage = {}
+    for item in su_args:
+        if "=" not in item:
+            raise CommandError(
+                f"expected NAME=AMOUNT, got {item!r} (e.g. 'OpenStack CPU=100.00')"
+            )
+        name, amount = item.split("=", 1)
+        usage[name.strip()] = amount.strip()
+    return usage

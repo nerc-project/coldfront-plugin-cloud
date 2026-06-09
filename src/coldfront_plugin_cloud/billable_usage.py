@@ -20,7 +20,7 @@ def _rows_to_usage_info(rows: Iterable[AllocationDailyBillableUsage]) -> UsageIn
 
     Raises:
         TypeError: If rows is None.
-        ValueError: If a row has an empty su_type.
+        ValueError: TypeError: If rows is None, or if any element is not an AllocationDailyBillableUsage..
 
     Example:
         >>> rows = [
