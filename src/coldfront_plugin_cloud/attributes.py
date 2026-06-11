@@ -20,6 +20,18 @@ class CloudAllocationAttribute:
     is_changeable: bool = True
 
 
+@dataclass
+class CloudProjectAttribute:
+    """Class for configuring Cloud Project Attributes"""
+
+    name: str
+    type: str = "Int"
+    has_usage: bool = False
+    is_private: bool = False
+    is_changeable: bool = True
+    is_unique: bool = True
+
+
 RESOURCE_AUTH_URL = "Identity Endpoint URL"
 RESOURCE_API_URL = "OpenShift API Endpoint URL"
 RESOURCE_IDENTITY_NAME = "OpenShift Identity Provider Name"
@@ -119,4 +131,13 @@ QUOTA_PVC = "OpenShift Persistent Volume Claims Quota"
 
 ALLOCATION_QUOTA_ATTRIBUTES = [
     CloudAllocationAttribute(name=QUOTA_GPU),
+]
+
+
+PROJECT_IS_EXTERNALLY_FUNDED = "Is Externally Funded"
+
+PROJECT_ATTRIBUTES = [
+    CloudProjectAttribute(
+        name=PROJECT_IS_EXTERNALLY_FUNDED, type="Yes/No", is_changeable=False
+    )
 ]
