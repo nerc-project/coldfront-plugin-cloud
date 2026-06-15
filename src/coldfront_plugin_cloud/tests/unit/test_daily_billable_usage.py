@@ -12,9 +12,6 @@ from coldfront_plugin_cloud.billable_usage import (
     get_daily_billable_usage,
     get_daily_billable_usage_by_date,
 )
-from coldfront_plugin_cloud.management.commands.seed_daily_billable_usage import (
-    seed_daily_billable_usage,
-)
 from coldfront_plugin_cloud.models.daily_billable_usage import (
     AllocationDailyBillableUsage,
 )
@@ -83,13 +80,11 @@ class TestGetDailyBillableUsage(base.TestBase):
             value=Decimal(value),
         )
 
-    def test_happy_path_via_seed_command(self):
-        # Integration sanity check: seed rows via function, then read them back through the API.
+    def test_happy_path(self):
         allocation = self._new_allocation()
-        seed_daily_billable_usage(
-            allocation_id=allocation.id,
-            date="2025-11-15",
-        )
+        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
+        self._create_usage_row(allocation, "2025-11-15", "OpenStack V100 GPU", "50.00")
+        self._create_usage_row(allocation, "2025-11-15", "Storage", "30.12")
 
         usage = get_daily_billable_usage(allocation, "2025-11-15")
 
