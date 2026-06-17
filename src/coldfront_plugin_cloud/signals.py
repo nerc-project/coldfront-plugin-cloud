@@ -1,6 +1,7 @@
 import os
 
 from django.dispatch import receiver
+from django.conf import settings
 from django_q.tasks import async_task
 
 from coldfront_plugin_cloud.tasks import (
@@ -27,10 +28,6 @@ def is_async():
     return os.getenv("REDIS_HOST")
 
 
-def is_keycloak_enabled():
-    return os.getenv("KEYCLOAK_BASE_URL")
-
-
 @receiver(allocation_activate)
 @receiver(allocation_change_approved)
 def activate_allocation_receiver(sender, **kwargs):
@@ -54,11 +51,11 @@ def activate_allocation_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get("allocation_user_pk")
     if is_async():
         async_task(add_user_to_allocation, allocation_user_pk)
-        if is_keycloak_enabled():
+        if settings.PLUGIN_KEYCLOAK_ENABLED:
             async_task(add_user_to_keycloak, allocation_user_pk)
     else:
         add_user_to_allocation(allocation_user_pk)
-        if is_keycloak_enabled():
+        if settings.PLUGIN_KEYCLOAK_ENABLED:
             add_user_to_keycloak(allocation_user_pk)
 
 
@@ -67,5 +64,5 @@ def allocation_remove_user_receiver(sender, **kwargs):
     allocation_user_pk = kwargs.get("allocation_user_pk")
     remove_user_from_allocation(allocation_user_pk)
 
-    if is_keycloak_enabled():
+    if settings.PLUGIN_KEYCLOAK_ENABLED:
         remove_user_from_keycloak(allocation_user_pk)

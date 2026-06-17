@@ -3,7 +3,9 @@ import logging
 from coldfront_plugin_cloud import attributes
 from coldfront_plugin_cloud import utils
 from coldfront_plugin_cloud import tasks
+from coldfront_plugin_cloud import keycloak
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from coldfront.core.resource.models import Resource
 from coldfront.core.allocation.models import (
@@ -69,6 +71,15 @@ class Command(BaseCommand):
                         f"{allocator.allocation_str} is active but has no Project ID set."
                     )
                     continue
+
+                if settings.PLUGIN_KEYCLOAK_ENABLED:
+                    try:
+                        keycloak_allocator = tasks.get_kc_allocator(allocation)
+                        keycloak_allocator.set_users(
+                            keycloak_allocator.group_name, apply=options["apply"]
+                        )
+                    except keycloak.MissingKeycloakTemplateError as e:
+                        logging.warning(f"Skipping Keycloak validation: {e}")
 
                 # Check project exists in remote cluster
                 try:

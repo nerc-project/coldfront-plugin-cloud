@@ -1,7 +1,10 @@
+from unittest import mock
+
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from coldfront.core.resource.models import ResourceAttribute, ResourceAttributeType
 
-from coldfront_plugin_cloud import tasks, kc_client, attributes, utils
+from coldfront_plugin_cloud import keycloak, tasks, attributes, utils
 from coldfront_plugin_cloud.tests import base
 
 
@@ -9,7 +12,6 @@ class TestKeyCloakUserManagement(base.TestBase):
     @classmethod
     def setUpTestData(cls) -> None:
         super().setUpTestData()
-        cls.kc_admin_client = kc_client.KeyCloakAPIClient()
         cls.resource = cls.new_openshift_resource(
             name="Test Resource",
         )
@@ -21,20 +23,26 @@ class TestKeyCloakUserManagement(base.TestBase):
             value="$resource_name/$allocated_project_id",
         )
 
-    def new_keycloak_user(self, cf_username):
-        url = f"{self.kc_admin_client.base_url}/admin/realms/{self.kc_admin_client.realm}/users"
-        payload = {
-            "username": cf_username,
-            "enabled": True,
-            "email": cf_username,
-        }
-        r = self.kc_admin_client.api_client.post(url, json=payload)
-        r.raise_for_status()
+        cls.kc_allocator = keycloak.KeyCloakResourceAllocator(
+            mock.MagicMock, mock.MagicMock
+        )
+
+    def setUp(self) -> None:
+        """To avoid internal validations that the base `Allocator` performs. Not relevant for these tests"""
+        mock_allocator = mock.MagicMock()
+        mock_allocator.allocation_str = "Test Allocation of project Test Project"
+        self.patcher = mock.patch(
+            "coldfront_plugin_cloud.tasks.find_allocator", return_value=mock_allocator
+        )
+        self.mock_find_allocator = self.patcher.start()
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
 
     def new_user(self, username=None, add_to_keycloak=True) -> User:
         user = super().new_user(username)
         if add_to_keycloak:
-            self.new_keycloak_user(user.username)
+            self.kc_allocator.create_federated_user(user.username)
         return user
 
     def new_allocation(
@@ -51,18 +59,19 @@ class TestKeyCloakUserManagement(base.TestBase):
         user = self.new_user()
         project = self.new_project(pi=user)
         allocation = self.new_allocation(project, self.resource, 1)
-        allocation_user = self.new_allocation_user(allocation, user)
+        self.new_allocation_user(allocation, user)
 
-        # Simulate triggering the allocation activate signal
-        tasks.add_user_to_keycloak(allocation_user.pk)
+        # Validation should add user to Keycloak group
+        call_command("validate_allocations", apply=True)
 
         # Check that the user exists in Keycloak
-        user_id = self.kc_admin_client.get_user_id(user.username)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
+        user_id = kc_allocator.get_user_id(user.username)
         self.assertIsNotNone(user_id)
 
         # Check that the user is in the project group
         # Group name determined by the RESOURCE_KEYCLOAK_GROUP_TEMPLATE attribute, set to "$resource_name/$allocated_project_id" in tests
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        user_groups = kc_allocator.get_user_groups(user_id)
         self.assertIn(f"{self.resource.name}/Test Value", user_groups)
 
     def test_user_removed_from_allocation(self):
@@ -72,16 +81,18 @@ class TestKeyCloakUserManagement(base.TestBase):
         allocation = self.new_allocation(project, self.resource, 1)
         allocation_user = self.new_allocation_user(allocation, user)
 
-        tasks.add_user_to_keycloak(allocation_user.pk)
+        call_command("validate_allocations", apply=True)
 
-        user_id = self.kc_admin_client.get_user_id(user.username)
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
+        user_id = kc_allocator.get_user_id(user.username)
+        user_groups = kc_allocator.get_user_groups(user_id)
         self.assertIn(f"{self.resource.name}/Test Value", user_groups)
 
-        tasks.remove_user_from_keycloak(allocation_user.pk)
+        allocation_user.delete()
+        call_command("validate_allocations", apply=True)
 
         # Check that the user is no longer in the group
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        user_groups = kc_allocator.get_user_groups(user_id)
         self.assertNotIn(f"{self.resource.name}/Test Value", user_groups)
 
     def test_user_not_in_keycloak_added_to_allocation(self):
@@ -91,18 +102,17 @@ class TestKeyCloakUserManagement(base.TestBase):
         allocation = self.new_allocation(
             project, self.resource, 1, attr_value="Test Not Created"
         )
-        allocation_user = self.new_allocation_user(allocation, user)
+        self.new_allocation_user(allocation, user)
 
         # Should not raise error
-        tasks.add_user_to_keycloak(allocation_user.pk)
+        call_command("validate_allocations", apply=True)
 
-        user_id = self.kc_admin_client.get_user_id(user.username)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
+        user_id = kc_allocator.get_user_id(user.username)
         self.assertIsNone(user_id)
 
         # Verify the group was not created at all
-        group_id = self.kc_admin_client.get_group_id(
-            f"{self.resource.name}/Test Not Created"
-        )
+        group_id = kc_allocator.get_group_id(f"{self.resource.name}/Test Not Created")
         self.assertIsNone(group_id)
 
     def test_user_not_in_keycloak_removed_from_allocation(self):
@@ -113,7 +123,8 @@ class TestKeyCloakUserManagement(base.TestBase):
         allocation_user = self.new_allocation_user(allocation, user)
 
         # Verify the user doesn't exist in Keycloak
-        user_id = self.kc_admin_client.get_user_id(user.username)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
+        user_id = kc_allocator.get_user_id(user.username)
         self.assertIsNone(user_id)
 
         # Try to remove the user from the allocation (should not raise an error)
@@ -127,17 +138,16 @@ class TestKeyCloakUserManagement(base.TestBase):
 
         # Add multiple users to the allocation
         users = [self.new_user() for _ in range(3)]
-        allocation_users = [
-            self.new_allocation_user(allocation, user) for user in users
-        ]
+        for user in users:
+            self.new_allocation_user(allocation, user)
 
-        for allocation_user in allocation_users:
-            tasks.add_user_to_keycloak(allocation_user.pk)
+        call_command("validate_allocations", apply=True)
 
         # Verify all users are in the group
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
         for user in users:
-            user_id = self.kc_admin_client.get_user_id(user.username)
-            user_groups = self.kc_admin_client.get_user_groups(user_id)
+            user_id = kc_allocator.get_user_id(user.username)
+            user_groups = kc_allocator.get_user_groups(user_id)
             self.assertIn(f"{self.resource.name}/Test Value", user_groups)
 
     def test_remove_one_user_keeps_others_in_group(self):
@@ -151,18 +161,18 @@ class TestKeyCloakUserManagement(base.TestBase):
             self.new_allocation_user(allocation, user) for user in users
         ]
 
-        for allocation_user in allocation_users:
-            tasks.add_user_to_keycloak(allocation_user.pk)
+        call_command("validate_allocations", apply=True)
 
         tasks.remove_user_from_keycloak(allocation_users[0].pk)
 
         # Verify all users except the removed one are still in the group
-        user1_id = self.kc_admin_client.get_user_id(users[0].username)
-        user1_groups = self.kc_admin_client.get_user_groups(user1_id)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(self.resource, allocation)
+        user1_id = kc_allocator.get_user_id(users[0].username)
+        user1_groups = kc_allocator.get_user_groups(user1_id)
         self.assertNotIn(f"{self.resource.name}/Test Value", user1_groups)
 
-        user2_id = self.kc_admin_client.get_user_id(users[1].username)
-        user2_groups = self.kc_admin_client.get_user_groups(user2_id)
+        user2_id = kc_allocator.get_user_id(users[1].username)
+        user2_groups = kc_allocator.get_user_groups(user2_id)
         self.assertIn(f"{self.resource.name}/Test Value", user2_groups)
 
     def test_user_in_multiple_allocations_groups(self):
@@ -181,14 +191,16 @@ class TestKeyCloakUserManagement(base.TestBase):
 
         # Add user to both allocations
         allocation_user1 = self.new_allocation_user(allocation1, user)
-        allocation_user2 = self.new_allocation_user(allocation2, user)
+        self.new_allocation_user(allocation2, user)
 
-        tasks.add_user_to_keycloak(allocation_user1.pk)
-        tasks.add_user_to_keycloak(allocation_user2.pk)
+        call_command("validate_allocations", apply=True)
 
         # Verify user is in both groups
-        user_id = self.kc_admin_client.get_user_id(user.username)
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(
+            self.resource, allocation1
+        )  # Shouldn't matter which allocation used here for purpose of this test
+        user_id = kc_allocator.get_user_id(user.username)
+        user_groups = kc_allocator.get_user_groups(user_id)
         self.assertIn(f"{self.resource.name}/Test Value 1", user_groups)
         self.assertIn(f"{self.resource.name}/Test Value 2", user_groups)
 
@@ -196,7 +208,7 @@ class TestKeyCloakUserManagement(base.TestBase):
         tasks.remove_user_from_keycloak(allocation_user1.pk)
 
         # Verify user is now only in second group
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        user_groups = kc_allocator.get_user_groups(user_id)
         self.assertNotIn(f"{self.resource.name}/Test Value 1", user_groups)
         self.assertIn(f"{self.resource.name}/Test Value 2", user_groups)
 
@@ -219,13 +231,42 @@ class TestKeyCloakUserManagement(base.TestBase):
         # Verify the warning was logged
         self.assertEqual(len(log.records), 1)
         self.assertIn(
-            "Keycloak enabled but no group name template specified for resource Resource No Template",
+            "Skipping adding user to Keycloak: Keycloak enabled but no group name template specified for resource Resource No Template",
             log.records[0].getMessage(),
         )
         self.assertIn(resource_no_template.name, log.records[0].getMessage())
 
         # Verify the user exists in Keycloak but is not in any groups
-        user_id = self.kc_admin_client.get_user_id(user.username)
+        user_id = self.kc_allocator.get_user_id(user.username)
         self.assertIsNotNone(user_id)
-        user_groups = self.kc_admin_client.get_user_groups(user_id)
+        user_groups = self.kc_allocator.get_user_groups(user_id)
         self.assertEqual(user_groups, [])
+
+
+class TestKeyCloakGetGroupMembersPagination(base.TestBase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        super().setUpTestData()
+
+    def test_get_group_members_pagination(self):
+        resource = self.new_openshift_resource(
+            name="Test Resource",
+        )
+        project = self.new_project()
+        allocation = self.new_allocation(project, resource, 2)
+        kc_allocator = keycloak.KeyCloakResourceAllocator(resource, allocation)
+        group_name = "Test Pagination Group"
+        kc_allocator.create_group(group_name)
+        group_id = kc_allocator.get_group_id(group_name)
+
+        # Create 250 users and add them to the group (to ensure pagination is needed, as page size is 100)
+        for i in range(250):
+            username = f"pagination_user_{i}@example.com"
+            self.new_user(username=username)
+            kc_allocator.create_federated_user(username)
+            kc_allocator.add_user_to_group(kc_allocator.get_user_id(username), group_id)
+
+        members = kc_allocator.get_group_members(group_id)
+        self.assertEqual(len(members), 250)
+        expected_usernames = {f"pagination_user_{i}@example.com" for i in range(250)}
+        self.assertEqual(set(members), expected_usernames)
