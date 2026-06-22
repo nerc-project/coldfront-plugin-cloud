@@ -9,12 +9,12 @@ from django.utils import timezone
 from coldfront.core.allocation.models import Allocation
 from coldfront_plugin_cloud.billable_usage import (
     _rows_to_usage_info,
-    get_daily_billable_usage,
     get_daily_billable_usage_by_date,
 )
 from coldfront_plugin_cloud.models.daily_billable_usage import (
     AllocationDailyBillableUsage,
 )
+from coldfront_plugin_cloud.models.usage_models import UsageInfo
 from coldfront_plugin_cloud.tests import base
 
 
@@ -25,32 +25,26 @@ class TestRowsToUsageInfo(base.TestBase):
         return self.new_allocation(project=project, resource=resource, quantity=1)
 
     def test_empty_iterable(self):
-        # Verify the helper returns a valid empty UsageInfo for "no rows" cases.
         usage = _rows_to_usage_info([])
-        self.assertEqual(usage.root, {})
-        self.assertEqual(usage.total_charges, Decimal("0"))
+        self.assertEqual(usage, UsageInfo({}))
 
     def test_multiple_rows(self):
-        # Verify multiple ORM rows collapse into a single SU->Decimal mapping with a correct total.
         rows = [
             AllocationDailyBillableUsage(su_type="OpenStack CPU", value=Decimal("100")),
             AllocationDailyBillableUsage(su_type="Storage", value=Decimal("30.12")),
         ]
-        usage = _rows_to_usage_info(rows)
-        self.assertEqual(usage.root["OpenStack CPU"], Decimal("100"))
-        self.assertEqual(usage.root["Storage"], Decimal("30.12"))
-        self.assertEqual(usage.total_charges, Decimal("130.12"))
+        expected = UsageInfo(
+            {"OpenStack CPU": Decimal("100"), "Storage": Decimal("30.12")}
+        )
+        self.assertEqual(_rows_to_usage_info(rows), expected)
 
     def test_rows_is_none(self):
-        # Defensive programming: None is a bug at the call site and should fail loudly.
         with self.assertRaises(TypeError):
             _rows_to_usage_info(None)
 
     def test_non_model_row(self):
-        # Ensure we don't silently accept unexpected row objects (helps catch query/fixture mistakes).
-        with self.assertRaises(TypeError) as ctx:
+        with self.assertRaises(AttributeError):
             _rows_to_usage_info(["not-a-row"])
-        self.assertIn("AllocationDailyBillableUsage", str(ctx.exception))
 
     def test_empty_su_type(self):
         # Enforce that every row has a usable key; empty SU type would corrupt the usage dict.
@@ -80,71 +74,69 @@ class TestGetDailyBillableUsage(base.TestBase):
             value=Decimal(value),
         )
 
+    def _get_usage_for_date(self, allocation, date):
+        return get_daily_billable_usage_by_date(allocation, date, date).get(
+            date, UsageInfo({})
+        )
+
     def test_happy_path(self):
         allocation = self._new_allocation()
-        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
-        self._create_usage_row(allocation, "2025-11-15", "OpenStack V100 GPU", "50.00")
-        self._create_usage_row(allocation, "2025-11-15", "Storage", "30.12")
+        date = "2025-11-15"
+        self._create_usage_row(allocation, date, "OpenStack CPU", "100.00")
+        self._create_usage_row(allocation, date, "OpenStack V100 GPU", "50.00")
+        self._create_usage_row(allocation, date, "Storage", "30.12")
 
-        usage = get_daily_billable_usage(allocation, "2025-11-15")
-
-        self.assertEqual(usage.root["OpenStack CPU"], Decimal("100.00"))
-        self.assertEqual(usage.root["OpenStack V100 GPU"], Decimal("50.00"))
-        self.assertEqual(usage.root["Storage"], Decimal("30.12"))
-        self.assertEqual(usage.total_charges, Decimal("180.12"))
+        expected = UsageInfo(
+            {
+                "OpenStack CPU": Decimal("100.00"),
+                "OpenStack V100 GPU": Decimal("50.00"),
+                "Storage": Decimal("30.12"),
+            }
+        )
+        self.assertEqual(self._get_usage_for_date(allocation, date), expected)
 
     def test_no_rows_returns_empty_usage_info(self):
-        # A missing day should return an empty UsageInfo rather than raising or returning None.
         allocation = self._new_allocation()
-        usage = get_daily_billable_usage(allocation, "2025-11-15")
-        self.assertEqual(usage.root, {})
-        self.assertEqual(usage.total_charges, Decimal("0"))
+        date = "2025-11-15"
+        self.assertEqual(self._get_usage_for_date(allocation, date), UsageInfo({}))
 
     def test_wrong_allocation_type(self):
-        # Guardrails: callers passing the wrong object type get a clear, early error.
-        with self.assertRaises(TypeError) as ctx:
-            get_daily_billable_usage("not-an-allocation", "2025-11-15")
-        self.assertIn("Allocation", str(ctx.exception))
+        date = "2025-11-15"
+        with self.assertRaises(AttributeError):
+            get_daily_billable_usage_by_date("not-an-allocation", date, date)
 
     def test_unsaved_allocation(self):
-        # Unsaved allocations can't be queried reliably, so we reject them explicitly.
         allocation = Allocation()
+        date = "2025-11-15"
         with self.assertRaises(ValueError) as ctx:
-            get_daily_billable_usage(allocation, "2025-11-15")
+            get_daily_billable_usage_by_date(allocation, date, date)
         self.assertIn("primary key", str(ctx.exception))
 
     def test_empty_date(self):
-        # Empty date strings are ambiguous and should be rejected before hitting the ORM.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage(allocation, "")
+            get_daily_billable_usage_by_date(allocation, "", "")
 
     def test_whitespace_date(self):
-        # Whitespace-only dates are treated as empty input and rejected.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage(allocation, "   ")
+            get_daily_billable_usage_by_date(allocation, "   ", "   ")
 
     def test_invalid_date(self):
-        # Invalid calendar dates should fail validation rather than executing a query.
         allocation = self._new_allocation()
         with self.assertRaises(ValueError):
-            get_daily_billable_usage(allocation, "2025-13-01")
+            get_daily_billable_usage_by_date(allocation, "2025-13-01", "2025-13-01")
 
     def test_excludes_other_allocation_and_date(self):
-        # Verify the query is correctly scoped by allocation AND date (no accidental cross-talk).
         allocation = self._new_allocation()
         other_allocation = self._new_allocation()
-        self._create_usage_row(allocation, "2025-11-15", "OpenStack CPU", "100.00")
+        date = "2025-11-15"
+        self._create_usage_row(allocation, date, "OpenStack CPU", "100.00")
         self._create_usage_row(allocation, "2025-11-16", "OpenStack CPU", "200.00")
-        self._create_usage_row(
-            other_allocation, "2025-11-15", "OpenStack CPU", "999.00"
-        )
+        self._create_usage_row(other_allocation, date, "OpenStack CPU", "999.00")
 
-        usage = get_daily_billable_usage(allocation, "2025-11-15")
-
-        self.assertEqual(usage.root, {"OpenStack CPU": Decimal("100.00")})
-        self.assertEqual(usage.total_charges, Decimal("100.00"))
+        expected = UsageInfo({"OpenStack CPU": Decimal("100.00")})
+        self.assertEqual(self._get_usage_for_date(allocation, date), expected)
 
 
 class TestGetDailyBillableUsageByDate(base.TestBase):
@@ -168,18 +160,15 @@ class TestGetDailyBillableUsageByDate(base.TestBase):
         self._create_usage_row(allocation, "2025-11-02", "OpenStack CPU", "22.50")
         self._create_usage_row(allocation, "2025-10-31", "OpenStack CPU", "99.00")
 
-        usage_by_date = get_daily_billable_usage_by_date(
-            allocation, "2025-11-01", "2025-11-30"
-        )
-
-        self.assertEqual(list(usage_by_date.keys()), ["2025-11-01", "2025-11-02"])
+        expected = {
+            "2025-11-01": UsageInfo(
+                {"OpenStack CPU": Decimal("10.00"), "Storage": Decimal("5.50")}
+            ),
+            "2025-11-02": UsageInfo({"OpenStack CPU": Decimal("22.50")}),
+        }
         self.assertEqual(
-            usage_by_date["2025-11-01"].root,
-            {"OpenStack CPU": Decimal("10.00"), "Storage": Decimal("5.50")},
-        )
-        self.assertEqual(
-            usage_by_date["2025-11-02"].root,
-            {"OpenStack CPU": Decimal("22.50")},
+            get_daily_billable_usage_by_date(allocation, "2025-11-01", "2025-11-30"),
+            expected,
         )
 
     def test_empty_when_no_matching_rows(self):

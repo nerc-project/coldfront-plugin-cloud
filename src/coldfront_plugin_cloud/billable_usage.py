@@ -19,8 +19,7 @@ def _rows_to_usage_info(rows: Iterable[AllocationDailyBillableUsage]) -> UsageIn
         is empty.
 
     Raises:
-        TypeError: If rows is None.
-        ValueError: TypeError: If rows is None, or if any element is not an AllocationDailyBillableUsage..
+        ValueError: If any row has an empty su_type.
 
     Example:
         >>> rows = [
@@ -33,56 +32,12 @@ def _rows_to_usage_info(rows: Iterable[AllocationDailyBillableUsage]) -> UsageIn
         >>> info.total_charges
         Decimal('130.12')
     """
-    if rows is None:
-        raise TypeError("rows must not be None")
-
     usage_info = UsageInfo({})
     for row in rows:
-        if not isinstance(row, AllocationDailyBillableUsage):
-            raise TypeError(
-                f"each row must be AllocationDailyBillableUsage, got {type(row).__name__}"
-            )
         if not row.su_type:
             raise ValueError(f"usage row id={row.pk} has empty su_type")
         usage_info.root[row.su_type] = row.value
     return usage_info
-
-
-def get_daily_billable_usage(allocation: Allocation, date: str) -> UsageInfo:
-    """Load billable usage for one allocation on one day.
-
-    Args:
-        allocation: ColdFront allocation whose daily_usage_records to read.
-        date: Calendar day in ``YYYY-MM-DD`` format.
-
-    Returns:
-        UsageInfo for that allocation and date. Empty dict when no rows exist
-        (no usage recorded yet for that day).
-
-    Raises:
-        TypeError: If allocation or date has the wrong type.
-        ValueError: If allocation is unsaved, date is invalid, or empty.
-
-    Example:
-        >>> from coldfront_plugin_cloud.billable_usage import get_daily_billable_usage
-        >>> usage = get_daily_billable_usage(allocation, "2025-11-15")
-        >>> usage.root.get("OpenStack CPU")
-        Decimal('100.00')
-        >>> usage.total_charges  # sum of all SU types that day
-        Decimal('180.12')
-    """
-    if not isinstance(allocation, Allocation):
-        raise TypeError(
-            f"allocation must be Allocation, got {type(allocation).__name__}"
-        )
-    if allocation.pk is None:
-        raise ValueError("allocation must be saved (have a primary key)")
-    if not isinstance(date, str) or not date.strip():
-        raise ValueError("date must be a non-empty YYYY-MM-DD string")
-    date = validate_date_str(date)
-
-    rows = AllocationDailyBillableUsage.objects.filter(allocation=allocation, date=date)
-    return _rows_to_usage_info(rows)
 
 
 def get_daily_billable_usage_by_date(
@@ -100,7 +55,6 @@ def get_daily_billable_usage_by_date(
         usage rows are omitted.
 
     Raises:
-        TypeError: If allocation or either date has the wrong type.
         ValueError: If allocation is unsaved, a date is invalid, or
             start_date is after end_date.
 
@@ -111,10 +65,6 @@ def get_daily_billable_usage_by_date(
         >>> usage_by_date["2025-11-15"].root
         {'OpenStack CPU': Decimal('100.00'), 'Storage': Decimal('30.12')}
     """
-    if not isinstance(allocation, Allocation):
-        raise TypeError(
-            f"allocation must be Allocation, got {type(allocation).__name__}"
-        )
     if allocation.pk is None:
         raise ValueError("allocation must be saved (have a primary key)")
     if not isinstance(start_date, str) or not start_date.strip():
