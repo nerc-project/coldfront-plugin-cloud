@@ -1,4 +1,5 @@
 import io
+from decimal import Decimal
 from unittest import mock
 
 from unittest.mock import Mock, patch
@@ -240,3 +241,197 @@ class TestFetchDailyBillableUsage(base.TestBase):
                 receiver_list=[allocation_1.project.pi.email],
                 cc=[manager.email],
             )
+
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.RESOURCES_DAILY_ENABLED",
+        ["FakeProd"],
+    )
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.Command.get_allocation_usage"
+    )
+    def test_database_insertion_and_removal(self, mock_get_allocation_usage):
+        """Test database insertion, updates, and removal of usage entries."""
+        from coldfront_plugin_cloud.models.daily_billable_usage import (
+            AllocationDailyBillableUsage,
+        )
+
+        mock_get_allocation_usage.side_effect = [
+            usage_models.UsageInfo(
+                {"OpenStack CPU": "100.00", "OpenStack GPU": "50.00"}
+            ),
+            usage_models.UsageInfo({"Storage": "30.12"}),
+        ]
+
+        fakeprod = self.new_openstack_resource(
+            name="FakeProd", internal_name="FakeProd"
+        )
+        prod_project = self.new_project()
+        allocation_1 = self.new_allocation(
+            project=prod_project, resource=fakeprod, quantity=1, status="Active"
+        )
+        utils.set_attribute_on_allocation(
+            allocation_1, attributes.ALLOCATION_PROJECT_ID, "test-allocation-1"
+        )
+
+        # Verify no entries before running command
+        self.assertEqual(AllocationDailyBillableUsage.objects.count(), 0)
+
+        # Test initial insertion
+        call_command("fetch_daily_billable_usage", date="2025-11-15")
+
+        # Verify database entries were created
+        usage_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_1, date="2025-11-15"
+        )
+        self.assertEqual(usage_entries.count(), 3)
+
+        # Check individual SU types
+        cpu_usage = usage_entries.get(su_type="OpenStack CPU")
+        self.assertEqual(cpu_usage.value, Decimal("100.00"))
+
+        gpu_usage = usage_entries.get(su_type="OpenStack GPU")
+        self.assertEqual(gpu_usage.value, Decimal("50.00"))
+
+        storage_usage = usage_entries.get(su_type="Storage")
+        self.assertEqual(storage_usage.value, Decimal("30.12"))
+
+        # Test update_or_create by running again with different values for same date
+        mock_get_allocation_usage.side_effect = [
+            usage_models.UsageInfo(
+                {"OpenStack CPU": "110.00", "OpenStack GPU": "55.00"}
+            ),
+            usage_models.UsageInfo({"Storage": "35.00"}),
+        ]
+        call_command("fetch_daily_billable_usage", date="2025-11-15")
+
+        # Should still have 3 entries (not duplicates)
+        usage_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_1, date="2025-11-15"
+        )
+        self.assertEqual(usage_entries.count(), 3)
+
+        # Check updated values
+        cpu_usage = usage_entries.get(su_type="OpenStack CPU")
+        self.assertEqual(cpu_usage.value, Decimal("110.00"))
+
+        # Add data for another date to test selective removal
+        mock_get_allocation_usage.side_effect = [
+            usage_models.UsageInfo({"OpenStack CPU": "120.00"}),
+            usage_models.UsageInfo({"Storage": "40.00"}),
+        ]
+        call_command("fetch_daily_billable_usage", date="2025-11-16")
+
+        # Verify data exists for both dates
+        self.assertEqual(
+            AllocationDailyBillableUsage.objects.filter(date="2025-11-15").count(), 3
+        )
+        self.assertEqual(
+            AllocationDailyBillableUsage.objects.filter(date="2025-11-16").count(), 2
+        )
+
+        # Test removal - remove data for 2025-11-15
+        call_command("fetch_daily_billable_usage", date="2025-11-15", remove=True)
+
+        # Verify data for 2025-11-15 is deleted
+        self.assertEqual(
+            AllocationDailyBillableUsage.objects.filter(date="2025-11-15").count(), 0
+        )
+
+        # Verify data for 2025-11-16 still exists
+        self.assertEqual(
+            AllocationDailyBillableUsage.objects.filter(date="2025-11-16").count(), 2
+        )
+
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.RESOURCES_DAILY_ENABLED",
+        ["FakeProd"],
+    )
+    @patch(
+        "coldfront_plugin_cloud.management.commands.fetch_daily_billable_usage.Command.get_allocation_usage"
+    )
+    def test_multiple_allocations_same_date(self, mock_get_allocation_usage):
+        """Test that multiple allocations can store usage for the same date."""
+        from coldfront_plugin_cloud.models.daily_billable_usage import (
+            AllocationDailyBillableUsage,
+        )
+
+        fakeprod = self.new_openstack_resource(
+            name="FakeProd", internal_name="FakeProd"
+        )
+        prod_project1 = self.new_project()
+        prod_project2 = self.new_project()
+
+        allocation_1 = self.new_allocation(
+            project=prod_project1, resource=fakeprod, quantity=1, status="Active"
+        )
+        allocation_2 = self.new_allocation(
+            project=prod_project2, resource=fakeprod, quantity=1, status="Active"
+        )
+
+        utils.set_attribute_on_allocation(
+            allocation_1, attributes.ALLOCATION_PROJECT_ID, "test-allocation-1"
+        )
+        utils.set_attribute_on_allocation(
+            allocation_2, attributes.ALLOCATION_PROJECT_ID, "test-allocation-2"
+        )
+
+        # Mock returns for both allocations
+        mock_get_allocation_usage.side_effect = [
+            usage_models.UsageInfo({"OpenStack CPU": "100.00"}),
+            usage_models.UsageInfo({"Storage": "30.00"}),
+            usage_models.UsageInfo({"OpenStack CPU": "200.00"}),
+            usage_models.UsageInfo({"Storage": "50.00"}),
+        ]
+
+        call_command("fetch_daily_billable_usage", date="2025-11-15")
+
+        # Verify both allocations have data
+        alloc1_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_1, date="2025-11-15"
+        )
+        alloc2_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_2, date="2025-11-15"
+        )
+
+        self.assertEqual(alloc1_entries.count(), 2)
+        self.assertEqual(alloc2_entries.count(), 2)
+
+        # Verify values are correct for each allocation
+        self.assertEqual(
+            alloc1_entries.get(su_type="OpenStack CPU").value, Decimal("100.00")
+        )
+        self.assertEqual(
+            alloc2_entries.get(su_type="OpenStack CPU").value, Decimal("200.00")
+        )
+
+        # Test updating with same date but different values - should update, not error
+        mock_get_allocation_usage.side_effect = [
+            usage_models.UsageInfo({"OpenStack CPU": "150.00"}),
+            usage_models.UsageInfo({"Storage": "35.00"}),
+            usage_models.UsageInfo({"OpenStack CPU": "250.00"}),
+            usage_models.UsageInfo({"Storage": "55.00"}),
+        ]
+
+        # This should not raise any errors and should update existing values
+        call_command("fetch_daily_billable_usage", date="2025-11-15")
+
+        # Verify counts remain the same (no duplicates)
+        alloc1_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_1, date="2025-11-15"
+        )
+        alloc2_entries = AllocationDailyBillableUsage.objects.filter(
+            allocation=allocation_2, date="2025-11-15"
+        )
+
+        self.assertEqual(alloc1_entries.count(), 2)
+        self.assertEqual(alloc2_entries.count(), 2)
+
+        # Verify values were updated
+        self.assertEqual(
+            alloc1_entries.get(su_type="OpenStack CPU").value, Decimal("150.00")
+        )
+        self.assertEqual(alloc1_entries.get(su_type="Storage").value, Decimal("35.00"))
+        self.assertEqual(
+            alloc2_entries.get(su_type="OpenStack CPU").value, Decimal("250.00")
+        )
+        self.assertEqual(alloc2_entries.get(su_type="Storage").value, Decimal("55.00"))
