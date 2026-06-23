@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone, timedelta
 import logging
 import time
 from string import Template
@@ -8,6 +8,9 @@ from coldfront.core.allocation.models import (
     AllocationUser,
     AllocationAttribute,
 )
+from coldfront.core.utils import mail
+from coldfront.core.utils.common import import_from_settings
+
 
 from coldfront_plugin_cloud import (
     attributes,
@@ -21,6 +24,12 @@ from coldfront_plugin_cloud import (
 )
 
 logger = logging.getLogger(__name__)
+
+CENTER_BASE_URL = import_from_settings("CENTER_BASE_URL")
+EMAIL_SENDER = import_from_settings("EMAIL_SENDER")
+
+REMINDER_SCHEDULE_DAYS = [30, 14, 7, 2]
+EXPIRATION_REMINDER_TEMPLATE = """"""  # TODO (Quan): To be filled by https://github.com/nerc-project/coldfront-plugin-cloud/issues/316
 
 
 def get_kc_client():
@@ -106,13 +115,13 @@ def add_user_to_allocation(allocation_user_pk):
         # Note(knikolla): This task may be executed at the same time as
         # activating an allocation, therefore it has to wait for the project
         # to finish creating. Maximum wait is 2 minutes.
-        time_start = datetime.datetime.utcnow()
+        time_start = datetime.utcnow()
         max_wait_seconds = 120
 
         while not (
             project_id := allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
         ):
-            delta = datetime.datetime.utcnow() - time_start
+            delta = datetime.utcnow() - time_start
             if delta.seconds >= max_wait_seconds:
                 raise Exception(
                     f"Project not yet created after {delta.seconds} seconds."
@@ -220,3 +229,36 @@ def remove_user_from_keycloak(allocation_user_pk):
         )
         return
     kc_admin_client.remove_user_from_group(user_id, group_id)
+
+
+def remind_allocations_revoked():
+    today = datetime.now(timezone.utc)
+    reminder_dates = [today + timedelta(days=d) for d in REMINDER_SCHEDULE_DAYS]
+    status_to_remind = [  # TODO: Confirm these are the statuses we want alerted?
+        "Expired"
+    ]
+
+    allocations_to_alert = Allocation.objects.filter(
+        status__name__in=status_to_remind, end_date__in=reminder_dates
+    )
+
+    for allocation in allocations_to_alert:
+        pi_email = allocation.project.pi.email
+        managers_query = allocation.project.projectuser_set.filter(
+            role__name="Manager", status__name="Active", enable_notifications=True
+        )
+        manager_emails = [
+            manager.user.email
+            for manager in managers_query
+            if manager.user.email != pi_email
+        ]
+
+        mail.send_email(
+            subject="Allocation Expiration Reminder",
+            body=EXPIRATION_REMINDER_TEMPLATE.format(
+                allocation=allocation,
+            ),
+            sender=EMAIL_SENDER,
+            receiver_list=[pi_email],
+            cc=manager_emails,
+        )
