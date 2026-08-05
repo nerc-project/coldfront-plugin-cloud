@@ -322,7 +322,6 @@ class Command(BaseCommand):
                 f, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
             )
             csv_invoice_writer.writerow(InvoiceRow.get_headers())
-
             for allocation in openstack_allocations:
                 allocation_str = (
                     f'{allocation.pk} of project "{allocation.project.title}"'
@@ -337,6 +336,10 @@ class Command(BaseCommand):
                         quotaspec.invoice_name,
                         openstack_nese_storage_rate,
                     )
+            openshift_storage_rates = {
+                "OpenShift NESE Storage": openshift_nese_storage_rate,
+                "OpenShift IBM Scale Storage": openshift_ibm_storage_rate,
+            }
 
             for allocation in openshift_allocations:
                 allocation_str = (
@@ -344,22 +347,21 @@ class Command(BaseCommand):
                 )
                 logger.debug(f"Starting billing for allocation {allocation_str}.")
 
-                process_invoice_row(
-                    allocation,
-                    [
-                        attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
-                        attributes.QUOTA_REQUESTS_NESE_STORAGE,
-                    ],
-                    "OpenShift NESE Storage",
-                    openshift_nese_storage_rate,
-                )
+                attrs_by_invoice_name = {}
+                for quota_name, quotaspec in get_storage_quotaspecs(allocation).items():
+                    attrs_by_invoice_name.setdefault(quotaspec.invoice_name, []).append(
+                        quota_name
+                    )
 
-                process_invoice_row(
-                    allocation,
-                    [attributes.QUOTA_REQUESTS_IBM_STORAGE],
-                    "OpenShift IBM Scale Storage",
-                    openshift_ibm_storage_rate,
-                )
+                for invoice_name, quota_names in attrs_by_invoice_name.items():
+                    rate = openshift_storage_rates.get(invoice_name)
+                    if rate is None:
+                        logger.warning(
+                            f"No rate configured for invoice name {invoice_name!r} "
+                            f"on allocation {allocation_str}, skipping."
+                        )
+                        continue
+                    process_invoice_row(allocation, quota_names, invoice_name, rate)
 
         if options["upload_to_s3"]:
             logger.info(f"Uploading to S3 endpoint {options['s3_endpoint_url']}.")

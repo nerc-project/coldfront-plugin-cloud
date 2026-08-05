@@ -37,18 +37,18 @@ class Command(BaseCommand):
         # Define quotas for each resource type
         openshift_quotas = [
             {
-                "display_name": attributes.QUOTA_LIMITS_CPU,
+                "display_name": "OpenShift Limit on CPU Quota",
                 "quota_label": "limits.cpu",
                 "multiplier": 1,
             },
             {
-                "display_name": attributes.QUOTA_LIMITS_MEMORY,
+                "display_name": "OpenShift Limit on RAM Quota (MiB)",
                 "quota_label": "limits.memory",
                 "multiplier": 4096,
                 "unit_suffix": "Mi",
             },
             {
-                "display_name": attributes.QUOTA_LIMITS_EPHEMERAL_STORAGE_GB,
+                "display_name": "OpenShift Limit on Ephemeral Storage Quota (GiB)",
                 "quota_label": "limits.ephemeral-storage",
                 "multiplier": 5,
                 "unit_suffix": "Gi",
@@ -56,12 +56,12 @@ class Command(BaseCommand):
                 "invoice_name": OPENSHIFT_STORAGE_INVOICE_NAME,
             },
             {
-                "display_name": attributes.QUOTA_PVC,
+                "display_name": "OpenShift Persistent Volume Claims Quota",
                 "quota_label": "persistentvolumeclaims",
                 "multiplier": 2,
             },
             {
-                "display_name": attributes.QUOTA_REQUESTS_NESE_STORAGE,
+                "display_name": "OpenShift Request on NESE Storage Quota (GiB)",
                 "quota_label": "ocs-external-storagecluster-ceph-rbd.storageclass.storage.k8s.io/requests.storage",
                 "multiplier": 20,
                 "static_quota": 0,
@@ -70,7 +70,7 @@ class Command(BaseCommand):
                 "invoice_name": OPENSHIFT_STORAGE_INVOICE_NAME,
             },
             {
-                "display_name": attributes.QUOTA_REQUESTS_GPU,
+                "display_name": "OpenShift Request on GPU Quota",
                 "quota_label": "requests.nvidia.com/gpu",
                 "multiplier": 0,
             },
@@ -78,40 +78,40 @@ class Command(BaseCommand):
 
         openstack_quotas = [
             {
-                "display_name": attributes.QUOTA_INSTANCES,
+                "display_name": "OpenStack Compute Instance Quota",
                 "quota_label": "compute.instances",
                 "multiplier": 1,
             },
             {
-                "display_name": attributes.QUOTA_VCPU,
+                "display_name": "OpenStack Compute vCPU Quota",
                 "quota_label": "compute.cores",
                 "multiplier": 1,
             },
             {
-                "display_name": attributes.QUOTA_RAM,
+                "display_name": "OpenStack Compute RAM Quota (MiB)",
                 "quota_label": "compute.ram",
                 "multiplier": 4096,
             },
             {
-                "display_name": attributes.QUOTA_VOLUMES,
+                "display_name": "OpenStack Number of Volumes Quota",
                 "quota_label": "volume.volumes",
                 "multiplier": 2,
             },
             {
-                "display_name": attributes.QUOTA_VOLUMES_GB,
+                "display_name": "OpenStack Volume Quota (GiB)",
                 "quota_label": "volume.gigabytes",
                 "multiplier": 20,
                 "resource_type": STORAGE_RESOURCE_TYPE_NAME,
                 "invoice_name": OPENSTACK_STORAGE_INVOICE_NAME,
             },
             {
-                "display_name": attributes.QUOTA_FLOATING_IPS,
+                "display_name": "OpenStack Floating IP Quota",
                 "quota_label": "network.floatingip",
                 "multiplier": 0,
                 "static_quota": 2,
             },
             {
-                "display_name": attributes.QUOTA_OBJECT_GB,
+                "display_name": "OpenStack Swift Quota (GiB)",
                 "quota_label": "object.x-account-meta-quota-bytes",
                 "multiplier": 1,
                 "resource_type": STORAGE_RESOURCE_TYPE_NAME,

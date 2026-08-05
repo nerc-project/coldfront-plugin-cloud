@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import freezegun
 
-from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud.tests import attributes
 from coldfront_plugin_cloud.tests import base
 from coldfront_plugin_cloud import utils
 

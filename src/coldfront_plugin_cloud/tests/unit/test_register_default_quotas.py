@@ -3,7 +3,7 @@ import json
 from django.core.management import call_command
 
 from coldfront_plugin_cloud.tests.base import TestBase
-from coldfront_plugin_cloud import attributes
+from coldfront_plugin_cloud.tests import attributes
 
 
 class TestRegisterDefaultQuotas(TestBase):

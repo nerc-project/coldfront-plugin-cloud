@@ -1,7 +1,8 @@
 import os
 import unittest
 
-from coldfront_plugin_cloud import attributes, openshift_vm, tasks
+from coldfront_plugin_cloud import openshift_vm, tasks
+from coldfront_plugin_cloud.tests import attributes
 from coldfront_plugin_cloud.tests import base
 
 from django.core.management import call_command
