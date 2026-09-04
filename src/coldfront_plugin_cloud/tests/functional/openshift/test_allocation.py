@@ -3,7 +3,8 @@ import time
 import unittest
 import uuid
 
-from coldfront_plugin_cloud import attributes, openshift, tasks, utils
+from coldfront_plugin_cloud import openshift, tasks, utils
+from coldfront_plugin_cloud.tests import attributes
 from coldfront_plugin_cloud.tests import base
 
 from django.core.management import call_command

@@ -9,6 +9,7 @@ from coldfront.core.resource.models import Resource, ResourceType
 from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 
 logging.basicConfig(level=logging.INFO)
+SWIFT_QUOTA_ATTRIBUTE = "OpenStack Swift Quota (GiB)"
 logger = logging.getLogger(__name__)
 
 
@@ -26,18 +27,19 @@ class Command(BaseCommand):
             resources__in=openstack_resources,
         )
         for allocation in openstack_allocations:
-            if not (
-                swift_quota := allocation.get_attribute(attributes.QUOTA_OBJECT_GB)
-            ):
+            if not (swift_quota := allocation.get_attribute(SWIFT_QUOTA_ATTRIBUTE)):
                 continue
 
             allocation_str = f'{allocation.pk} of project "{allocation.project.title}"'
-            obj_key = openstack.QUOTA_KEY_MAPPING["object"]["keys"][
-                attributes.QUOTA_OBJECT_GB
-            ]
             allocator = openstack.OpenStackResourceAllocator(
                 allocation.resources.first(), allocation
             )
+
+            object_labels = allocator._get_resource_quota_labels_by_service("object")
+            if not object_labels:
+                logger.error(f"{allocation_str} has no object quota defined, skipping.")
+                continue
+            obj_key = object_labels[0]
 
             project_id = allocation.get_attribute(attributes.ALLOCATION_PROJECT_ID)
             if not project_id:
